@@ -1,0 +1,8 @@
+{
+  "name": "Saladillo Vivo Editor",
+  "description": "Panel de administración profesional para Saladillo Vivo. Gestión de noticias, eventos, multimedia y publicidad con asistencia de IA.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
