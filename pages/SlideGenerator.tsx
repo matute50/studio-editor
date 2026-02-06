@@ -33,7 +33,7 @@ interface CropPercent {
 export const SlideGenerator: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [loadingList, setLoadingList] = useState(true);
+  const [loadingList, setLoading_list] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
@@ -55,7 +55,7 @@ export const SlideGenerator: React.FC = () => {
   useEffect(() => { fetchArticles(); }, []);
 
   const fetchArticles = async () => {
-    setLoadingList(true);
+    setLoading_list(true);
     try {
       const { data } = await supabase.from('articles').select('*').order('created_at', { ascending: false });
       setArticles(data || []);
@@ -63,7 +63,7 @@ export const SlideGenerator: React.FC = () => {
         const updated = data?.find(a => a.id === selectedArticle.id);
         if (updated) setSelectedArticle(updated);
       }
-    } catch (err: any) { setError(err.message); } finally { setLoadingList(false); }
+    } catch (err: any) { setError(err.message); } finally { setLoading_list(false); }
   };
 
   useEffect(() => {
@@ -89,8 +89,6 @@ export const SlideGenerator: React.FC = () => {
             .single();
 
           if (freshArticle?.audio_url) {
-            // Si ya tiene una duración guardada en DB, la respetamos. 
-            // Si no, la calculamos del audio real.
             if (freshArticle.animation_duration) {
               setAudioDuration(freshArticle.animation_duration);
               setAudioReady(true);
@@ -137,9 +135,25 @@ export const SlideGenerator: React.FC = () => {
   };
 
   const generateStandaloneHtml = (article: Article, duration: number): string => {
-    const title = article.title.toUpperCase();
+    const rawTitle = article.title.toUpperCase();
     const body = article.text.toUpperCase();
     
+    // Lógica para dividir el título respetando el pipe |
+    const titleParts = rawTitle.split('|').map(s => s.trim());
+    let line1 = "";
+    let line2 = "";
+
+    if (titleParts.length >= 2) {
+        line1 = titleParts[0];
+        line2 = titleParts.slice(1).join(' '); // Por si hay más de un pipe, unimos el resto
+    } else {
+        // Algoritmo de balanceo por conteo de palabras si no hay pipe
+        const words = rawTitle.split(' ');
+        const mid = Math.ceil(words.length / 2);
+        line1 = words.slice(0, mid).join(' ');
+        line2 = words.slice(mid).join(' ');
+    }
+
     const imageData = allImages.map((url, idx) => {
         const crop = imageCrops[idx] || { x: 0, y: 0, width: 100, height: 100 };
         const fS = 100 / crop.width;
@@ -147,11 +161,6 @@ export const SlideGenerator: React.FC = () => {
         const fY = (50 - (crop.y + crop.height / 2)) * fS;
         return { url, fS, fX, fY };
     });
-
-    const words = title.split(' ');
-    const mid = Math.ceil(words.length / 2);
-    const line1 = words.slice(0, mid).join(' ');
-    const line2 = words.slice(mid).join(' ');
 
     return `
 <!DOCTYPE html>
@@ -517,7 +526,7 @@ export const SlideGenerator: React.FC = () => {
                 <div key={article.id} onClick={() => setSelectedArticle(article)} className={`relative flex items-center gap-3 p-3 rounded-2xl border transition-all cursor-pointer group ${selectedArticle?.id === article.id ? 'bg-white border-blue-400 ring-4 ring-blue-50 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
                     <div className="w-12 h-12 shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200"><img src={article.image_url} className="w-full h-full object-cover" /></div>
                     <div className="flex-1 min-w-0">
-                      <h4 className={`text-[10px] font-black line-clamp-2 uppercase leading-tight tracking-tight ${selectedArticle?.id === article.id ? 'text-blue-700' : 'text-slate-800'}`}>{article.title}</h4>
+                      <h4 className={`text-[10px] font-black line-clamp-2 uppercase leading-tight tracking-tight ${selectedArticle?.id === article.id ? 'text-blue-700' : 'text-slate-800'}`}>{article.title.replace(/\|/g, ' ')}</h4>
                       <div className="flex gap-2 mt-1">
                         {article.audio_url && <span className="text-[7px] font-black text-green-600 uppercase">🎙️ AUDIO</span>}
                         {article.url_slide && <span className="text-[7px] font-black text-blue-600 uppercase">🎬 SLIDE</span>}

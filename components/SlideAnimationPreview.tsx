@@ -53,14 +53,29 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
   }, [tickerMessages, title]);
 
   const { titleLine1, titleLine2 } = useMemo(() => {
+    // Primero limpiamos el texto base (removiendo marcas tipo [X])
     const cleanTitle = cleanAIText(title || "").toUpperCase();
-    const words = cleanTitle.split(' ');
-    let l1 = cleanTitle;
+    
+    // Priorizamos el salto de línea marcado por el pipe |
+    const parts = cleanTitle.split('|').map(s => s.trim());
+    
+    let l1 = "";
     let l2 = "";
-    if (words.length > 1) {
-      const mid = Math.ceil(words.length / 2);
-      l1 = words.slice(0, mid).join(' ');
-      l2 = words.slice(mid).join(' ');
+
+    if (parts.length >= 2) {
+      l1 = parts[0];
+      l2 = parts.slice(1).join(' ');
+    } else {
+      // Fallback a división inteligente por palabras si no hay pipe
+      const words = cleanTitle.split(' ');
+      if (words.length > 1) {
+        const mid = Math.ceil(words.length / 2);
+        l1 = words.slice(0, mid).join(' ');
+        l2 = words.slice(mid).join(' ');
+      } else {
+        l1 = cleanTitle;
+        l2 = "";
+      }
     }
     return { titleLine1: l1, titleLine2: l2 };
   }, [title]);
@@ -70,9 +85,8 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
     if (!containerRef.current || !titleTextRef.current) return;
 
     const containerWidth = containerRef.current.offsetWidth;
-    const maxWidth = containerWidth * 0.75; // 75% del ancho de la imagen
+    const maxWidth = containerWidth * 0.75; 
     
-    // Reset para medir
     titleTextRef.current.style.fontSize = '';
     const spans = titleTextRef.current.querySelectorAll('span');
     let maxSpanWidth = 0;
@@ -172,7 +186,6 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
         backdropFilter: 'blur(8px)', borderRadius: '0 2rem 2rem 0', paddingRight: 'calc(2rem - 25px)', display: 'flex', alignItems: 'center'
       }}>
         <img src="https://pub-5b294f92f42e4cbda687d0122e15bc72.r2.dev/logos/NOTICIAS.png" className="h-[75%] w-auto ml-[2.5cqw] drop-shadow-[0_0_15px_rgba(0,0,0,1)]" alt="Logo" />
-        {/* Barra de progreso inferior del fondo del logo */}
         <div 
           className="absolute bottom-0 left-0 h-[0.6cqh] bg-[#ff0000] blur-[2px] shadow-[0_0_10px_rgba(255,0,0,0.8)] z-[160]"
           style={{ animation: `logo-progress-${animationId} ${totalDuration}s linear infinite` }}
@@ -201,7 +214,6 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
             <span>{titleLine2}</span>
         </div>
         
-        {/* Barra de progreso inferior del fondo de título */}
         <div 
           className="absolute bottom-0 right-0 h-[0.6cqh] bg-[#ff0000] blur-[2px] shadow-[0_0_10px_rgba(255,0,0,0.8)] z-[160]"
           style={{ animation: `title-progress-${animationId} ${totalDuration}s linear infinite` }}

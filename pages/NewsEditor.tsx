@@ -40,7 +40,7 @@ interface ImageSlot {
 
 export const NewsEditor: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
-  const [loadingList, setLoadingList] = useState(true);
+  const [loadingList, setLoading_list] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   
@@ -71,21 +71,18 @@ export const NewsEditor: React.FC = () => {
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   const estimatedReadingTime = Math.floor(wordCount / 2.15);
 
-  /**
-   * Sanitiza el título eliminando saltos de línea y caracteres de control
-   * para mantener el input limpio.
-   */
   const sanitizeTitle = (val: string): string => {
+    // Mantenemos los pipes durante la edición pero limpiamos saltos de línea reales
     return val.replace(/[\n\r]+/g, ' ').replace(/\s\s+/g, ' ').trim();
   };
 
   const fetchArticles = async () => {
-    setLoadingList(true);
+    setLoading_list(true);
     try {
       const { data, error: err } = await supabase.from('articles').select('*').order('created_at', { ascending: false });
       if (err) throw err;
       setArticles(data || []);
-    } catch (err: any) { setError(`Error: ${err.message}`); } finally { setLoadingList(false); }
+    } catch (err: any) { setError(`Error: ${err.message}`); } finally { setLoading_list(false); }
   };
 
   const handleProfessionalRewrite = async () => {
@@ -97,7 +94,6 @@ export const NewsEditor: React.FC = () => {
     setError(null);
     try {
       const result = await generateProfessionalNews(title + " " + text);
-      // Aplicamos sanitización al título generado por la IA
       setTitle(sanitizeTitle(result.title));
       setText(result.body);
       setSuccessMsg("Redacción profesional aplicada.");
@@ -135,13 +131,11 @@ export const NewsEditor: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Subir imagen destacada (si es File procesado)
       let finalFeaturedUrl = featuredImage.url;
       if (featuredImage.file) {
         finalFeaturedUrl = await uploadImageToR2(featuredImage.file);
       }
 
-      // 2. Subir imágenes de galería
       const finalGalleryUrls: string[] = [];
       for (const img of galleryImages) {
         if (img.file) {
@@ -153,7 +147,7 @@ export const NewsEditor: React.FC = () => {
       }
 
       const articleData = { 
-        title: sanitizeTitle(title), // Doble check de seguridad al guardar
+        title: sanitizeTitle(title), 
         text, 
         image_url: finalFeaturedUrl, 
         images_urls: finalGalleryUrls.length > 0 ? finalGalleryUrls : null,
@@ -190,7 +184,6 @@ export const NewsEditor: React.FC = () => {
     <>
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={onFileSelect} />
 
-      {/* MODAL DE ORIGEN INTEGRADO */}
       {sourceSelector && (
         <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 max-w-lg w-full space-y-8 animate-scaleIn">
@@ -276,7 +269,6 @@ export const NewsEditor: React.FC = () => {
       )}
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-8rem)]">
-        {/* PANEL DE EDICIÓN */}
         <div className="lg:col-span-5 flex flex-col h-full overflow-y-auto pr-2 custom-scrollbar">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
             <div className="flex justify-between items-center">
@@ -300,7 +292,7 @@ export const NewsEditor: React.FC = () => {
 
             <form onSubmit={handleSave} className="space-y-6">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título Gancho (8 palabras max - use |)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título Gancho (Use | para salto de línea)</label>
                 <input 
                   type="text" 
                   value={title} 
@@ -407,7 +399,6 @@ export const NewsEditor: React.FC = () => {
           </div>
         </div>
 
-        {/* ARCHIVO DE NOTICIAS */}
         <div className="lg:col-span-7 flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-8 py-5 border-b bg-slate-50 flex justify-between items-center shrink-0">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2"><LayoutList size={16} className="text-blue-500" /> Archivo de Redacción</h3>
@@ -423,11 +414,11 @@ export const NewsEditor: React.FC = () => {
                     {article.featureStatus && <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase bg-amber-100 text-amber-600">{article.featureStatus}</span>}
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(article.created_at).toLocaleDateString()}</span>
                   </div>
-                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-tight mb-2">{article.title}</h4>
+                  {/* Ocultamos el pipe en la visualización de la lista administrativa sustituyéndolo por un espacio */}
+                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-tight mb-2">{article.title.replace(/\|/g, ' ')}</h4>
                   <div className="flex gap-2">
                     <button onClick={() => { 
                         setEditingId(article.id); 
-                        // Limpiamos el título al editar para asegurar que se vea bien en el input
                         setTitle(sanitizeTitle(article.title)); 
                         setText(article.text); 
                         setFeaturedImage({ id: 'featured', url: article.image_url, isProcessed: true });

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { Article } from '../types';
-import { Clock, ChevronRight, Newspaper, Calendar } from 'lucide-react';
+import { Clock, ChevronRight, Newspaper, Calendar, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const PublicHome: React.FC = () => {
@@ -43,49 +43,41 @@ export const PublicHome: React.FC = () => {
   };
 
   const organizeNews = (allArticles: Article[]) => {
-    // 1. Filtrar la noticia destacada más reciente
     const featured = allArticles.find(a => a.featureStatus === 'featured') || null;
-
-    // 2. Filtrar secundarias (excluyendo la destacada si existiera)
     const secondary = allArticles.filter(a => a.featureStatus === 'secondary' && a.id !== featured?.id);
-
-    // 3. Filtrar terciarias
     const tertiary = allArticles.filter(a => a.featureStatus === 'tertiary' && a.id !== featured?.id);
-
-    // 4. El resto (Uncategorized + Standard)
-    const usedIds = new Set([
-      featured?.id,
-      ...secondary.map(s => s.id),
-      ...tertiary.map(t => t.id)
-    ]);
+    const usedIds = new Set([featured?.id, ...secondary.map(s => s.id), ...tertiary.map(t => t.id)]);
     const standard = allArticles.filter(a => !usedIds.has(a.id));
-
     setSections({ featured, secondary, tertiary, standard });
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Actualizando Portada</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Saladillo Vivo • Cargando Portada</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white min-h-screen pb-20 font-sans">
+    <div className="bg-white min-h-screen pb-20 font-sans animate-fadeIn overflow-y-auto h-full">
       {/* HEADER INSTITUCIONAL */}
-      <header className="bg-slate-950 text-white py-10 px-8 border-b border-white/5 shadow-2xl">
-        <div className="max-w-7xl mx-auto flex justify-between items-end">
+      <header className="bg-slate-950 text-white py-8 px-8 border-b border-white/5 shadow-2xl sticky top-0 z-40 backdrop-blur-md bg-slate-950/95">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="space-y-1">
-            <h1 className="text-4xl font-black uppercase tracking-tighter leading-none">Saladillo Vivo</h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.5em] ml-1">Portal de Noticias</p>
+            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none">Saladillo Vivo</h1>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.5em] ml-1">Portal de Noticias</p>
           </div>
-          <div className="hidden md:flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400">
-             <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div> En Vivo</span>
-             <Link to="/admin" className="hover:text-blue-500 transition-colors">Acceso Redacción</Link>
+          <div className="flex items-center gap-6">
+             <div className="hidden md:flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div> En Vivo</span>
+             </div>
+             <Link to="/admin" className="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10">
+                <ArrowLeft size={14} /> Volver al Panel
+             </Link>
           </div>
         </div>
       </header>
@@ -94,7 +86,7 @@ export const PublicHome: React.FC = () => {
         
         {/* NIVEL 1: NOTICIA DESTACADA (HERO) */}
         {sections.featured && (
-          <section className="animate-fadeIn">
+          <section className="animate-slideUp">
             <Link to={`/noticia/${sections.featured.id}`} className="group relative block aspect-[21/9] overflow-hidden rounded-[3rem] shadow-2xl border border-slate-100">
               <img 
                 src={sections.featured.image_url} 
@@ -114,7 +106,7 @@ export const PublicHome: React.FC = () => {
                     <Calendar size={16} /> {new Date(sections.featured.created_at).toLocaleDateString()}
                   </span>
                   <div className="h-4 w-px bg-white/20"></div>
-                  <span className="text-xs font-bold uppercase tracking-tight">Edición Central</span>
+                  <span className="text-xs font-bold uppercase tracking-tight">Saladillo • Edición Central</span>
                 </div>
               </div>
             </Link>
@@ -238,7 +230,7 @@ export const PublicHome: React.FC = () => {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-20 pt-10 border-t border-white/5 text-center text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-           Saladillo Vivo © 2025 • Todos los derechos reservados • Desarrollado con IA Master Studio
+           Saladillo Vivo © 2025 • Desarrollado con IA Master Studio
         </div>
       </footer>
     </div>
