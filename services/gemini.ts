@@ -82,7 +82,10 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5): Pro
       }
     });
     return response.text || "";
-  } catch (error) { return "Error de conexión con la IA."; }
+  } catch (error: any) {
+    console.error("Error en getGeminiResponse:", error);
+    return `Error: ${error.message || "Error desconocido al conectar con la IA."}`;
+  }
 };
 
 export const generateProfessionalNews = async (rawInput: string): Promise<{ title: string, body: string }> => {

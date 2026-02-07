@@ -141,15 +141,33 @@ export const AudioProducer: React.FC = () => {
   };
 
   const handleOptimizeScript = async () => {
-    if (!script.trim()) return;
+    // DEBUG ALERT
+    alert("INICIANDO SCRIPT (VERSIÓN DEBUG)");
+    console.log("Iniciando optimización de guion...");
+    if (!script.trim()) {
+      console.warn("El guion está vacío.");
+      return;
+    }
     setIsOptimizingScript(true);
     const solemnExtra = selectedVibe === 'solemne' ? 'Es una noticia fúnebre/solemne. Evitá modismos alegres, usá pausas respetuosas y mantené un tono de sobriedad absoluta.' : '';
     const styleExtra = `Estilo de locución deseado: ${selectedVibe.toUpperCase()}.`;
     try {
+      console.log("Llamando a optimizeBodyForAudio con:", {
+        scriptLength: script.length,
+        useLunfardo,
+        creativityTemp
+      });
       // Usamos el valor de temperatura para influir en el prompt de optimización
       const optimized = await optimizeBodyForAudio(script, useLunfardo, creativityTemp * 2, `${masterAiPrompt} ${solemnExtra} ${styleExtra}`);
+      console.log("Optimización recibida:", optimized ? "Sí" : "No/Vacío");
+      if (optimized.startsWith("Error:")) {
+        throw new Error(optimized);
+      }
       setScript(optimized);
-    } catch (err) { setError("Error al optimizar."); } finally { setIsOptimizingScript(false); }
+    } catch (err: any) {
+      console.error("Error capturado en handleOptimizeScript:", err);
+      setError("Error al optimizar: " + (err.message || err));
+    } finally { setIsOptimizingScript(false); }
   };
 
   const handleGenerate = async () => {
