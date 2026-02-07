@@ -71,21 +71,39 @@ export const getSSMLName = async (text: string): Promise<string> => {
 
 export const getGeminiResponse = async (prompt: string, temp: number = 0.5): Promise<string> => {
   if (!prompt) return "";
-  try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
-      model: MODEL_ID,
-      contents: prompt,
-      config: {
-        temperature: temp,
-        systemInstruction: SYSTEM_NEWS_PROMPT
-      }
-    });
-    return response.text || "";
-  } catch (error: any) {
-    console.error("Error en getGeminiResponse:", error);
-    return `Error: ${error.message || "Error desconocido al conectar con la IA."}`;
+
+  const keysToTry: string[] = [];
+  // Intentar primero con API_KEY, luego con GOOGLE_TTS_API_KEY como respaldo si son diferentes
+  if (process.env.API_KEY) keysToTry.push(process.env.API_KEY);
+  if (process.env.GOOGLE_TTS_API_KEY && process.env.GOOGLE_TTS_API_KEY !== process.env.API_KEY) {
+    keysToTry.push(process.env.GOOGLE_TTS_API_KEY);
   }
+
+  if (keysToTry.length === 0) return "Error: No hay API Key configurada.";
+
+  let lastError: any = null;
+
+  for (const apiKey of keysToTry) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: MODEL_ID,
+        contents: prompt,
+        config: {
+          temperature: temp,
+          systemInstruction: SYSTEM_NEWS_PROMPT
+        }
+      });
+      return response.text || "";
+    } catch (error: any) {
+      console.warn(`Fallo getGeminiResponse con clave ...${apiKey.slice(-4)}: ${error.message}`);
+      lastError = error;
+      // Continue to next key
+    }
+  }
+
+  console.error("Todas las claves fallaron en getGeminiResponse:", lastError);
+  return `Error: ${lastError?.message || "Fallo crítico en IA"}`;
 };
 
 export const generateProfessionalNews = async (rawInput: string): Promise<{ title: string, body: string }> => {
