@@ -207,7 +207,9 @@ export const AudioProducer: React.FC = () => {
       setGeneratedAudioUrl(finalUrl);
       setIsGeneratingAudio(false);
 
-      const publicUrl = await uploadAudioToR2(finalAudioBlob, `locucion_${selectedArticle.id}.mp3`);
+      // Usar timestamp para evitar cache de Cloudflare/Navegador
+      const fileName = `locucion_${selectedArticle.id}_${Date.now()}.mp3`;
+      const publicUrl = await uploadAudioToR2(finalAudioBlob, fileName);
       await supabase.from('articles').update({ audio_url: publicUrl, animation_duration: finalDuration }).eq('id', selectedArticle.id);
       setPendingArticles(prev => prev.map(a => a.id === selectedArticle.id ? { ...a, audio_url: publicUrl } : a));
     } catch (err: any) {

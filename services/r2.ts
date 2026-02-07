@@ -3,30 +3,30 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 
 // CREDENCIALES DE CLOUDFLARE R2
 const R2_ACCOUNT_ID = '3f11be5ae3d34a83cf63343662eec80e';
-const R2_ACCESS_KEY_ID = '6e5e3dce4038a338abfb5fe96c5cb8a9'; 
+const R2_ACCESS_KEY_ID = '6e5e3dce4038a338abfb5fe96c5cb8a9';
 const R2_SECRET_ACCESS_KEY = 'c6873a1c2d0dd7b55bca1a51ecf42c5e4ab5c21563df79ad37c33295b86c2b70';
 const R2_BUCKET_NAME = 'saladillovivo-media';
 
 // URL ESTRICTA DE CDN ( media.saladillovivo.com.ar )
-const CDN_URL = 'https://media.saladillovivo.com.ar'; 
+const CDN_URL = 'https://media.saladillovivo.com.ar';
 const R2_ENDPOINT = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
 const r2Client = new S3Client({
-  region: "auto", 
+  region: "auto",
   endpoint: R2_ENDPOINT,
   credentials: {
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
-  forcePathStyle: true 
+  forcePathStyle: true
 });
 
 const handleR2Error = (error: any) => {
-    console.error("Error R2 Crítico:", error);
-    if (error.name === 'TypeError' || error.message?.toLowerCase().includes('failed to fetch')) {
-      return new Error("ERROR DE RED O CORS: Verifica que la política CORS del bucket en Cloudflare permita el método DELETE.");
-    }
-    return new Error(error.message || "Error al conectar con Cloudflare R2.");
+  console.error("Error R2 Crítico:", error);
+  if (error.name === 'TypeError' || error.message?.toLowerCase().includes('failed to fetch')) {
+    return new Error("ERROR DE RED O CORS: Verifica que la política CORS del bucket en Cloudflare permita el método DELETE.");
+  }
+  return new Error(error.message || "Error al conectar con Cloudflare R2.");
 };
 
 export const uploadHtmlToR2 = async (htmlString: string, fileName: string): Promise<string> => {
@@ -56,22 +56,22 @@ export const deleteFileFromR2 = async (url: string): Promise<void> => {
     if (key.startsWith('/')) {
       key = key.substring(1);
     }
-    
+
     console.log(`[R2] Intentando borrar objeto: ${key} del bucket ${R2_BUCKET_NAME}`);
-    
+
     await r2Client.send(new DeleteObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: key,
     }));
-    
+
     console.log(`[R2] Objeto borrado con éxito: ${key}`);
-  } catch (error: any) { 
+  } catch (error: any) {
     // Si el error es 404 (NoSuchKey), ya no existe, por lo que el objetivo se cumplió
     if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
       console.warn("[R2] El archivo ya no existía en el bucket.");
       return;
     }
-    throw handleR2Error(error); 
+    throw handleR2Error(error);
   }
 };
 
@@ -85,7 +85,7 @@ export const uploadImageToR2 = async (file: File): Promise<string> => {
     const cleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
     const fileName = `${Date.now()}_${cleanName}.${fileExt}`;
     const key = `imagenes_noticias/${fileName}`;
-    
+
     await r2Client.send(new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: key,
@@ -119,6 +119,8 @@ export const uploadAudioToR2 = async (blob: Blob, fileName: string, folder: stri
       Key: key,
       Body: new Uint8Array(arrayBuffer),
       ContentType: 'audio/mpeg',
+      // Agregar cache-control para evitar versiones viejas
+      CacheControl: 'no-cache, no-store, must-revalidate'
     }));
     return `${CDN_URL}/${key}`;
   } catch (error: any) { throw handleR2Error(error); }
