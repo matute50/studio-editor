@@ -2,8 +2,9 @@
 // @google/genai coding guidelines followed: Using stable 'gemini-3-flash-preview' for text and 'gemini-2.5-flash-preview-tts' for audio.
 import { GoogleGenAI, Modality } from "@google/genai";
 
-const MODEL_ID = 'gemini-3-flash-preview'; 
+const MODEL_ID = 'gemini-3-flash-preview';
 const TTS_MODEL_ID = 'gemini-2.5-flash-preview-tts';
+import { pcmToWav } from './audioProcessor';
 
 const SYSTEM_NEWS_PROMPT = `
 ### ROL
@@ -34,6 +35,8 @@ const getAiClient = () => {
   if (!process.env.API_KEY) throw new Error("API_KEY no configurada.");
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
+
+
 
 export const cleanAIText = (text: string): string => {
   if (!text) return "";
@@ -70,10 +73,10 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5): Pro
   if (!prompt) return "";
   try {
     const ai = getAiClient();
-    const response = await ai.models.generateContent({ 
-      model: MODEL_ID, 
+    const response = await ai.models.generateContent({
+      model: MODEL_ID,
       contents: prompt,
-      config: { 
+      config: {
         temperature: temp,
         systemInstruction: SYSTEM_NEWS_PROMPT
       }
@@ -84,7 +87,7 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5): Pro
 
 export const generateProfessionalNews = async (rawInput: string): Promise<{ title: string, body: string }> => {
   const response = await getGeminiResponse(`Reescribe de forma profesional esta información: ${rawInput}`);
-  
+
   const titleMatch = response.match(/\[TITULO_SLIDE\]\n?([\s\S]*?)\n\n\[TEXTO_LECTURA\]/);
   const bodyMatch = response.match(/\[TEXTO_LECTURA\]\n?([\s\S]*)/);
 
@@ -131,37 +134,59 @@ function decodeBase64(base64: string): Uint8Array {
 }
 
 export const generateSpeech = async (
-  text: string, 
+  text: string,
   voiceName: string = 'Kore',
   pitch: string = 'medio',
   speed: number = 1.0,
   extraConfig: string = ''
 ): Promise<{ localUrl: string, blob: Blob, pcmData: Uint8Array }> => {
-  try {
-    const ai = getAiClient();
-    const enrichedText = extraConfig ? `[Instruction: ${extraConfig}, Voice: ${voiceName}, Pitch: ${pitch}, Speed: ${speed}] ${text}` : text;
-    
-    const response = await ai.models.generateContent({
-      model: TTS_MODEL_ID,
-      contents: [{ parts: [{ text: enrichedText }] }],
-      config: {
-        responseModalities: [Modality.AUDIO], 
-        speechConfig: { 
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName as any } } 
+  const keysToTry: string[] = [];
+
+  if (process.env.GOOGLE_TTS_API_KEY) keysToTry.push(process.env.GOOGLE_TTS_API_KEY);
+  // Add main API key as fallback if it's different or if TTS key wasn't added
+  if (process.env.API_KEY && (!process.env.GOOGLE_TTS_API_KEY || process.env.API_KEY !== process.env.GOOGLE_TTS_API_KEY)) {
+    keysToTry.push(process.env.API_KEY);
+  }
+
+  if (keysToTry.length === 0) throw new Error("No hay claves API configuradas (ni API_KEY ni GOOGLE_TTS_API_KEY).");
+
+  let lastError: any = null;
+
+  for (const apiKey of keysToTry) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const enrichedText = extraConfig ? `[Instruction: ${extraConfig}, Voice: ${voiceName}, Pitch: ${pitch}, Speed: ${speed}] ${text}` : text;
+
+      const response = await ai.models.generateContent({
+        model: TTS_MODEL_ID,
+        contents: [{ parts: [{ text: enrichedText }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName as any } }
+          },
         },
-      },
-    });
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("Fallo en audio.");
-    
-    const pcmData = decodeBase64(base64Audio);
-    // Use raw PCM type for the blob
-    const blob = new Blob([pcmData], { type: 'audio/pcm' });
-    
-    return { 
-      localUrl: URL.createObjectURL(blob), 
-      blob,
-      pcmData 
-    };
-  } catch (error: any) { throw new Error(error.message); }
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!base64Audio) throw new Error("La IA no devolvió datos de audio.");
+
+      const pcmData = decodeBase64(base64Audio);
+      // Convert to WAV for browser compatibility (24kHz, 1 channel)
+      const blob = pcmToWav(pcmData, 24000, 1);
+
+      return {
+        localUrl: URL.createObjectURL(blob),
+        blob,
+        pcmData
+      };
+
+    } catch (error: any) {
+      console.warn(`Fallo al generar audio con clave terminada en ...${apiKey.slice(-4)}: ${error.message}`);
+      lastError = error;
+      // Continue to next key
+    }
+  }
+
+  throw new Error(`Todas las claves fallaron. Último error: ${lastError?.message || "Desconocido"}`);
 }

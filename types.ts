@@ -42,6 +42,18 @@ export interface Article {
   animation_duration?: number | null;
 }
 
+export interface VideoAsset {
+  id?: string;
+  youtube_id: string;
+  title: string;
+  thumbnail_url: string;
+  duration_iso: string;
+  duration_sec: number;
+  category: string;
+  tags?: string[];
+  created_at?: string;
+}
+
 /**
  * SALADILLO VIVO - TICKER MESSAGE SCHEMA
  */

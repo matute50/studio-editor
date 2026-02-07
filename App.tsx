@@ -8,6 +8,9 @@ import { SlideGenerator } from './pages/SlideGenerator';
 import { AudioProducer } from './pages/AudioProducer';
 import { VozArgentinaStudio } from './pages/VozArgentinaStudio';
 import { ResponsibleDashboard } from './pages/ResponsibleDashboard';
+import { YouTubeStudio } from './pages/YouTubeStudio';
+import { SocialManager } from './pages/SocialManager';
+import { AvatarStudio } from './pages/AvatarStudio';
 import { PublicHome } from './pages/PublicHome';
 import { AIAssistant } from './components/AIAssistant';
 import { AuthProvider } from './context/AuthContext';
@@ -32,36 +35,36 @@ const TopBar: React.FC<{ isZen: boolean; setZen: (v: boolean) => void }> = ({ is
     <header className={`h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 fixed top-0 right-0 z-30 flex items-center justify-between px-8 shadow-sm transition-all duration-500 ${isZen ? 'left-0 opacity-0 -translate-y-full pointer-events-none' : 'left-64'}`}>
       <div className="flex items-center w-96 bg-slate-100/50 rounded-full px-4 py-2 border border-slate-200 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
         <Search className="w-4 h-4 text-slate-400 mr-2" />
-        <input 
-          type="text" 
-          placeholder="Buscar en el ecosistema..." 
+        <input
+          type="text"
+          placeholder="Buscar en el ecosistema..."
           className="bg-transparent border-none focus:outline-none w-full text-sm font-medium text-slate-700 placeholder-slate-400"
         />
       </div>
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
-           <button 
+          <button
             onClick={() => setZen(true)}
             className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
             title="Modo Zen (Ocultar UI)"
-           >
+          >
             <LayoutTemplate size={20} />
-           </button>
-           <button 
+          </button>
+          <button
             onClick={toggleFullscreen}
             className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
             title="Pantalla Completa Navegador"
-           >
+          >
             {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-           </button>
+          </button>
         </div>
 
         <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full border-2 border-white"></span>
         </button>
-        
+
         <div className="flex items-center gap-3 pl-2">
           <div className="text-right hidden md:block">
             <p className="text-xs font-black text-slate-900 uppercase tracking-tighter">Responsable</p>
@@ -93,12 +96,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className={`transition-all duration-500 fixed left-0 top-0 h-full z-40 ${isZen ? '-translate-x-full' : 'translate-x-0'}`}>
         <Sidebar />
       </div>
-      
+
       <div className={`flex-1 flex flex-col transition-all duration-500 ${isZen ? 'ml-0' : 'ml-64'}`}>
         <TopBar isZen={isZen} setZen={setIsZen} />
-        
+
         {isZen && (
-          <button 
+          <button
             onClick={() => setIsZen(false)}
             className="fixed top-6 right-6 z-[100] p-4 bg-slate-900/80 backdrop-blur text-white rounded-2xl shadow-2xl hover:bg-blue-600 transition-all animate-fadeIn group"
           >
@@ -132,6 +135,9 @@ function App() {
           <Route path="/noticias" element={<Layout><NewsEditor /></Layout>} />
           <Route path="/audio-producer" element={<Layout><AudioProducer /></Layout>} />
           <Route path="/slides" element={<Layout><SlideGenerator /></Layout>} />
+          <Route path="/youtube-studio" element={<Layout><YouTubeStudio /></Layout>} />
+          <Route path="/social-manager" element={<Layout><SocialManager /></Layout>} />
+          <Route path="/avatar-studio" element={<Layout><AvatarStudio /></Layout>} />
           <Route path="/portal" element={<PublicHome />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -5,11 +5,11 @@ import { uploadImageToR2 } from '../services/r2';
 import { NewsImageEditor } from '../components/NewsImageEditor';
 import { generateProfessionalNews } from '../services/gemini';
 import { Article } from '../types';
-import { 
-  Trash2, 
-  Edit, 
-  PlusCircle, 
-  Loader2, 
+import {
+  Trash2,
+  Edit,
+  PlusCircle,
+  Loader2,
   RefreshCw,
   Crown,
   Star,
@@ -43,16 +43,16 @@ export const NewsEditor: React.FC = () => {
   const [loadingList, setLoading_list] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
-  
+
   // Campos de texto
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
-  const [featureStatus, setFeatureStatus] = useState<FeatureStatus>('standard'); 
+  const [featureStatus, setFeatureStatus] = useState<FeatureStatus>('standard');
 
   // Gestión de Imágenes
   const [featuredImage, setFeaturedImage] = useState<ImageSlot | null>(null);
   const [galleryImages, setGalleryImages] = useState<ImageSlot[]>([]);
-  
+
   // UI para selección de origen (URL o Archivo)
   const [sourceSelector, setSourceSelector] = useState<{ type: 'featured' | 'gallery', index?: number } | null>(null);
   const [urlInput, setUrlInput] = useState('');
@@ -60,13 +60,21 @@ export const NewsEditor: React.FC = () => {
 
   // Editor de Imágenes Activo
   const [activeEditor, setActiveEditor] = useState<{ src: string, type: 'featured' | 'gallery', index?: number } | null>(null);
-  
+
   const [saving, setSaving] = useState(false);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  useEffect(() => { fetchArticles(); }, []);
+  useEffect(() => {
+    // Aseguramos limpieza al montar
+    setTitle('');
+    setText('');
+    setFeaturedImage(null);
+    setGalleryImages([]);
+    setEditingId(null);
+    fetchArticles();
+  }, []);
 
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   const estimatedReadingTime = Math.floor(wordCount / 2.15);
@@ -110,7 +118,7 @@ export const NewsEditor: React.FC = () => {
       setActiveEditor({ src: url, type: sourceSelector.type, index: sourceSelector.index });
       setSourceSelector(null);
     }
-    e.target.value = ''; 
+    e.target.value = '';
   };
 
   const handleUrlLoad = () => {
@@ -124,8 +132,8 @@ export const NewsEditor: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!featuredImage) {
-        setError("Debe definir una imagen destacada.");
-        return;
+      setError("Debe definir una imagen destacada.");
+      return;
     }
     setSaving(true);
     setError(null);
@@ -146,12 +154,12 @@ export const NewsEditor: React.FC = () => {
         }
       }
 
-      const articleData = { 
-        title: sanitizeTitle(title), 
-        text, 
-        image_url: finalFeaturedUrl, 
+      const articleData = {
+        title: sanitizeTitle(title),
+        text,
+        image_url: finalFeaturedUrl,
         images_urls: finalGalleryUrls.length > 0 ? finalGalleryUrls : null,
-        featureStatus: featureStatus === 'standard' ? null : featureStatus 
+        featureStatus: featureStatus === 'standard' ? null : featureStatus
       };
 
       if (editingId) {
@@ -164,17 +172,17 @@ export const NewsEditor: React.FC = () => {
       setTimeout(() => setSuccessMsg(null), 3000);
       fetchArticles();
       resetForm();
-    } catch (err: any) { 
-        setError(err.message); 
-    } finally { 
-        setSaving(false); 
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
   const resetForm = () => {
-    setEditingId(null); 
-    setTitle(''); 
-    setText(''); 
+    setEditingId(null);
+    setTitle('');
+    setText('');
     setFeaturedImage(null);
     setGalleryImages([]);
     setFeatureStatus('standard');
@@ -196,7 +204,7 @@ export const NewsEditor: React.FC = () => {
             </div>
 
             <div className="space-y-6">
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full flex items-center justify-between p-5 rounded-2xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition-all group"
               >
@@ -220,14 +228,14 @@ export const NewsEditor: React.FC = () => {
                   <LinkIcon size={12} /> Pegar URL de Imagen
                 </div>
                 <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    value={urlInput} 
+                  <input
+                    type="text"
+                    value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                     className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     placeholder="https://ejemplo.com/imagen.jpg"
                   />
-                  <button 
+                  <button
                     onClick={handleUrlLoad}
                     disabled={!urlInput.trim()}
                     className="px-6 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 disabled:opacity-30 transition-all"
@@ -238,7 +246,7 @@ export const NewsEditor: React.FC = () => {
               </div>
             </div>
 
-            <button onClick={() => {setSourceSelector(null); setUrlInput('');}} className="w-full py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-red-500 transition-colors">
+            <button onClick={() => { setSourceSelector(null); setUrlInput(''); }} className="w-full py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-red-500 transition-colors">
               Cancelar
             </button>
           </div>
@@ -246,8 +254,8 @@ export const NewsEditor: React.FC = () => {
       )}
 
       {activeEditor && (
-        <NewsImageEditor 
-          src={activeEditor.src} 
+        <NewsImageEditor
+          src={activeEditor.src}
           onSave={(file, previewUrl) => {
             if (activeEditor.type === 'featured') {
               setFeaturedImage({ id: 'featured', url: previewUrl, file, isProcessed: true });
@@ -263,11 +271,11 @@ export const NewsEditor: React.FC = () => {
               }
             }
             setActiveEditor(null);
-          }} 
-          onCancel={() => setActiveEditor(null)} 
+          }}
+          onCancel={() => setActiveEditor(null)}
         />
       )}
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-8rem)]">
         <div className="lg:col-span-5 flex flex-col h-full overflow-y-auto pr-2 custom-scrollbar">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
@@ -276,8 +284,8 @@ export const NewsEditor: React.FC = () => {
                 {editingId ? <Edit size={20} className="text-indigo-600" /> : <PlusCircle size={20} className="text-blue-600" />}
                 {editingId ? 'Editar Noticia' : 'Nueva Noticia'}
               </h2>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleProfessionalRewrite}
                 disabled={isProcessingAI}
                 className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg disabled:opacity-50"
@@ -287,19 +295,19 @@ export const NewsEditor: React.FC = () => {
               </button>
             </div>
 
-            {error && <div className="p-4 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 flex items-center gap-2"><AlertCircle size={14}/> {error}</div>}
+            {error && <div className="p-4 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 flex items-center gap-2"><AlertCircle size={14} /> {error}</div>}
             {successMsg && <div className="p-4 bg-green-50 text-green-700 text-xs font-bold rounded-xl border border-green-100 animate-fadeIn">{successMsg}</div>}
 
-            <form onSubmit={handleSave} className="space-y-6">
+            <form onSubmit={handleSave} className="space-y-6" autoComplete="off">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título Gancho (Use | para salto de línea)</label>
-                <input 
-                  type="text" 
-                  value={title} 
-                  onChange={(e) => setTitle(e.target.value.replace(/[\n\r]+/g, ' '))} 
-                  required 
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                  placeholder="Título | de la noticia" 
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value.replace(/[\n\r]+/g, ' '))}
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="Título | de la noticia"
                 />
               </div>
 
@@ -307,18 +315,18 @@ export const NewsEditor: React.FC = () => {
                 <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
                   <label>Cuerpo de la Noticia</label>
                   <div className="flex gap-4 text-slate-400">
-                    <span className="flex items-center gap-1"><FileText size={12}/> {wordCount} pal.</span>
+                    <span className="flex items-center gap-1"><FileText size={12} /> {wordCount} pal.</span>
                     <span className={`flex items-center gap-1 ${estimatedReadingTime > 100 ? 'text-red-500' : 'text-slate-400'}`}>
-                      <Clock size={12}/> {estimatedReadingTime}s / 100s
+                      <Clock size={12} /> {estimatedReadingTime}s / 100s
                     </span>
                   </div>
                 </div>
-                <textarea 
-                  value={text} 
-                  onChange={(e) => setText(e.target.value)} 
-                  required 
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-64 resize-none" 
-                  placeholder="Redacta la noticia formal aquí..." 
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-64 resize-none"
+                  placeholder="Redacta la noticia formal aquí..."
                 />
               </div>
 
@@ -341,50 +349,50 @@ export const NewsEditor: React.FC = () => {
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Imagen Destacada (1080p)</label>
-                <div 
-                    onClick={() => setSourceSelector({ type: 'featured' })} 
-                    className="w-full aspect-video bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-all overflow-hidden relative group"
+                <div
+                  onClick={() => setSourceSelector({ type: 'featured' })}
+                  className="w-full aspect-video bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-all overflow-hidden relative group"
                 >
-                    {featuredImage ? (
-                        <>
-                            <img src={featuredImage.url} className="w-full h-full object-cover" alt="Preview" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-                                <span className="text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><Edit size={14}/> Cambiar</span>
-                            </div>
-                        </>
-                    ) : (
-                        <><ImageIconLucide size={32} className="text-slate-300 mb-2" /><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Añadir Imagen Principal</span></>
-                    )}
+                  {featuredImage ? (
+                    <>
+                      <img src={featuredImage.url} className="w-full h-full object-cover" alt="Preview" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                        <span className="text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><Edit size={14} /> Cambiar</span>
+                      </div>
+                    </>
+                  ) : (
+                    <><ImageIconLucide size={32} className="text-slate-300 mb-2" /><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Añadir Imagen Principal</span></>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Galería Adicional</label>
-                    <button 
-                      type="button" 
-                      onClick={() => setSourceSelector({ type: 'gallery' })} 
-                      className="flex items-center gap-1 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 hover:bg-blue-100 transition-all"
-                    >
-                        <Plus size={12}/> AÑADIR
-                    </button>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Galería Adicional</label>
+                  <button
+                    type="button"
+                    onClick={() => setSourceSelector({ type: 'gallery' })}
+                    className="flex items-center gap-1 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 hover:bg-blue-100 transition-all"
+                  >
+                    <Plus size={12} /> AÑADIR
+                  </button>
                 </div>
                 <div className="grid grid-cols-4 gap-3">
-                    {galleryImages.map((img, idx) => (
-                        <div key={img.id} className="aspect-square bg-slate-100 rounded-xl overflow-hidden relative group border border-slate-200">
-                            <img src={img.url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-all">
-                                <button type="button" onClick={() => setActiveEditor({ src: img.url, type: 'gallery', index: idx })} className="p-1.5 bg-blue-600 text-white rounded-lg"><Edit size={12}/></button>
-                                <button type="button" onClick={() => setGalleryImages(prev => prev.filter(item => item.id !== img.id))} className="p-1.5 bg-red-600 text-white rounded-lg"><X size={12}/></button>
-                            </div>
-                        </div>
-                    ))}
-                    {galleryImages.length === 0 && (
-                        <div className="col-span-4 py-8 bg-slate-50 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
-                            <ImageIcon size={24} className="mb-2 opacity-20"/>
-                            <span className="text-[9px] font-black uppercase opacity-40">Galería vacía</span>
-                        </div>
-                    )}
+                  {galleryImages.map((img, idx) => (
+                    <div key={img.id} className="aspect-square bg-slate-100 rounded-xl overflow-hidden relative group border border-slate-200">
+                      <img src={img.url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-all">
+                        <button type="button" onClick={() => setActiveEditor({ src: img.url, type: 'gallery', index: idx })} className="p-1.5 bg-blue-600 text-white rounded-lg"><Edit size={12} /></button>
+                        <button type="button" onClick={() => setGalleryImages(prev => prev.filter(item => item.id !== img.id))} className="p-1.5 bg-red-600 text-white rounded-lg"><X size={12} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {galleryImages.length === 0 && (
+                    <div className="col-span-4 py-8 bg-slate-50 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
+                      <ImageIcon size={24} className="mb-2 opacity-20" />
+                      <span className="text-[9px] font-black uppercase opacity-40">Galería vacía</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -417,13 +425,13 @@ export const NewsEditor: React.FC = () => {
                   {/* Ocultamos el pipe en la visualización de la lista administrativa sustituyéndolo por un espacio */}
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-tight mb-2">{article.title.replace(/\|/g, ' ')}</h4>
                   <div className="flex gap-2">
-                    <button onClick={() => { 
-                        setEditingId(article.id); 
-                        setTitle(sanitizeTitle(article.title)); 
-                        setText(article.text); 
-                        setFeaturedImage({ id: 'featured', url: article.image_url, isProcessed: true });
-                        setGalleryImages(article.images_urls ? article.images_urls.map((url, i) => ({ id: `old-${i}`, url, isProcessed: true })) : []);
-                        window.scrollTo({top:0, behavior:'smooth'}); 
+                    <button onClick={() => {
+                      setEditingId(article.id);
+                      setTitle(sanitizeTitle(article.title));
+                      setText(article.text);
+                      setFeaturedImage({ id: 'featured', url: article.image_url, isProcessed: true });
+                      setGalleryImages(article.images_urls ? article.images_urls.map((url, i) => ({ id: `old-${i}`, url, isProcessed: true })) : []);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
                     }} className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Edit size={14} /></button>
                     <button onClick={() => setShowDeleteConfirm(article.id)} className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition-all"><Trash2 size={14} /></button>
                   </div>

@@ -1,14 +1,14 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Newspaper, 
-  Presentation, 
-  CalendarDays, 
-  Megaphone, 
-  Video, 
-  Radio, 
+import {
+  LayoutDashboard,
+  Newspaper,
+  Presentation,
+  CalendarDays,
+  Megaphone,
+  Video,
+  Radio,
   Image as ImageIcon,
   Mic,
   AudioWaveform,
@@ -23,12 +23,11 @@ const navItems = [
   { title: 'Editor Noticias', path: '/noticias', icon: Newspaper },
   { title: 'Estudio Locución', path: '/audio-producer', icon: Mic },
   { title: 'Generar Slides', path: '/slides', icon: Presentation },
-  { title: 'Vista Previa Portal', path: '/portal', icon: Globe },
+  { title: 'YouTube Studio', path: '/youtube-studio', icon: Video },
+  { title: 'Social Manager', path: '/social-manager', icon: Megaphone },
+  { title: 'Avatar Studio', path: '/avatar-studio', icon: UserCheck },
   { title: 'Agenda Eventos', path: '/agenda', icon: CalendarDays },
-  { title: 'Gestor Publicidad', path: '/publicidad', icon: Megaphone },
-  { title: 'Gestor Videos', path: '/videos', icon: Video },
-  { title: 'Streaming', path: '/streaming', icon: Radio },
-  { title: 'Imágenes Header', path: '/header-images', icon: ImageIcon },
+  { title: 'Vista Previa Portal', path: '/portal', icon: Globe },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -47,10 +46,9 @@ export const Sidebar: React.FC = () => {
                 to={item.path}
                 end={item.path === '/'}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   }`
                 }
               >
@@ -64,8 +62,8 @@ export const Sidebar: React.FC = () => {
 
       <div className="p-5 border-t border-slate-800">
         <div className="flex items-center gap-3 px-2">
-            <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Editor Conectado</span>
+          <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Editor Conectado</span>
         </div>
       </div>
     </div>
