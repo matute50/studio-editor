@@ -75,9 +75,10 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5): Pro
   const keysToTry: string[] = [];
   // Intentar primero con API_KEY, luego con GOOGLE_TTS_API_KEY como respaldo si son diferentes
   if (process.env.API_KEY) keysToTry.push(process.env.API_KEY);
-  if (process.env.GOOGLE_TTS_API_KEY && process.env.GOOGLE_TTS_API_KEY !== process.env.API_KEY) {
-    keysToTry.push(process.env.GOOGLE_TTS_API_KEY);
-  }
+  // ELIMINADO: No usar GOOGLE_TTS_API_KEY para texto, ya que generalmente no tiene permisos de Generative Language.
+  // if (process.env.GOOGLE_TTS_API_KEY && process.env.GOOGLE_TTS_API_KEY !== process.env.API_KEY) {
+  //   keysToTry.push(process.env.GOOGLE_TTS_API_KEY);
+  // }
 
   if (keysToTry.length === 0) return "Error: No hay API Key configurada.";
 
