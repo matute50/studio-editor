@@ -134,53 +134,32 @@ export const AudioProducer: React.FC = () => {
 
   const fetchPendingArticles = async () => {
     setLoadingList(true);
-    // DEBUG: Alertar inicio de carga de noticias
-    console.log("Iniciando fetchPendingArticles");
     try {
       const { data, error } = await supabase.from('articles').select('*').order('created_at', { ascending: false }).limit(20);
-
-      if (error) {
-        console.error("Error Supabase:", error);
-        alert("Error Supabase al cargar noticias: " + error.message);
-        setError("Error Supabase: " + error.message);
-      } else {
-        console.log("Noticias cargadas:", data?.length);
-        // alert("Noticias cargadas correctamente: " + (data?.length || 0)); // Comentar si es muy molesto, pero util ahora
-        setPendingArticles(data || []);
-      }
+      if (error) throw error;
+      setPendingArticles(data || []);
     } catch (err: any) {
-      console.error("Error catch fetch:", err);
-      alert("Error crítico cargando noticias: " + err.message);
+      console.error("Error cargando noticias:", err);
       setError("Error cargando noticias: " + err.message);
     } finally { setLoadingList(false); }
   };
 
   const handleOptimizeScript = async () => {
-    // DEBUG ALERT
-    alert("INICIANDO SCRIPT (VERSIÓN DEBUG)");
-    console.log("Iniciando optimización de guion...");
-    if (!script.trim()) {
-      console.warn("El guion está vacío.");
-      return;
-    }
+    if (!script.trim()) return;
     setIsOptimizingScript(true);
     const solemnExtra = selectedVibe === 'solemne' ? 'Es una noticia fúnebre/solemne. Evitá modismos alegres, usá pausas respetuosas y mantené un tono de sobriedad absoluta.' : '';
     const styleExtra = `Estilo de locución deseado: ${selectedVibe.toUpperCase()}.`;
     try {
-      console.log("Llamando a optimizeBodyForAudio con:", {
-        scriptLength: script.length,
-        useLunfardo,
-        creativityTemp
-      });
       // Usamos el valor de temperatura para influir en el prompt de optimización
       const optimized = await optimizeBodyForAudio(script, useLunfardo, creativityTemp * 2, `${masterAiPrompt} ${solemnExtra} ${styleExtra}`);
-      console.log("Optimización recibida:", optimized ? "Sí" : "No/Vacío");
+
+      if (!optimized) throw new Error("La IA devolvió un texto vacío.");
       if (optimized.startsWith("Error:")) {
         throw new Error(optimized);
       }
       setScript(optimized);
     } catch (err: any) {
-      console.error("Error capturado en handleOptimizeScript:", err);
+      console.error("Error en handleOptimizeScript:", err);
       setError("Error al optimizar: " + (err.message || err));
     } finally { setIsOptimizingScript(false); }
   };
