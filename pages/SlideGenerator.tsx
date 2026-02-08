@@ -5,13 +5,13 @@ import { supabase } from '../services/supabase';
 import { uploadHtmlToR2, deleteFileFromR2 } from '../services/r2';
 import { SlideAnimationPreview } from '../components/SlideAnimationPreview';
 import { Article } from '../types';
-import { 
-  Presentation, 
-  Loader2, 
-  RefreshCw, 
-  LayoutList, 
-  MonitorPlay, 
-  Wand2, 
+import {
+  Presentation,
+  Loader2,
+  RefreshCw,
+  LayoutList,
+  MonitorPlay,
+  Wand2,
   Code,
   Crop,
   Check,
@@ -36,11 +36,11 @@ export const SlideGenerator: React.FC = () => {
   const [loadingList, setLoading_list] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [allImages, setAllImages] = useState<string[]>([]);
   const [imageCrops, setImageCrops] = useState<Record<number, CropPercent>>({});
-  
+
   const [isCropping, setIsCropping] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -69,16 +69,16 @@ export const SlideGenerator: React.FC = () => {
   useEffect(() => {
     if (selectedArticle) {
       const images = Array.from(new Set([
-        selectedArticle.image_url, 
+        selectedArticle.image_url,
         ...(selectedArticle.images_urls || [])
       ])).filter(Boolean);
-      
+
       setAllImages(images);
       setActiveImgIndex(0);
       setImageCrops({});
-      setAudioReady(false); 
+      setAudioReady(false);
       setAudioDuration(0);
-      
+
       const refreshArticleData = async () => {
         setAudioLoading(true);
         try {
@@ -96,8 +96,8 @@ export const SlideGenerator: React.FC = () => {
             } else {
               const probe = new Audio(`${freshArticle.audio_url}?v=${Date.now()}`);
               probe.onloadedmetadata = () => {
-                setAudioDuration(probe.duration); 
-                setAudioReady(true); 
+                setAudioDuration(probe.duration);
+                setAudioReady(true);
                 setAudioLoading(false);
               };
               probe.onerror = () => setAudioLoading(false);
@@ -115,17 +115,17 @@ export const SlideGenerator: React.FC = () => {
 
   const onCropComplete = useCallback((_: any, croppedAreaPixels: any) => {
     if (selectedArticle && allImages[activeImgIndex]) {
-        const img = new Image();
-        img.src = allImages[activeImgIndex];
-        img.onload = () => {
-            const newCrop = { 
-              x: (croppedAreaPixels.x / img.width) * 100, 
-              y: (croppedAreaPixels.y / img.height) * 100, 
-              width: (croppedAreaPixels.width / img.width) * 100, 
-              height: (croppedAreaPixels.height / img.height) * 100 
-            };
-            setImageCrops(prev => ({ ...prev, [activeImgIndex]: newCrop }));
+      const img = new Image();
+      img.src = allImages[activeImgIndex];
+      img.onload = () => {
+        const newCrop = {
+          x: (croppedAreaPixels.x / img.width) * 100,
+          y: (croppedAreaPixels.y / img.height) * 100,
+          width: (croppedAreaPixels.width / img.width) * 100,
+          height: (croppedAreaPixels.height / img.height) * 100
         };
+        setImageCrops(prev => ({ ...prev, [activeImgIndex]: newCrop }));
+      };
     }
   }, [selectedArticle, allImages, activeImgIndex]);
 
@@ -137,29 +137,29 @@ export const SlideGenerator: React.FC = () => {
   const generateStandaloneHtml = (article: Article, duration: number): string => {
     const rawTitle = article.title.toUpperCase();
     const body = article.text.toUpperCase();
-    
+
     // Lógica para dividir el título respetando el pipe |
     const titleParts = rawTitle.split('|').map(s => s.trim());
     let line1 = "";
     let line2 = "";
 
     if (titleParts.length >= 2) {
-        line1 = titleParts[0];
-        line2 = titleParts.slice(1).join(' '); // Por si hay más de un pipe, unimos el resto
+      line1 = titleParts[0];
+      line2 = titleParts.slice(1).join(' '); // Por si hay más de un pipe, unimos el resto
     } else {
-        // Algoritmo de balanceo por conteo de palabras si no hay pipe
-        const words = rawTitle.split(' ');
-        const mid = Math.ceil(words.length / 2);
-        line1 = words.slice(0, mid).join(' ');
-        line2 = words.slice(mid).join(' ');
+      // Algoritmo de balanceo por conteo de palabras si no hay pipe
+      const words = rawTitle.split(' ');
+      const mid = Math.ceil(words.length / 2);
+      line1 = words.slice(0, mid).join(' ');
+      line2 = words.slice(mid).join(' ');
     }
 
     const imageData = allImages.map((url, idx) => {
-        const crop = imageCrops[idx] || { x: 0, y: 0, width: 100, height: 100 };
-        const fS = 100 / crop.width;
-        const fX = (50 - (crop.x + crop.width / 2)) * fS;
-        const fY = (50 - (crop.y + crop.height / 2)) * fS;
-        return { url, fS, fX, fY };
+      const crop = imageCrops[idx] || { x: 0, y: 0, width: 100, height: 100 };
+      const fS = 100 / crop.width;
+      const fX = (50 - (crop.x + crop.width / 2)) * fS;
+      const fY = (50 - (crop.y + crop.height / 2)) * fS;
+      return { url, fS, fX, fY };
     });
 
     return `
@@ -200,7 +200,7 @@ export const SlideGenerator: React.FC = () => {
         }
 
         .title-area { 
-            position: absolute; bottom: 14.52%; right: 0; max-width: 85%; height: 20%; z-index: 150; 
+            position: absolute; bottom: 14.52%; right: 0; width: fit-content; max-width: 85%; height: 20%; z-index: 150; 
             display: flex; flex-direction: column; justify-content: center; align-items: flex-end; 
             padding-right: calc(3.5% + 10px); padding-left: 6rem;
             background: linear-gradient(to left, var(--brand-blue) 0%, transparent 100%); 
@@ -227,6 +227,17 @@ export const SlideGenerator: React.FC = () => {
         .ticker-scroll { flex: 1; height: 100%; position: relative; overflow: hidden; display: flex; align-items: center; }
         .ticker-text { white-space: nowrap; font-size: 4.8vh; font-weight: 900; color: white; position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
         .fade-screen { position: absolute; inset: 0; background: #000; z-index: 1000; opacity: 0; pointer-events: none; }
+
+        @keyframes ping-pong {
+            0%, 100% { right: 0%; }
+            50% { right: 100%; }
+        }
+        @keyframes title-progress {
+            0% { clip-path: inset(0 0 0 100%); }
+            100% { clip-path: inset(0 0 0 0%); }
+        }
+        .rect-container { position: absolute; inset: 0; overflow: hidden; z-index: -1; pointer-events: none; border-radius: 2.5rem 0 0 2.5rem; }
+        .rect { position: absolute; top:0; height:100%; background: rgba(255, 0, 0, 0.6); filter: blur(15px); }
     </style>
 </head>
 <body>
@@ -250,8 +261,14 @@ export const SlideGenerator: React.FC = () => {
         </div>
         
         <div class="title-area" id="titleArea">
+            <div class="rect-container">
+                <div class="rect" style="width:24%; background:rgba(255,0,0,0.6); animation: ping-pong 12s ease-in-out infinite;"></div>
+                <div class="rect" style="width:15%; background:rgba(255,0,0,0.4); animation: ping-pong 8s ease-in-out infinite reverse;"></div>
+                <div class="rect" style="width:12.5%; background:rgba(255,0,0,0.5); animation: ping-pong 4s ease-in-out infinite;"></div>
+                <canvas id="celesteParticles" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0;"></canvas>
+            </div>
             <div class="title-text" id="titleText"><span>${line1}</span><span>${line2}</span></div>
-            <div class="title-bottom-progress" id="titleBottomProg"></div>
+            <div class="title-bottom-progress" id="titleBottomProg" style="width: calc(100% - 2.5rem); background: linear-gradient(to left, #ff0000 0%, rgba(255,0,0,0.1) 100%);"></div>
         </div>
         
         <div class="ticker-bar">
@@ -305,7 +322,7 @@ export const SlideGenerator: React.FC = () => {
             const ticker = document.getElementById('tickerTextScroll');
 
             tl.fromTo(".progress-bar", { width: "0%" }, { width: "100%", duration: duration, ease: "none" }, 0);
-            tl.fromTo("#titleBottomProg", { width: "0%" }, { width: "100%", duration: duration, ease: "none" }, 0);
+            tl.fromTo("#titleBottomProg", { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", duration: duration, ease: "none" }, 0);
             tl.fromTo("#logoBottomProg", { width: "0%" }, { width: "100%", duration: duration, ease: "none" }, 0);
             tl.fromTo("#tickerTextScroll", { x: "100vw" }, { x: -(ticker.offsetWidth + 100), duration: duration, ease: "none" }, 0);
             tl.fromTo("#titleArea", { opacity: 0, x: 100 }, { opacity: 1, x: 0, duration: 0.8, ease: "power2.out" }, 1.5);
@@ -327,34 +344,84 @@ export const SlideGenerator: React.FC = () => {
             });
 
             tl.to("#fade", { opacity: 1, duration: 1.0 }, duration - 1.0);
+
+            // Particles Animation
+            const canvas = document.getElementById('celesteParticles');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const particles = [];
+                const colors = ['#003399', '#FFFFFF', '#000000'];
+                const countPerColor = 5;
+                const size = window.innerHeight * 0.036;
+                
+                function resize() {
+                    canvas.width = canvas.offsetWidth;
+                    canvas.height = canvas.offsetHeight;
+                }
+                resize();
+                window.addEventListener('resize', resize);
+
+                colors.forEach(color => {
+                    for (let i = 0; i < countPerColor; i++) {
+                        particles.push({
+                            x: Math.random() * (canvas.width - size),
+                            y: Math.random() * (canvas.height - size),
+                            vx: (Math.random() - 0.5) * (1.5 + Math.random() * 2.5),
+                            vy: (Math.random() - 0.5) * (1.5 + Math.random() * 2.5),
+                            color: color
+                        });
+                    }
+                });
+
+                function animate() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.filter = 'blur(4px)';
+                    ctx.lineWidth = 2;
+                    particles.forEach((p, i) => {
+                        p.x += p.vx;
+                        p.y += p.vy;
+
+                        if (p.x < 0) { p.x = 0; p.vx *= -1; }
+                        else if (p.x > canvas.width - size) { p.x = canvas.width - size; p.vx *= -1; }
+
+                        if (p.y < 0) { p.y = 0; p.vy *= -1; }
+                        else if (p.y > canvas.height - size) { p.y = canvas.height - size; p.vy *= -1; }
+
+                        ctx.strokeStyle = p.color;
+                        ctx.strokeRect(p.x, p.y, size, size);
+                    });
+                    requestAnimationFrame(animate);
+                }
+                animate();
+            }
         }
     </script>
 </body>
-</html>`;
+</html>\`;
   };
 
   const handleGenerateManifest = async () => {
     if (!selectedArticle) return;
-    setIsGenerating(true); 
+    setIsGenerating(true);
     setStatusMessage('Compilando Galería Visual...');
-    
+
     const finalDuration = audioReady ? audioDuration : calculateAutoDuration(selectedArticle.text);
-    
+
     try {
       const htmlContent = generateStandaloneHtml(selectedArticle, finalDuration);
-      const publicHtmlUrl = await uploadHtmlToR2(htmlContent, `slide_${selectedArticle.id}_${Date.now()}.html`);
-      
-      await supabase.from('articles').update({ 
-        url_slide: publicHtmlUrl, 
-        animation_duration: finalDuration 
+      const publicHtmlUrl = await uploadHtmlToR2(htmlContent, \`slide_\${selectedArticle.id}_\${Date.now()}.html\`);
+
+      await supabase.from('articles').update({
+        url_slide: publicHtmlUrl,
+        animation_duration: finalDuration
       }).eq('id', selectedArticle.id);
 
-      setIsGenerating(false); 
-      setSuccess("Slide visual publicado."); 
+      setIsGenerating(false);
+      setSuccess("Slide visual publicado.");
       fetchArticles();
-    } catch (e: any) { 
-      setError(e.message); 
-      setIsGenerating(false); 
+    } catch (e: any) {
+      setError(e.message);
+      setIsGenerating(false);
     }
   };
 
@@ -397,38 +464,38 @@ export const SlideGenerator: React.FC = () => {
         )}
 
         {isCropping && (
-            <div className="absolute inset-0 z-[200] bg-black flex flex-col">
-                <div className="px-6 py-4 bg-slate-900 flex justify-between items-center text-white">
-                    <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                        <Crop size={16} className="text-blue-500" /> Encuadre Foto {activeImgIndex + 1}
-                    </h3>
-                    <div className="flex gap-2">
-                        <button onClick={() => setIsCropping(false)} className="px-6 py-2 bg-blue-600 rounded-xl font-black text-[10px] uppercase flex items-center gap-2">Confirmar <Check size={14}/></button>
-                    </div>
-                </div>
-                <div className="flex-1 relative">
-                    <Cropper 
-                      image={allImages[activeImgIndex]} 
-                      crop={crop} 
-                      zoom={zoom} 
-                      aspect={16 / 9} 
-                      onCropChange={setCrop} 
-                      onCropComplete={onCropComplete} 
-                      onZoomChange={setZoom} 
-                      minZoom={1}
-                      restrictPosition={true}
-                    />
-                </div>
-                <div className="bg-slate-900 p-6 flex items-center gap-4 text-white">
-                    <ZoomIn size={16} className="text-blue-400" />
-                    <input type="range" value={zoom} min={1} max={3} step={0.1} onChange={(e) => setZoom(Number(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                </div>
+          <div className="absolute inset-0 z-[200] bg-black flex flex-col">
+            <div className="px-6 py-4 bg-slate-900 flex justify-between items-center text-white">
+              <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                <Crop size={16} className="text-blue-500" /> Encuadre Foto {activeImgIndex + 1}
+              </h3>
+              <div className="flex gap-2">
+                <button onClick={() => setIsCropping(false)} className="px-6 py-2 bg-blue-600 rounded-xl font-black text-[10px] uppercase flex items-center gap-2">Confirmar <Check size={14} /></button>
+              </div>
             </div>
+            <div className="flex-1 relative">
+              <Cropper
+                image={allImages[activeImgIndex]}
+                crop={crop}
+                zoom={zoom}
+                aspect={16 / 9}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+                minZoom={1}
+                restrictPosition={true}
+              />
+            </div>
+            <div className="bg-slate-900 p-6 flex items-center gap-4 text-white">
+              <ZoomIn size={16} className="text-blue-400" />
+              <input type="range" value={zoom} min={1} max={3} step={0.1} onChange={(e) => setZoom(Number(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+            </div>
+          </div>
         )}
 
         <div className="px-8 py-5 border-b bg-slate-50 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg"><Presentation size={24}/></div>
+            <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg"><Presentation size={24} /></div>
             <div>
               <h2 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Slide Master Visual</h2>
               <p className="text-[10px] text-slate-400 font-bold uppercase">Modo: Exportación Silenciosa</p>
@@ -436,7 +503,7 @@ export const SlideGenerator: React.FC = () => {
           </div>
           {success && (
             <div className="flex items-center gap-2 text-[10px] font-black text-green-600 bg-green-50 px-4 py-2 rounded-full animate-bounce uppercase tracking-widest border border-green-100">
-               <CheckCircle2 size={14} /> {success}
+              <CheckCircle2 size={14} /> {success}
             </div>
           )}
           {error && <div className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-full uppercase tracking-widest border border-red-100">{error}</div>}
@@ -445,62 +512,62 @@ export const SlideGenerator: React.FC = () => {
         {selectedArticle ? (
           <div className="flex-1 flex overflow-hidden">
             <div className="flex-[7] bg-black relative min-h-0">
-               <SlideAnimationPreview 
-                  images={allImages} 
-                  imageCrops={imageCrops}
-                  audioDuration={audioDuration || calculateAutoDuration(selectedArticle.text)} 
-                  tickerMessages={[selectedArticle.text]} 
-                  title={selectedArticle.title} 
-                  className="h-full w-full"
-               />
-               <div className="absolute top-4 left-4 z-50 flex flex-col gap-3">
-                    <button onClick={() => setIsCropping(true)} className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-blue-500 transition-all">
-                        <Crop size={16} /> AJUSTAR ZOOM FOTO {activeImgIndex + 1}
-                    </button>
-                    <div className="flex gap-2 bg-black/60 p-2 rounded-2xl backdrop-blur-md border border-white/10">
-                        {allImages.map((img, i) => (
-                            <div key={i} className="relative group/thumb">
-                                <button onClick={() => setActiveImgIndex(i)} className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${activeImgIndex === i ? 'border-blue-500 scale-110' : 'border-white/20 opacity-50'}`}>
-                                    <img src={img} className="w-full h-full object-cover" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); removeImage(i); }} className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-500 transition-colors opacity-0 group-hover/thumb:opacity-100 z-[60]">
-                                    <X size={12} strokeWidth={4} />
-                                </button>
-                            </div>
-                        ))}
+              <SlideAnimationPreview
+                images={allImages}
+                imageCrops={imageCrops}
+                audioDuration={audioDuration || calculateAutoDuration(selectedArticle.text)}
+                tickerMessages={[selectedArticle.text]}
+                title={selectedArticle.title}
+                className="h-full w-full"
+              />
+              <div className="absolute top-4 left-4 z-50 flex flex-col gap-3">
+                <button onClick={() => setIsCropping(true)} className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-blue-500 transition-all">
+                  <Crop size={16} /> AJUSTAR ZOOM FOTO {activeImgIndex + 1}
+                </button>
+                <div className="flex gap-2 bg-black/60 p-2 rounded-2xl backdrop-blur-md border border-white/10">
+                  {allImages.map((img, i) => (
+                    <div key={i} className="relative group/thumb">
+                      <button onClick={() => setActiveImgIndex(i)} className={`w - 12 h - 12 rounded - lg overflow - hidden border - 2 transition - all \${ activeImgIndex === i ? 'border-blue-500 scale-110' : 'border-white/20 opacity-50' } `}>
+                        <img src={img} className="w-full h-full object-cover" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); removeImage(i); }} className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-500 transition-colors opacity-0 group-hover/thumb:opacity-100 z-[60]">
+                        <X size={12} strokeWidth={4} />
+                      </button>
                     </div>
-               </div>
-               {audioLoading && (
-                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-40">
-                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl flex items-center gap-4 border border-white/20">
-                      <Loader2 className="animate-spin text-blue-400" />
-                      <span className="text-white text-[10px] font-black uppercase tracking-widest">Sincronizando tiempo de audio...</span>
-                    </div>
-                 </div>
-               )}
+                  ))}
+                </div>
+              </div>
+              {audioLoading && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-40">
+                  <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl flex items-center gap-4 border border-white/20">
+                    <Loader2 className="animate-spin text-blue-400" />
+                    <span className="text-white text-[10px] font-black uppercase tracking-widest">Sincronizando tiempo de audio...</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex-[3] flex flex-col bg-slate-50 p-6 overflow-y-auto custom-scrollbar border-l border-slate-200">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Code size={14} className="text-blue-500"/> Configuración Visual</h3>
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Code size={14} className="text-blue-500" /> Configuración Visual</h3>
               <div className="space-y-8">
                 <div className="p-4 bg-white border border-blue-200 rounded-2xl">
-                     <p className="text-[11px] font-black text-blue-700 uppercase leading-none">{allImages.length} Fotos</p>
-                     <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Duración: {audioDuration.toFixed(1)}s</p>
+                  <p className="text-[11px] font-black text-blue-700 uppercase leading-none">{allImages.length} Fotos</p>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Duración: {audioDuration.toFixed(1)}s</p>
                 </div>
 
                 <div className="pt-6 border-t border-slate-200 space-y-4">
-                  <button 
-                    onClick={handleGenerateManifest} 
-                    disabled={isGenerating || audioLoading || allImages.length === 0 || isDeleting} 
+                  <button
+                    onClick={handleGenerateManifest}
+                    disabled={isGenerating || audioLoading || allImages.length === 0 || isDeleting}
                     className="w-full py-4 bg-slate-900 text-white rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-30 font-black text-[11px] uppercase tracking-widest hover:bg-blue-600 transition-all"
                   >
-                    {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />} 
+                    {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
                     PUBLICAR SLIDE
                   </button>
 
                   {selectedArticle.url_slide && (
                     <button onClick={handleDeleteSlide} disabled={isGenerating || isDeleting} className="w-full py-4 bg-red-600 text-white rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-30 font-black text-[11px] uppercase tracking-widest hover:bg-red-700 transition-all">
-                      {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />} 
+                      {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                       ELIMINAR
                     </button>
                   )}
@@ -519,21 +586,21 @@ export const SlideGenerator: React.FC = () => {
       <div className="lg:col-span-3 flex flex-col h-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b bg-slate-50 flex justify-between items-center shrink-0">
           <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-3"><LayoutList size={20} className="text-blue-600" /> Inbox</h3>
-          <button onClick={fetchArticles} className="p-2.5 hover:bg-slate-200 rounded-xl transition-colors"><RefreshCw size={20} className={`${loadingList ? 'animate-spin' : ''} text-slate-400`} /></button>
+          <button onClick={fetchArticles} className="p-2.5 hover:bg-slate-200 rounded-xl transition-colors"><RefreshCw size={20} className={`${ loadingList ? 'animate-spin' : '' } text - slate - 400`} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30">
-            {articles.map((article) => (
-                <div key={article.id} onClick={() => setSelectedArticle(article)} className={`relative flex items-center gap-3 p-3 rounded-2xl border transition-all cursor-pointer group ${selectedArticle?.id === article.id ? 'bg-white border-blue-400 ring-4 ring-blue-50 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
-                    <div className="w-12 h-12 shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200"><img src={article.image_url} className="w-full h-full object-cover" /></div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className={`text-[10px] font-black line-clamp-2 uppercase leading-tight tracking-tight ${selectedArticle?.id === article.id ? 'text-blue-700' : 'text-slate-800'}`}>{article.title.replace(/\|/g, ' ')}</h4>
-                      <div className="flex gap-2 mt-1">
-                        {article.audio_url && <span className="text-[7px] font-black text-green-600 uppercase">🎙️ AUDIO</span>}
-                        {article.url_slide && <span className="text-[7px] font-black text-blue-600 uppercase">🎬 SLIDE</span>}
-                      </div>
-                    </div>
+          {articles.map((article) => (
+            <div key={article.id} onClick={() => setSelectedArticle(article)} className={`relative flex items - center gap - 3 p - 3 rounded - 2xl border transition - all cursor - pointer group \${ selectedArticle?.id === article.id ? 'bg-white border-blue-400 ring-4 ring-blue-50 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300' } `}>
+              <div className="w-12 h-12 shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200"><img src={article.image_url} className="w-full h-full object-cover" /></div>
+              <div className="flex-1 min-w-0">
+                <h4 className={`text - [10px] font - black line - clamp - 2 uppercase leading - tight tracking - tight \${ selectedArticle?.id === article.id ? 'text-blue-700' : 'text-slate-800' } `}>{article.title.replace(/\|/g, ' ')}</h4>
+                <div className="flex gap-2 mt-1">
+                  {article.audio_url && <span className="text-[7px] font-black text-green-600 uppercase">🎙️ AUDIO</span>}
+                  {article.url_slide && <span className="text-[7px] font-black text-blue-600 uppercase">🎬 SLIDE</span>}
                 </div>
-            ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
