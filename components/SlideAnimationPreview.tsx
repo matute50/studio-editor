@@ -220,6 +220,10 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
       ${p_out_start}% { opacity: 1; transform: translateX(0); }
       100% { opacity: 0; transform: translateX(50px); }
     }
+    @keyframes red-rect-ping-pong-${animationId} {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(40px); }
+    }
   `;
 
   return (
@@ -282,11 +286,13 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
         animation: `title-area-${animationId} ${totalDuration}s linear infinite`,
         overflow: 'visible'
       }}>
-        {/* Animated Red Rectangles and Particles Backdrop */}
+        {/* Red Rectangles */}
+        <div className="absolute top-0 h-full bg-red-500/35 z-[3]" style={{ left: '15%', width: '18px', filter: 'blur(20px)', animation: `red-rect-ping-pong-${animationId} 3.5s ease-in-out infinite` }} />
+        <div className="absolute top-0 h-full bg-red-500/35 z-[3]" style={{ left: '45%', width: '28px', filter: 'blur(20px)', animation: `red-rect-ping-pong-${animationId} 5s ease-in-out infinite 0.7s` }} />
+        <div className="absolute top-0 h-full bg-red-500/35 z-[3]" style={{ left: '75%', width: '22px', filter: 'blur(20px)', animation: `red-rect-ping-pong-${animationId} 4.2s ease-in-out infinite 1.2s` }} />
+
+        {/* Particles Backdrop */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: -1, borderRadius: '2.5rem 0 0 2.5rem' }}>
-          <div className="absolute top-0 w-[24%] h-full bg-red-600/60 blur-[8px]" style={{ animation: `ping-pong-${animationId} 12s ease-in-out infinite` }} />
-          <div className="absolute top-0 w-[15%] h-full bg-red-500/40 blur-[8px]" style={{ animation: `ping-pong-${animationId} 8s ease-in-out infinite reverse` }} />
-          <div className="absolute top-0 w-[12.5%] h-full bg-red-700/50 blur-[8px]" style={{ animation: `ping-pong-${animationId} 4s ease-in-out infinite` }} />
           <ParticlesBackground />
         </div>
 

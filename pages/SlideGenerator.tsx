@@ -17,10 +17,8 @@ import {
   Check,
   X,
   ZoomIn,
-  Images,
   Trash2,
-  CheckCircle2,
-  ChevronRight
+  CheckCircle2
 } from 'lucide-react';
 
 interface CropPercent {
@@ -33,7 +31,7 @@ interface CropPercent {
 export const SlideGenerator: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [loadingList, setLoading_list] = useState(true);
+  const [loadingList, setLoadingList] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -55,7 +53,7 @@ export const SlideGenerator: React.FC = () => {
   useEffect(() => { fetchArticles(); }, []);
 
   const fetchArticles = async () => {
-    setLoading_list(true);
+    setLoadingList(true);
     try {
       const { data } = await supabase.from('articles').select('*').order('created_at', { ascending: false });
       setArticles(data || []);
@@ -63,7 +61,7 @@ export const SlideGenerator: React.FC = () => {
         const updated = data?.find(a => a.id === selectedArticle.id);
         if (updated) setSelectedArticle(updated);
       }
-    } catch (err: any) { setError(err.message); } finally { setLoading_list(false); }
+    } catch (err: any) { setError(err.message); } finally { setLoadingList(false); }
   };
 
   useEffect(() => {
@@ -202,13 +200,17 @@ export const SlideGenerator: React.FC = () => {
         .title-area { 
             position: absolute; bottom: 14.52%; right: 0; width: fit-content; max-width: 85%; height: 20%; z-index: 150; 
             display: flex; flex-direction: column; justify-content: center; align-items: flex-end; 
-            padding-right: calc(3.5% + 10px); padding-left: 6rem;
+            padding-right: calc(3.5% + 10px); padding-left: 2.5rem;
+            overflow: visible; isolate: isolate;
+        }
+        .title-bg {
+            position: absolute; inset: 0; z-index: 1;
             background: linear-gradient(to left, var(--brand-blue) 0%, transparent 100%); 
             backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
             border-radius: 2.5rem 0 0 2.5rem; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
-            overflow: visible;
         }
         .title-text { 
+            position: relative; z-index: 10;
             font-size: 9.4vh; font-weight: 900; font-style: italic; 
             text-transform: uppercase; line-height: 0.92; text-align: right; 
             letter-spacing: -0.02em; color: #fff; filter: drop-shadow(0 10px 25px rgba(0,0,0,1)); 
@@ -217,9 +219,22 @@ export const SlideGenerator: React.FC = () => {
             padding-right: 37px; margin-right: -27px; transform: translateX(22px);
         }
         
-        .title-bottom-progress {
-            position: absolute; bottom: 0; right: 0; height: 0.6vh; background: #ff0000; width: 0%;
+        .title-bottom-progress, .title-top-progress {
+            position: absolute; right: 0; height: 0.6vh; background: #ff0000; width: 0%;
             filter: blur(2px); box-shadow: 0 0 10px rgba(255, 0, 0, 0.8); z-index: 160;
+        }
+        .title-bottom-progress { bottom: 0; }
+        .title-top-progress { top: 0; }
+        
+        .title-red-rect {
+            position: absolute; top: 0; height: 100%; 
+            background: rgba(255, 0, 0, 0.35); z-index: 3;
+            filter: blur(20px);
+        }
+        
+        @keyframes red-rect-ping-pong {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(40px); }
         }
         
         .ticker-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 9.16%; background: rgba(0,0,0,0.95); z-index: 200; display: flex; align-items: center; }
@@ -229,15 +244,13 @@ export const SlideGenerator: React.FC = () => {
         .fade-screen { position: absolute; inset: 0; background: #000; z-index: 1000; opacity: 0; pointer-events: none; }
 
         @keyframes ping-pong {
-            0%, 100% { right: 0%; }
-            50% { right: 100%; }
+            0%, 100% { transform: translateY(0); opacity: 0.3; }
+            50% { transform: translateY(-20%); opacity: 0.6; }
         }
         @keyframes title-progress {
             0% { clip-path: inset(0 0 0 100%); }
             100% { clip-path: inset(0 0 0 0%); }
         }
-        .rect-container { position: absolute; inset: 0; overflow: hidden; z-index: -1; pointer-events: none; border-radius: 2.5rem 0 0 2.5rem; }
-        .rect { position: absolute; top:0; height:100%; background: rgba(255, 0, 0, 0.6); filter: blur(15px); }
     </style>
 </head>
 <body>
@@ -261,12 +274,11 @@ export const SlideGenerator: React.FC = () => {
         </div>
         
         <div class="title-area" id="titleArea">
-            <div class="rect-container">
-                <div class="rect" style="width:24%; background:rgba(255,0,0,0.6); animation: ping-pong 12s ease-in-out infinite;"></div>
-                <div class="rect" style="width:15%; background:rgba(255,0,0,0.4); animation: ping-pong 8s ease-in-out infinite reverse;"></div>
-                <div class="rect" style="width:12.5%; background:rgba(255,0,0,0.5); animation: ping-pong 4s ease-in-out infinite;"></div>
-                <canvas id="celesteParticles" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0;"></canvas>
-            </div>
+            <div class="title-bg"></div>
+            <div class="title-red-rect" style="left: 15%; width: 18px; animation: red-rect-ping-pong 3.5s ease-in-out infinite;"></div>
+            <div class="title-red-rect" style="left: 45%; width: 28px; animation: red-rect-ping-pong 5s ease-in-out infinite 0.7s;"></div>
+            <div class="title-red-rect" style="left: 75%; width: 22px; animation: red-rect-ping-pong 4.2s ease-in-out infinite 1.2s;"></div>
+            <div class="title-top-progress" id="titleTopProg" style="width: calc(100% - 2.5rem); background: linear-gradient(to left, #ff0000 0%, rgba(255,0,0,0.1) 100%);"></div>
             <div class="title-text" id="titleText"><span>${line1}</span><span>${line2}</span></div>
             <div class="title-bottom-progress" id="titleBottomProg" style="width: calc(100% - 2.5rem); background: linear-gradient(to left, #ff0000 0%, rgba(255,0,0,0.1) 100%);"></div>
         </div>
@@ -294,17 +306,19 @@ export const SlideGenerator: React.FC = () => {
             window.parent.postMessage({ type: 'SLIDE_ENDED' }, '*');
         }
 
+
+
         function adjustTitleFontSize() {
             const titleText = document.getElementById('titleText');
             const titleArea = document.getElementById('titleArea');
             if (!titleText || !titleArea) return;
-            const maxWidth = window.innerWidth * 0.75; 
-            let currentFontSize = parseFloat(window.getComputedStyle(titleText).fontSize);
+            const maxWidth = window.innerWidth * 0.65; 
+            var currentFontSize = parseFloat(window.getComputedStyle(titleText).fontSize);
             const spans = titleText.querySelectorAll('span');
-            let maxSpanWidth = 0;
-            spans.forEach(s => { maxSpanWidth = Math.max(maxSpanWidth, s.offsetWidth); });
+            var maxSpanWidth = 0;
+            spans.forEach(function(s) { maxSpanWidth = Math.max(maxSpanWidth, s.offsetWidth); });
             if (maxSpanWidth > maxWidth) {
-                const ratio = maxWidth / maxSpanWidth;
+                var ratio = maxWidth / maxSpanWidth;
                 titleText.style.fontSize = (currentFontSize * ratio) + 'px';
             }
         }
@@ -322,7 +336,7 @@ export const SlideGenerator: React.FC = () => {
             const ticker = document.getElementById('tickerTextScroll');
 
             tl.fromTo(".progress-bar", { width: "0%" }, { width: "100%", duration: duration, ease: "none" }, 0);
-            tl.fromTo("#titleBottomProg", { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", duration: duration, ease: "none" }, 0);
+            tl.fromTo("#titleBottomProg, #titleTopProg", { clipPath: "inset(0 0 0 100%)" }, { clipPath: "inset(0 0 0 0%)", duration: duration, ease: "none" }, 0);
             tl.fromTo("#logoBottomProg", { width: "0%" }, { width: "100%", duration: duration, ease: "none" }, 0);
             tl.fromTo("#tickerTextScroll", { x: "100vw" }, { x: -(ticker.offsetWidth + 100), duration: duration, ease: "none" }, 0);
             tl.fromTo("#titleArea", { opacity: 0, x: 100 }, { opacity: 1, x: 0, duration: 0.8, ease: "power2.out" }, 1.5);
@@ -330,74 +344,24 @@ export const SlideGenerator: React.FC = () => {
 
             images.forEach((img, i) => {
                 const startTime = i * timePerImage;
-                tl.set(\`#img_\${i}\`, { zIndex: 20 }, startTime);
-                tl.to(\`#img_\${i}\`, { opacity: 1, duration: i === 0 ? 0.1 : fadeDur }, startTime);
-                tl.fromTo(\`#bg_\${i}\`, 
+                // Forzar z-index y visibilidad
+                tl.set('#img_' + i, { zIndex: 20, opacity: 1 }, startTime);
+                tl.fromTo('#bg_' + i, 
                     { scale: 1, x: "0%", y: "0%" }, 
-                    { scale: img.fS, x: \`\${img.fX}%\`, y: \`\${img.fY}%\`, duration: timePerImage, ease: "none" }, 
+                    { scale: img.fS, x: img.fX + '%', y: img.fY + '%', duration: timePerImage, ease: "none" }, 
                     startTime
                 );
+                
                 if(i > 0) {
-                    tl.to(\`#img_\${i-1}\`, { opacity: 0, duration: fadeDur }, startTime);
-                    tl.set(\`#img_\${i-1}\`, { zIndex: 10 }, startTime + fadeDur);
+                    tl.to('#img_' + (i-1), { opacity: 0, duration: fadeDur, zIndex: 10 }, startTime);
                 }
             });
 
             tl.to("#fade", { opacity: 1, duration: 1.0 }, duration - 1.0);
-
-            // Particles Animation
-            const canvas = document.getElementById('celesteParticles');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                const particles = [];
-                const colors = ['#003399', '#FFFFFF', '#000000'];
-                const countPerColor = 5;
-                const size = window.innerHeight * 0.036;
-                
-                function resize() {
-                    canvas.width = canvas.offsetWidth;
-                    canvas.height = canvas.offsetHeight;
-                }
-                resize();
-                window.addEventListener('resize', resize);
-
-                colors.forEach(color => {
-                    for (let i = 0; i < countPerColor; i++) {
-                        particles.push({
-                            x: Math.random() * (canvas.width - size),
-                            y: Math.random() * (canvas.height - size),
-                            vx: (Math.random() - 0.5) * (1.5 + Math.random() * 2.5),
-                            vy: (Math.random() - 0.5) * (1.5 + Math.random() * 2.5),
-                            color: color
-                        });
-                    }
-                });
-
-                function animate() {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.filter = 'blur(4px)';
-                    ctx.lineWidth = 2;
-                    particles.forEach((p, i) => {
-                        p.x += p.vx;
-                        p.y += p.vy;
-
-                        if (p.x < 0) { p.x = 0; p.vx *= -1; }
-                        else if (p.x > canvas.width - size) { p.x = canvas.width - size; p.vx *= -1; }
-
-                        if (p.y < 0) { p.y = 0; p.vy *= -1; }
-                        else if (p.y > canvas.height - size) { p.y = canvas.height - size; p.vy *= -1; }
-
-                        ctx.strokeStyle = p.color;
-                        ctx.strokeRect(p.x, p.y, size, size);
-                    });
-                    requestAnimationFrame(animate);
-                }
-                animate();
-            }
         }
     </script>
 </body>
-</html>\`;
+</html>`;
   };
 
   const handleGenerateManifest = async () => {
@@ -409,7 +373,7 @@ export const SlideGenerator: React.FC = () => {
 
     try {
       const htmlContent = generateStandaloneHtml(selectedArticle, finalDuration);
-      const publicHtmlUrl = await uploadHtmlToR2(htmlContent, \`slide_\${selectedArticle.id}_\${Date.now()}.html\`);
+      const publicHtmlUrl = await uploadHtmlToR2(htmlContent, "slide_" + selectedArticle.id + "_" + Date.now() + ".html");
 
       await supabase.from('articles').update({
         url_slide: publicHtmlUrl,
@@ -527,7 +491,7 @@ export const SlideGenerator: React.FC = () => {
                 <div className="flex gap-2 bg-black/60 p-2 rounded-2xl backdrop-blur-md border border-white/10">
                   {allImages.map((img, i) => (
                     <div key={i} className="relative group/thumb">
-                      <button onClick={() => setActiveImgIndex(i)} className={`w - 12 h - 12 rounded - lg overflow - hidden border - 2 transition - all \${ activeImgIndex === i ? 'border-blue-500 scale-110' : 'border-white/20 opacity-50' } `}>
+                      <button onClick={() => setActiveImgIndex(i)} className={"w-12 h-12 rounded-lg overflow-hidden border-2 transition-all " + (activeImgIndex === i ? 'border-blue-500 scale-110' : 'border-white/20 opacity-50')}>
                         <img src={img} className="w-full h-full object-cover" />
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); removeImage(i); }} className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-500 transition-colors opacity-0 group-hover/thumb:opacity-100 z-[60]">
@@ -586,14 +550,14 @@ export const SlideGenerator: React.FC = () => {
       <div className="lg:col-span-3 flex flex-col h-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b bg-slate-50 flex justify-between items-center shrink-0">
           <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-3"><LayoutList size={20} className="text-blue-600" /> Inbox</h3>
-          <button onClick={fetchArticles} className="p-2.5 hover:bg-slate-200 rounded-xl transition-colors"><RefreshCw size={20} className={`${ loadingList ? 'animate-spin' : '' } text - slate - 400`} /></button>
+          <button onClick={fetchArticles} className="p-2.5 hover:bg-slate-200 rounded-xl transition-colors"><RefreshCw size={20} className={(loadingList ? 'animate-spin' : '') + " text-slate-400"} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30">
           {articles.map((article) => (
-            <div key={article.id} onClick={() => setSelectedArticle(article)} className={`relative flex items - center gap - 3 p - 3 rounded - 2xl border transition - all cursor - pointer group \${ selectedArticle?.id === article.id ? 'bg-white border-blue-400 ring-4 ring-blue-50 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300' } `}>
+            <div key={article.id} onClick={() => setSelectedArticle(article)} className={"relative flex items-center gap-3 p-3 rounded-2xl border transition-all cursor-pointer group " + (selectedArticle?.id === article.id ? 'bg-white border-blue-400 ring-4 ring-blue-50 shadow-lg' : 'bg-white border-slate-100 hover:border-slate-300')}>
               <div className="w-12 h-12 shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200"><img src={article.image_url} className="w-full h-full object-cover" /></div>
               <div className="flex-1 min-w-0">
-                <h4 className={`text - [10px] font - black line - clamp - 2 uppercase leading - tight tracking - tight \${ selectedArticle?.id === article.id ? 'text-blue-700' : 'text-slate-800' } `}>{article.title.replace(/\|/g, ' ')}</h4>
+                <h4 className={"text-[10px] font-black line-clamp-2 uppercase leading-tight tracking-tight " + (selectedArticle?.id === article.id ? 'text-blue-700' : 'text-slate-800')}>{article.title.replace(/\|/g, ' ')}</h4>
                 <div className="flex gap-2 mt-1">
                   {article.audio_url && <span className="text-[7px] font-black text-green-600 uppercase">🎙️ AUDIO</span>}
                   {article.url_slide && <span className="text-[7px] font-black text-blue-600 uppercase">🎬 SLIDE</span>}

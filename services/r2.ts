@@ -38,7 +38,7 @@ export const uploadHtmlToR2 = async (htmlString: string, fileName: string): Prom
       Key: key,
       Body: encoder.encode(htmlString),
       ContentType: 'text/html',
-      CacheControl: 'no-cache'
+      CacheControl: 'no-cache, no-store, must-revalidate'
     }));
     return `${CDN_URL}/${key}`;
   } catch (error: any) { throw handleR2Error(error); }
@@ -135,7 +135,7 @@ export const uploadSlideManifestToR2 = async (jsonString: string, fileName: stri
       Key: key,
       Body: encoder.encode(jsonString),
       ContentType: 'application/json',
-      CacheControl: 'no-cache'
+      CacheControl: 'no-cache, no-store, must-revalidate'
     }));
     return `${CDN_URL}/${key}`;
   } catch (error: any) { throw handleR2Error(error); }
