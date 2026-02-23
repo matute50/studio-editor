@@ -25,6 +25,7 @@ const navItems = [
   { title: 'Generar Slides', path: '/slides', icon: Presentation },
   { title: 'YouTube Studio', path: '/youtube-studio', icon: Video },
   { title: 'Social Manager', path: '/social-manager', icon: Megaphone },
+  { title: 'Director de Programa', path: '/show-manager', icon: Presentation },
   { title: 'Avatar Studio', path: '/avatar-studio', icon: UserCheck },
   { title: 'Agenda Eventos', path: '/agenda', icon: CalendarDays },
   { title: 'Vista Previa Portal', path: '/portal', icon: Globe },

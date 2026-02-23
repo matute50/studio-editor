@@ -40,6 +40,7 @@ export interface Article {
   audio_url?: string | null;
   thumbnail_url?: string | null;
   animation_duration?: number | null;
+  body_voice_tuning?: string | null;
 }
 
 export interface VideoAsset {

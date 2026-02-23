@@ -210,13 +210,13 @@ export const SlideGenerator: React.FC = () => {
             border-radius: 2.5rem 0 0 2.5rem; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
         }
         .title-text { 
-            position: relative; z-index: 10;
+            position: relative; z-index: 180;
             font-size: 9.4vh; font-weight: 900; font-style: italic; 
             text-transform: uppercase; line-height: 0.92; text-align: right; 
             letter-spacing: -0.02em; color: #fff; filter: drop-shadow(0 10px 25px rgba(0,0,0,1)); 
             text-shadow: 0 0 15px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,1);
             display: flex; flex-direction: column; white-space: nowrap;
-            padding-right: 37px; margin-right: -27px; transform: translateX(22px);
+            padding-right: 37px; margin-right: -27px; transform: translateX(2px);
         }
         
         .title-bottom-progress, .title-top-progress {
@@ -228,13 +228,8 @@ export const SlideGenerator: React.FC = () => {
         
         .title-red-rect {
             position: absolute; top: 0; height: 100%; 
-            background: rgba(255, 0, 0, 0.35); z-index: 3;
-            filter: blur(20px);
-        }
-        
-        @keyframes red-rect-ping-pong {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(40px); }
+            background: #ff0000; z-index: 5;
+            filter: blur(35px);
         }
         
         .ticker-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 9.16%; background: rgba(0,0,0,0.95); z-index: 200; display: flex; align-items: center; }
@@ -243,13 +238,19 @@ export const SlideGenerator: React.FC = () => {
         .ticker-text { white-space: nowrap; font-size: 4.8vh; font-weight: 900; color: white; position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
         .fade-screen { position: absolute; inset: 0; background: #000; z-index: 1000; opacity: 0; pointer-events: none; }
 
-        @keyframes ping-pong {
-            0%, 100% { transform: translateY(0); opacity: 0.3; }
-            50% { transform: translateY(-20%); opacity: 0.6; }
-        }
         @keyframes title-progress {
             0% { clip-path: inset(0 0 0 100%); }
             100% { clip-path: inset(0 0 0 0%); }
+        }
+
+        @keyframes red-rect-ping-pong-1 {
+            0%, 100% { left: calc(100% - 43px); }
+            50% { left: 0%; }
+        }
+
+        @keyframes red-rect-ping-pong-2 {
+            0%, 100% { left: calc(100% - 65px); }
+            50% { left: 0%; }
         }
     </style>
 </head>
@@ -268,16 +269,47 @@ export const SlideGenerator: React.FC = () => {
         
         <div class="overlay"></div>
 
-        <div class="logo-area" id="logoArea">
-            <img src="https://pub-5b294f92f42e4cbda687d0122e15bc72.r2.dev/logos/NOTICIAS.png" class="logo-img">
-            <div class="logo-bottom-progress" id="logoBottomProg"></div>
+        <div class="logo-area" id="logoArea" style="position: absolute; left: 0; width: 25%; overflow: hidden; border-radius: 0 2.5rem 2.5rem 0;">
+            <!-- Mirrored Clipping Container for Logo -->
+            <div class="logo-bg-clipping" style="position: absolute; inset: 0; border-radius: 0 2.5rem 2.5rem 0; overflow: hidden; z-index: 150; -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,1) 100%); mask-image: linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,1) 100%);">
+                <div class="logo-bg" style="position: absolute; inset: 0; background: linear-gradient(to right, var(--brand-blue) 0%, transparent 100%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"></div>
+                
+                <!-- Blue-Black-Red-White (43px) -->
+                <div class="title-red-rect" style="background: #6699ff; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 4.5s ease-in-out infinite 0.1s;"></div>
+                <div class="title-red-rect" style="background: #000000; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 5.1s ease-in-out infinite 0.2s;"></div>
+                <div class="title-red-rect" style="background: #ff0000; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 3.9s ease-in-out infinite;"></div>
+                <div class="title-red-rect" style="background: #FFFFFF; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 4.7s ease-in-out infinite 0.3s;"></div>
+                
+                <!-- Blue-Black-Red-White (65px) -->
+                <div class="title-red-rect" style="background: #6699ff; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 6.2s ease-in-out infinite 0.4s;"></div>
+                <div class="title-red-rect" style="background: #000000; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 5.8s ease-in-out infinite 0.6s;"></div>
+                <div class="title-red-rect" style="background: #ff0000; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 5.4s ease-in-out infinite 0.5s;"></div>
+                <div class="title-red-rect" style="background: #FFFFFF; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 6.8s ease-in-out infinite 0.7s;"></div>
+            </div>
+
+            <!-- Logo Content -->
+            <div style="position: relative; z-index: 151; display: flex; align-items: center; height: 100%; padding-right: calc(2rem - 25px);">
+                <div class="logo-bottom-progress" id="logoTopProg" style="top: 0; bottom: auto;"></div>
+                <img src="https://pub-5b294f92f42e4cbda687d0122e15bc72.r2.dev/logos/NOTICIAS.png" class="logo-img">
+                <div class="logo-bottom-progress" id="logoBottomProg"></div>
+            </div>
         </div>
         
         <div class="title-area" id="titleArea">
-            <div class="title-bg"></div>
-            <div class="title-red-rect" style="left: 15%; width: 18px; animation: red-rect-ping-pong 3.5s ease-in-out infinite;"></div>
-            <div class="title-red-rect" style="left: 45%; width: 28px; animation: red-rect-ping-pong 5s ease-in-out infinite 0.7s;"></div>
-            <div class="title-red-rect" style="left: 75%; width: 22px; animation: red-rect-ping-pong 4.2s ease-in-out infinite 1.2s;"></div>
+            <div class="title-bg-clipping" style="position: absolute; inset: 0; border-radius: 2.5rem 0 0 2.5rem; overflow: hidden; z-index: 1; -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.1) 100%); mask-image: linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.1) 100%);">
+                <div class="title-bg" style="position: absolute; inset: 0; background: linear-gradient(to left, var(--brand-blue) 0%, transparent 100%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"></div>
+                <!-- Blue-Black-Red-White (43px) -->
+                <div class="title-red-rect" style="background: #6699ff; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 4.5s ease-in-out infinite 0.1s;"></div>
+                <div class="title-red-rect" style="background: #000000; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 5.1s ease-in-out infinite 0.2s;"></div>
+                <div class="title-red-rect" style="background: #ff0000; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 3.9s ease-in-out infinite;"></div>
+                <div class="title-red-rect" style="background: #FFFFFF; z-index: 4; width: 43px; animation: red-rect-ping-pong-1 4.7s ease-in-out infinite 0.3s;"></div>
+                
+                <!-- Blue-Black-Red-White (65px) -->
+                <div class="title-red-rect" style="background: #6699ff; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 6.2s ease-in-out infinite 0.4s;"></div>
+                <div class="title-red-rect" style="background: #000000; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 5.8s ease-in-out infinite 0.6s;"></div>
+                <div class="title-red-rect" style="background: #ff0000; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 5.4s ease-in-out infinite 0.5s;"></div>
+                <div class="title-red-rect" style="background: #FFFFFF; z-index: 4; width: 65px; animation: red-rect-ping-pong-2 6.8s ease-in-out infinite 0.7s;"></div>
+            </div>
             <div class="title-top-progress" id="titleTopProg" style="width: calc(100% - 2.5rem); background: linear-gradient(to left, #ff0000 0%, rgba(255,0,0,0.1) 100%);"></div>
             <div class="title-text" id="titleText"><span>${line1}</span><span>${line2}</span></div>
             <div class="title-bottom-progress" id="titleBottomProg" style="width: calc(100% - 2.5rem); background: linear-gradient(to left, #ff0000 0%, rgba(255,0,0,0.1) 100%);"></div>
@@ -344,16 +376,32 @@ export const SlideGenerator: React.FC = () => {
 
             images.forEach((img, i) => {
                 const startTime = i * timePerImage;
-                // Forzar z-index y visibilidad
-                tl.set('#img_' + i, { zIndex: 20, opacity: 1 }, startTime);
+                
+                // Configuración Inicial: Z-Index 20 para estar arriba.
+                tl.set('#img_' + i, { zIndex: 20 }, startTime);
+                
+                // Transición: Aparecer (Fade In)
+                if (i === 0) {
+                    // La primera imagen ya empieza visible
+                    tl.set('#img_' + i, { opacity: 1 }, startTime);
+                } else {
+                    // Las siguientes empiezan invisibles y hacen Fade In de 1s
+                    tl.set('#img_' + i, { opacity: 0 }, startTime);
+                    tl.to('#img_' + i, { opacity: 1, duration: 1.0, ease: "power1.in" }, startTime);
+                }
+
+                // Efecto Ken Burns (Movimiento)
                 tl.fromTo('#bg_' + i, 
                     { scale: 1, x: "0%", y: "0%" }, 
-                    { scale: img.fS, x: img.fX + '%', y: img.fY + '%', duration: timePerImage, ease: "none" }, 
+                    { scale: img.fS, x: img.fX + '%', y: img.fY + '%', duration: timePerImage + 1.0, ease: "none" }, // Extendemos duración para cubrir el solapamiento
                     startTime
                 );
-                
+
+                // Manejo de la imagen anterior (Fade Out o Ocultar bajo la nueva)
                 if(i > 0) {
-                    tl.to('#img_' + (i-1), { opacity: 0, duration: fadeDur, zIndex: 10 }, startTime);
+                    // Mantenemos la anterior visible mientras la nueva aparece encima.
+                    // Recién la ocultamos cuando la transición termina.
+                    tl.set('#img_' + (i-1), { opacity: 0, zIndex: 10 }, startTime + 1.0);
                 }
             });
 

@@ -12,9 +12,10 @@ import { YouTubeStudio } from './pages/YouTubeStudio';
 import { SocialManager } from './pages/SocialManager';
 import { AvatarStudio } from './pages/AvatarStudio';
 import { PublicHome } from './pages/PublicHome';
+import { ShowManager } from './pages/ShowManager';
 import { AIAssistant } from './components/AIAssistant';
 import { AuthProvider } from './context/AuthContext';
-import { Bell, Search, User, Maximize2, Minimize2, Monitor, LayoutTemplate } from 'lucide-react';
+import { Bell, User, Maximize2, Minimize2, Monitor, LayoutTemplate } from 'lucide-react';
 
 const TopBar: React.FC<{ isZen: boolean; setZen: (v: boolean) => void }> = ({ isZen, setZen }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -33,14 +34,7 @@ const TopBar: React.FC<{ isZen: boolean; setZen: (v: boolean) => void }> = ({ is
 
   return (
     <header className={`h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 fixed top-0 right-0 z-30 flex items-center justify-between px-8 shadow-sm transition-all duration-500 ${isZen ? 'left-0 opacity-0 -translate-y-full pointer-events-none' : 'left-64'}`}>
-      <div className="flex items-center w-96 bg-slate-100/50 rounded-full px-4 py-2 border border-slate-200 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-        <Search className="w-4 h-4 text-slate-400 mr-2" />
-        <input
-          type="text"
-          placeholder="Buscar en el ecosistema..."
-          className="bg-transparent border-none focus:outline-none w-full text-sm font-medium text-slate-700 placeholder-slate-400"
-        />
-      </div>
+
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
@@ -138,6 +132,7 @@ function App() {
           <Route path="/youtube-studio" element={<Layout><YouTubeStudio /></Layout>} />
           <Route path="/social-manager" element={<Layout><SocialManager /></Layout>} />
           <Route path="/avatar-studio" element={<Layout><AvatarStudio /></Layout>} />
+          <Route path="/show-manager" element={<Layout><ShowManager /></Layout>} />
           <Route path="/portal" element={<PublicHome />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

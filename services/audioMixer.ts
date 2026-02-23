@@ -24,11 +24,19 @@ async function decodePcmData(
   return buffer;
 }
 
+const audioBufferCache = new Map<string, AudioBuffer>();
+
 async function loadAudio(ctx: BaseAudioContext, url: string): Promise<AudioBuffer> {
+  // 1. Check Cache
+  if (audioBufferCache.has(url)) {
+    return audioBufferCache.get(url)!;
+  }
+
   try {
     const isLocal = url.startsWith('blob:') || url.startsWith('data:');
-    const finalUrl = isLocal ? url : (url.includes('?') ? `${url}&v=${Date.now()}` : `${url}?v=${Date.now()}`);
-    
+    // REMOVED cache busting timestamp to allow browser caching and internal caching
+    const finalUrl = url;
+
     const fetchOptions: RequestInit = isLocal ? {} : {
       mode: 'cors',
       credentials: 'omit',
@@ -38,14 +46,21 @@ async function loadAudio(ctx: BaseAudioContext, url: string): Promise<AudioBuffe
     };
 
     const response = await fetch(finalUrl, fetchOptions);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP Error: ${response.status} en ${url}`);
     }
     const arrayBuffer = await response.arrayBuffer();
-    
+
     // Curtains (remote MP3/WAV) are decoded normally
-    return await ctx.decodeAudioData(arrayBuffer);
+    const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+    // 2. Save to Cache (only remote URLs, not blobs which might be revoked)
+    if (!isLocal) {
+      audioBufferCache.set(url, decodedBuffer);
+    }
+
+    return decodedBuffer;
   } catch (error) {
     console.warn(`Error cargando audio: ${url}`, error);
     throw error;
@@ -55,11 +70,11 @@ async function loadAudio(ctx: BaseAudioContext, url: string): Promise<AudioBuffe
 function bufferToMp3(buffer: AudioBuffer): Blob {
   const lamejs = (window as any).lamejs;
   if (!lamejs) throw new Error("lamejs no está cargado.");
-  const channels = 1; 
+  const channels = 1;
   const sampleRate = buffer.sampleRate;
   const kbps = 128;
   const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, kbps);
-  const rawData = buffer.getChannelData(0); 
+  const rawData = buffer.getChannelData(0);
   const samples = new Int16Array(rawData.length);
   for (let i = 0; i < rawData.length; i++) {
     const s = Math.max(-1, Math.min(1, rawData[i]));
@@ -83,15 +98,15 @@ const DEFAULT_INTRO_URL = 'https://pub-5b294f92f42e4cbda687d0122e15bc72.r2.dev/a
  * Mix speech (Raw PCM or URL) with musical curtain.
  */
 export const mixSpeechWithCustomIntro = async (
-  speechInput: string | Uint8Array, 
-  musicUrl: string | null | undefined, 
+  speechInput: string | Uint8Array,
+  musicUrl: string | null | undefined,
   musicVolume: number = 0.6
 ): Promise<{ blob: Blob, duration: number }> => {
   const tempCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  
+
   try {
     let speechBuffer: AudioBuffer;
-    
+
     // Handle Raw PCM bytes from Gemini or generic URL
     if (speechInput instanceof Uint8Array) {
       speechBuffer = await decodePcmData(speechInput, tempCtx, 24000, 1);
@@ -100,7 +115,7 @@ export const mixSpeechWithCustomIntro = async (
     }
 
     let musicBuffer: AudioBuffer | null = null;
-    
+
     if (musicUrl && musicUrl.trim() !== '') {
       try {
         musicBuffer = await loadAudio(tempCtx, musicUrl);
@@ -110,18 +125,18 @@ export const mixSpeechWithCustomIntro = async (
       }
     }
 
-    const introTime = 2.0; 
+    const introTime = 2.0;
     const outroForegroundTime = 2.0;
     const fadeOutTime = 1.0;
     const totalDuration = introTime + speechBuffer.duration + outroForegroundTime + fadeOutTime;
-    
+
     // Create high-quality offline context for mixing
     const offlineCtx = new OfflineAudioContext(1, 44100 * totalDuration, 44100);
 
     const speechSource = offlineCtx.createBufferSource();
     speechSource.buffer = speechBuffer;
     const speechGain = offlineCtx.createGain();
-    speechGain.gain.value = 1.3; 
+    speechGain.gain.value = 1.3;
     speechSource.connect(speechGain);
     speechGain.connect(offlineCtx.destination);
     speechSource.start(introTime);
@@ -131,21 +146,21 @@ export const mixSpeechWithCustomIntro = async (
       musicSource.buffer = musicBuffer;
       musicSource.loop = true;
       const musicGain = offlineCtx.createGain();
-      
-      const volHigh = musicVolume;
-      const volLow = musicVolume * 0.22; 
 
-      const tSpeechStart = introTime; 
+      const volHigh = musicVolume;
+      const volLow = musicVolume * 0.22;
+
+      const tSpeechStart = introTime;
       const tSpeechEnd = introTime + speechBuffer.duration;
       const tFadeStart = tSpeechEnd + outroForegroundTime;
       const tEnd = totalDuration;
 
-      musicGain.gain.setValueAtTime(volHigh, 0); 
-      musicGain.gain.linearRampToValueAtTime(volLow, tSpeechStart); 
-      musicGain.gain.setValueAtTime(volLow, tSpeechEnd); 
-      musicGain.gain.linearRampToValueAtTime(volHigh, tSpeechEnd + 0.3); 
-      musicGain.gain.setValueAtTime(volHigh, tFadeStart); 
-      musicGain.gain.linearRampToValueAtTime(0, tEnd); 
+      musicGain.gain.setValueAtTime(volHigh, 0);
+      musicGain.gain.linearRampToValueAtTime(volLow, tSpeechStart);
+      musicGain.gain.setValueAtTime(volLow, tSpeechEnd);
+      musicGain.gain.linearRampToValueAtTime(volHigh, tSpeechEnd + 0.3);
+      musicGain.gain.setValueAtTime(volHigh, tFadeStart);
+      musicGain.gain.linearRampToValueAtTime(0, tEnd);
 
       musicSource.connect(musicGain);
       musicGain.connect(offlineCtx.destination);
@@ -154,10 +169,10 @@ export const mixSpeechWithCustomIntro = async (
 
     const renderedBuffer = await offlineCtx.startRendering();
     const mp3Blob = bufferToMp3(renderedBuffer);
-    
-    return { 
-      blob: mp3Blob, 
-      duration: totalDuration 
+
+    return {
+      blob: mp3Blob,
+      duration: totalDuration
     };
   } catch (error) {
     console.error("Error crítico en AudioMixer:", error);

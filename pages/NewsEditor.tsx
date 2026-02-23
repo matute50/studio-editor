@@ -102,12 +102,19 @@ export const NewsEditor: React.FC = () => {
     setError(null);
     try {
       const result = await generateProfessionalNews(title + " " + text);
+
+      // Validation: Only update if we got valid content back
+      if (!result.title || result.title === "Título No Generado" || !result.body || result.body === "Cuerpo No Generado") {
+        throw new Error("La IA no pudo generar un formato válido. Intentá de nuevo.");
+      }
+
       setTitle(sanitizeTitle(result.title));
       setText(result.body);
       setSuccessMsg("Redacción profesional aplicada.");
       setTimeout(() => setSuccessMsg(null), 3000);
-    } catch (err) {
-      setError("Error al conectar con la Agencia AI.");
+    } catch (err: any) {
+      console.error("Error AI Redaction:", err);
+      setError(err.message || "Error al conectar con la Agencia AI.");
     } finally { setIsProcessingAI(false); }
   };
 
@@ -284,15 +291,7 @@ export const NewsEditor: React.FC = () => {
                 {editingId ? <Edit size={20} className="text-indigo-600" /> : <PlusCircle size={20} className="text-blue-600" />}
                 {editingId ? 'Editar Noticia' : 'Nueva Noticia'}
               </h2>
-              <button
-                type="button"
-                onClick={handleProfessionalRewrite}
-                disabled={isProcessingAI}
-                className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg disabled:opacity-50"
-              >
-                {isProcessingAI ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Redacción Profesional
-              </button>
+
             </div>
 
             {error && <div className="p-4 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 flex items-center gap-2"><AlertCircle size={14} /> {error}</div>}
@@ -307,7 +306,7 @@ export const NewsEditor: React.FC = () => {
                   onChange={(e) => setTitle(e.target.value.replace(/[\n\r]+/g, ' '))}
                   required
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="Título | de la noticia"
+                  placeholder=""
                 />
               </div>
 
@@ -326,26 +325,11 @@ export const NewsEditor: React.FC = () => {
                   onChange={(e) => setText(e.target.value)}
                   required
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-64 resize-none"
-                  placeholder="Redacta la noticia formal aquí..."
+                  placeholder=""
                 />
               </div>
 
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jerarquía Editorial</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { id: 'featured', label: 'Portada', icon: Crown, color: 'text-amber-500' },
-                    { id: 'secondary', label: 'Secundaria', icon: Star, color: 'text-indigo-500' },
-                    { id: 'tertiary', label: 'Terciaria', icon: Sparkles, color: 'text-blue-500' },
-                    { id: 'standard', label: 'Estandar', icon: LayoutList, color: 'text-slate-400' }
-                  ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setFeatureStatus(s.id as FeatureStatus)} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${featureStatus === s.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-                      <s.icon size={20} className={`${featureStatus === s.id ? s.color : 'text-slate-300'} mb-1`} />
-                      <span className="text-[8px] font-black uppercase">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Imagen Destacada (1080p)</label>
@@ -396,12 +380,39 @@ export const NewsEditor: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={resetForm} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Descartar</button>
-                <button type="submit" disabled={saving} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {editingId ? 'GUARDAR CAMBIOS' : 'PUBLICAR NOTICIA'}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jerarquía Editorial</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { id: 'featured', label: 'Portada', icon: Crown, color: 'text-amber-500' },
+                    { id: 'secondary', label: 'Secundaria', icon: Star, color: 'text-indigo-500' },
+                    { id: 'tertiary', label: 'Terciaria', icon: Sparkles, color: 'text-blue-500' },
+                    { id: 'standard', label: 'Estandar', icon: LayoutList, color: 'text-slate-400' }
+                  ].map((s) => (
+                    <button key={s.id} type="button" onClick={() => setFeatureStatus(s.id as FeatureStatus)} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${featureStatus === s.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
+                      <s.icon size={20} className={`${featureStatus === s.id ? s.color : 'text-slate-300'} mb-1`} />
+                      <span className="text-[8px] font-black uppercase">{s.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4 flex-col">
+                <button
+                  type="button"
+                  onClick={handleProfessionalRewrite}
+                  disabled={isProcessingAI}
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isProcessingAI ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  Redacción Profesional
                 </button>
+                <div className="flex gap-3">
+                  <button type="button" onClick={resetForm} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Descartar</button>
+                  <button type="submit" disabled={saving} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    {editingId ? 'GUARDAR CAMBIOS' : 'PUBLICAR NOTICIA'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

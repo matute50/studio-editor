@@ -25,75 +25,6 @@ interface SlideAnimationPreviewProps {
   fontScale?: number;
 }
 
-const ParticlesBackground = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useLayoutEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    const particles: { x: number, y: number, vx: number, vy: number, color: string }[] = [];
-    const colors = [BRAND_BLUE, '#FFFFFF', '#000000'];
-    const countPerColor = 5;
-    const size = 27;
-
-    const resize = () => {
-      const parent = canvas.parentElement;
-      if (parent) {
-        canvas.width = parent.clientWidth;
-        canvas.height = parent.clientHeight;
-      }
-    };
-
-    window.addEventListener('resize', resize);
-    resize();
-
-    colors.forEach(color => {
-      for (let i = 0; i < countPerColor; i++) {
-        particles.push({
-          x: Math.random() * (canvas.width - size),
-          y: Math.random() * (canvas.height - size),
-          vx: (Math.random() - 0.5) * (1.5 + Math.random() * 2.5),
-          vy: (Math.random() - 0.5) * (1.5 + Math.random() * 2.5),
-          color: color
-        });
-      }
-    });
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.lineWidth = 2;
-      ctx.filter = 'blur(4px)';
-
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-
-        if (p.x < 0) { p.x = 0; p.vx *= -1; }
-        else if (p.x > canvas.width - size) { p.x = canvas.width - size; p.vx *= -1; }
-
-        if (p.y < 0) { p.y = 0; p.vy *= -1; }
-        else if (p.y > canvas.height - size) { p.y = canvas.height - size; p.vy *= -1; }
-
-        ctx.strokeStyle = p.color;
-        ctx.strokeRect(p.x, p.y, size, size);
-      }
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', resize);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }} />;
-};
 
 export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
   images = [],
@@ -181,14 +112,31 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
 
     const startP = (idx * timePerImage / totalDuration) * 100;
     const endP = ((idx + 1) * timePerImage / totalDuration) * 100;
-    const fadeP = (Math.min(1.0, timePerImage) / totalDuration) * 100;
+    const midP = (startP + endP) / 2;
+    // Proporción de 1 segundo respecto a la duración total
+    const fadePct = (1.0 / totalDuration) * 100;
 
     return `
       @keyframes anim-img-${animationId}-${idx} {
-        0%, ${startP}% { opacity: 0; z-index: 10; transform: translate3d(0, 0, 0) scale(1); }
-        ${idx === 0 ? '0%' : `${startP + 0.1}%`} { opacity: 1; z-index: 20; }
-        ${endP}% { transform: translate3d(${translateX}%, ${translateY}%, 0) scale(${scaleImg}); opacity: 1; z-index: 20; }
-        ${idx === imageCount - 1 ? '100%' : `${endP + fadeP}%`} { opacity: 0; z-index: 10; }
+        /* Estado Inicial: Oculto abajo */
+        0% { opacity: 0; z-index: 10; transform: translate3d(0, 0, 0) scale(1); }
+        
+        /* Inicio de su turno: Empieza opacidad 0 (si no es el primero) pero sube a z-index 20 para estar listo */
+        ${startP}% { opacity: ${idx === 0 ? 1 : 0}; z-index: 20; transform: translate3d(0, 0, 0) scale(1); }
+        
+        /* Fin del Fade In: Ya es totalmente visible */
+        ${startP + (idx === 0 ? 0 : fadePct)}% { opacity: 1; z-index: 20; }
+        
+        /* Mitad del camino: Ken Burns */
+        ${midP}% { transform: translate3d(${translateX}%, ${translateY}%, 0) scale(${scaleImg}); opacity: 1; z-index: 20; }
+        
+        /* Fin de su turno principal: Sigue visible (para que el siguiente haga fade in encima) */
+        ${endP}% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; z-index: 20; }
+        
+        /* Margen de seguridad: Se oculta después de que el siguiente ya debió haber hecho fade in */
+        ${endP + fadePct}% { opacity: 1; z-index: 10; } 
+        ${endP + fadePct + 0.1}% { opacity: 0; }
+        
         100% { opacity: 0; }
       }
     `;
@@ -200,29 +148,22 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
   const baseKeyframes = `
     @keyframes progress-${animationId} { 0% { width: 0%; } 100% { width: 100%; } }
     @keyframes title-progress-${animationId} { 0% { clip-path: inset(0 0 0 100%); } 100% { clip-path: inset(0 0 0 0%); } }
+    @keyframes red-rect-ping-pong-1-${animationId} {
+      0%, 100% { left: calc(100% - 43px); }
+      50% { left: 0%; }
+    }
+    @keyframes red-rect-ping-pong-2-${animationId} {
+      0%, 100% { left: calc(100% - 65px); }
+      50% { left: 0%; }
+    }
     @keyframes logo-progress-${animationId} { 0% { width: 0%; } 100% { width: 100%; } }
     @keyframes ticker-${animationId} { 0% { transform: translate3d(100cqw, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
     @keyframes fade-out-${animationId} { 0%, ${p_out_start}% { opacity: 0; } 100% { opacity: 1; } }
-    @keyframes ping-pong-${animationId} {
-      0%, 100% { right: 0%; }
-      50% { right: 100%; }
-    }
-    @keyframes particle-bounce-${animationId} {
-      0% { transform: translate(var(--x1), var(--y1)); }
-      25% { transform: translate(var(--x2), var(--y2)); }
-      50% { transform: translate(var(--x3), var(--y3)); }
-      75% { transform: translate(var(--x4), var(--y4)); }
-      100% { transform: translate(var(--x1), var(--y1)); }
-    }
     @keyframes title-area-${animationId} {
       0% { opacity: 0; transform: translateX(100px); }
       ${p_in_start}% { opacity: 1; transform: translateX(0); }
       ${p_out_start}% { opacity: 1; transform: translateX(0); }
       100% { opacity: 0; transform: translateX(50px); }
-    }
-    @keyframes red-rect-ping-pong-${animationId} {
-      0%, 100% { transform: translateX(0); }
-      50% { transform: translateX(40px); }
     }
   `;
 
@@ -266,43 +207,96 @@ export const SlideAnimationPreview: React.FC<SlideAnimationPreviewProps> = ({
       </div>
 
       {/* Logo Area */}
-      <div className="absolute left-0 z-[150] pointer-events-none" style={{
-        top: MASTER_TOP, height: MASTER_HEIGHT, background: 'linear-gradient(to right, #003399 0%, transparent 100%)',
-        backdropFilter: 'blur(8px)', borderRadius: '0 2rem 2rem 0', paddingRight: 'calc(2rem - 25px)', display: 'flex', alignItems: 'center'
+      <div className="absolute left-0 z-[150] pointer-events-none overflow-hidden" style={{
+        top: MASTER_TOP, height: MASTER_HEIGHT, width: '25%', // Sufficient width for rectangles
+        borderRadius: '0 2.5rem 2.5rem 0'
       }}>
-        <img src="https://pub-5b294f92f42e4cbda687d0122e15bc72.r2.dev/logos/NOTICIAS.png" className="h-[75%] w-auto ml-[2.5cqw] drop-shadow-[0_0_15px_rgba(0,0,0,1)]" alt="Logo" />
-        <div
-          className="absolute bottom-0 left-0 h-[0.6cqh] bg-[#ff0000] blur-[2px] shadow-[0_0_10px_rgba(255,0,0,0.8)] z-[160]"
-          style={{ animation: `logo-progress-${animationId} ${totalDuration}s linear infinite` }}
-        />
+        {/* Mirrored Clipping Container for Logo */}
+        <div className="absolute inset-0" style={{
+          borderRadius: '0 2.5rem 2.5rem 0',
+          overflow: 'hidden',
+          maskImage: 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,1) 100%)',
+          WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,0.1) 0%, rgba(0,0,0,1) 100%)'
+        }}>
+          {/* Logo BG Gradient */}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, #003399 0%, transparent 100%)', backdropFilter: 'blur(8px)' }} />
+
+          {/* Group 1: 43px (Mirrored Timings/Offsets) */}
+          <div className="absolute top-0 h-full bg-[#6699ff] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 4.5s ease-in-out infinite 0.1s` }} />
+          <div className="absolute top-0 h-full bg-[#000000] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 5.1s ease-in-out infinite 0.2s` }} />
+          <div className="absolute top-0 h-full bg-[#ff0000] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 3.9s ease-in-out infinite` }} />
+          <div className="absolute top-0 h-full bg-[#FFFFFF] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 4.7s ease-in-out infinite 0.3s` }} />
+
+          {/* Group 2: 65px */}
+          <div className="absolute top-0 h-full bg-[#6699ff] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 6.2s ease-in-out infinite 0.4s` }} />
+          <div className="absolute top-0 h-full bg-[#000000] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 5.8s ease-in-out infinite 0.6s` }} />
+          <div className="absolute top-0 h-full bg-[#ff0000] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 5.4s ease-in-out infinite 0.5s` }} />
+          <div className="absolute top-0 h-full bg-[#FFFFFF] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 6.8s ease-in-out infinite 0.7s` }} />
+        </div>
+
+        {/* Logo Content */}
+        <div className="relative flex items-center h-full w-full pr-[calc(2rem-25px)]">
+          <div
+            className="absolute top-0 left-0 h-[0.6cqh] bg-[#ff0000] blur-[2px] shadow-[0_0_10px_rgba(255,0,0,0.8)] z-[160]"
+            style={{ animation: `logo-progress-${animationId} ${totalDuration}s linear infinite` }}
+          />
+          <img src="https://pub-5b294f92f42e4cbda687d0122e15bc72.r2.dev/logos/NOTICIAS.png" className="h-[75%] w-auto ml-[2.5cqw] drop-shadow-[0_0_15px_rgba(0,0,0,1)]" alt="Logo" />
+          <div
+            className="absolute bottom-0 left-0 h-[0.6cqh] bg-[#ff0000] blur-[2px] shadow-[0_0_10px_rgba(255,0,0,0.8)] z-[160]"
+            style={{ animation: `logo-progress-${animationId} ${totalDuration}s linear infinite` }}
+          />
+        </div>
       </div>
 
       {/* Title Area */}
       <div className="absolute z-[150] pointer-events-none" style={{
-        bottom: TITLE_AREA_BOTTOM, right: '0', width: 'fit-content', maxWidth: '85%', height: TITLE_BG_HEIGHT, borderRadius: '2.5rem 0 0 2.5rem',
-        background: `linear-gradient(to left, ${BRAND_BLUE} 0%, transparent 100%)`,
-        backdropFilter: 'blur(8px)', paddingRight: 'calc(3.5% + 10px)', paddingLeft: '6rem',
+        bottom: TITLE_AREA_BOTTOM, right: '0', width: 'fit-content',
+        maxWidth: '72%', height: TITLE_BG_HEIGHT, // User limit: 72%
+        paddingRight: 'min(2.5%, 20px)', paddingLeft: 'min(5%, 4rem)', // Tightened padding
         display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end',
         animation: `title-area-${animationId} ${totalDuration}s linear infinite`,
         overflow: 'visible'
       }}>
-        {/* Red Rectangles */}
-        <div className="absolute top-0 h-full bg-red-500/35 z-[3]" style={{ left: '15%', width: '18px', filter: 'blur(20px)', animation: `red-rect-ping-pong-${animationId} 3.5s ease-in-out infinite` }} />
-        <div className="absolute top-0 h-full bg-red-500/35 z-[3]" style={{ left: '45%', width: '28px', filter: 'blur(20px)', animation: `red-rect-ping-pong-${animationId} 5s ease-in-out infinite 0.7s` }} />
-        <div className="absolute top-0 h-full bg-red-500/35 z-[3]" style={{ left: '75%', width: '22px', filter: 'blur(20px)', animation: `red-rect-ping-pong-${animationId} 4.2s ease-in-out infinite 1.2s` }} />
+        {/* Clipping Container for Background and Rectangles */}
+        <div className="absolute inset-0 z-[1]" style={{
+          borderRadius: '2.5rem 0 0 2.5rem',
+          overflow: 'hidden',
+          WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.1) 100%)',
+          maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.1) 100%)'
+        }}>
+          {/* Gradient Background */}
+          <div className="absolute inset-0" style={{ background: `linear-gradient(to left, ${BRAND_BLUE} 0%, transparent 100%)`, backdropFilter: 'blur(8px)' }} />
 
-        {/* Particles Backdrop */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: -1, borderRadius: '2.5rem 0 0 2.5rem' }}>
-          <ParticlesBackground />
+          {/* Layer Order: Blue-Black-Red-White (43px) -> Blue-Black-Red-White (65px) */}
+          {/* Group 1: 43px */}
+          <div className="absolute top-0 h-full bg-[#6699ff] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 4.5s ease-in-out infinite 0.1s` }} />
+          <div className="absolute top-0 h-full bg-[#000000] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 5.1s ease-in-out infinite 0.2s` }} />
+          <div className="absolute top-0 h-full bg-[#ff0000] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 3.9s ease-in-out infinite` }} />
+          <div className="absolute top-0 h-full bg-[#FFFFFF] z-[4]" style={{ width: '43px', filter: 'blur(35px)', animation: `red-rect-ping-pong-1-${animationId} 4.7s ease-in-out infinite 0.3s` }} />
+
+          {/* Group 2: 65px */}
+          <div className="absolute top-0 h-full bg-[#6699ff] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 6.2s ease-in-out infinite 0.4s` }} />
+          <div className="absolute top-0 h-full bg-[#000000] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 5.8s ease-in-out infinite 0.6s` }} />
+          <div className="absolute top-0 h-full bg-[#ff0000] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 5.4s ease-in-out infinite 0.5s` }} />
+          <div className="absolute top-0 h-full bg-[#FFFFFF] z-[4]" style={{ width: '65px', filter: 'blur(35px)', animation: `red-rect-ping-pong-2-${animationId} 6.8s ease-in-out infinite 0.7s` }} />
         </div>
 
-        <div ref={titleTextRef} className="text-white text-right tracking-tighter flex flex-col items-end" style={{
+        <div
+          className="absolute top-0 right-0 h-[0.6cqh] z-[160]"
+          style={{
+            width: 'calc(100% - 2.5rem)',
+            background: 'linear-gradient(to left, #ff0000 0%, rgba(255,0,0,0.1) 100%)',
+            animation: `title-progress-${animationId} ${totalDuration}s linear infinite`
+          }}
+        />
+
+        <div ref={titleTextRef} className="text-white text-right tracking-tighter flex flex-col items-end z-[180]" style={{
           fontWeight: '900', fontStyle: 'italic',
           fontSize: dynamicFontSize || `calc(9.4cqh * ${fontScale})`,
           lineHeight: '0.92', textTransform: 'uppercase', whiteSpace: 'nowrap',
           paddingRight: '37px',
           marginRight: '-27px',
-          transform: 'translateX(22px)',
+          transform: 'translateX(2px)',
           textShadow: '0 0 15px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,1)'
         }}>
           <span>{titleLine1}</span>
