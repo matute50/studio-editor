@@ -13,7 +13,8 @@ import {
   Mic,
   AudioWaveform,
   UserCheck,
-  Globe
+  Globe,
+  Clapperboard
 } from 'lucide-react';
 
 const navItems = [
@@ -23,9 +24,9 @@ const navItems = [
   { title: 'Editor Noticias', path: '/noticias', icon: Newspaper },
   { title: 'Estudio Locución', path: '/audio-producer', icon: Mic },
   { title: 'Generar Slides', path: '/slides', icon: Presentation },
+  { title: 'Director Daily Show', path: '/daily-show', icon: Clapperboard },
   { title: 'YouTube Studio', path: '/youtube-studio', icon: Video },
   { title: 'Social Manager', path: '/social-manager', icon: Megaphone },
-  { title: 'Director de Programa', path: '/show-manager', icon: Presentation },
   { title: 'Avatar Studio', path: '/avatar-studio', icon: UserCheck },
   { title: 'Agenda Eventos', path: '/agenda', icon: CalendarDays },
   { title: 'Vista Previa Portal', path: '/portal', icon: Globe },
