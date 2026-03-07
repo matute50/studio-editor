@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { publishToSocialMedia } from '../services/social';
 import { uploadImageToR2 } from '../services/r2';
-
 export const SocialManager: React.FC = () => {
     const [text, setText] = useState('');
     const [file, setFile] = useState<File | null>(null);
@@ -112,8 +111,8 @@ export const SocialManager: React.FC = () => {
                         onClick={handlePublish}
                         disabled={loading || !text}
                         className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] text-xs shadow-xl transition-all relative overflow-hidden group ${status === 'success' ? 'bg-green-500 text-white' :
-                                status === 'error' ? 'bg-red-500 text-white' :
-                                    'bg-gradient-to-r from-pink-600 to-purple-600 text-white hover:scale-[1.02]'
+                            status === 'error' ? 'bg-red-500 text-white' :
+                                'bg-gradient-to-r from-pink-600 to-purple-600 text-white hover:scale-[1.02]'
                             } disabled:opacity-50 disabled:hover:scale-100`}
                     >
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>

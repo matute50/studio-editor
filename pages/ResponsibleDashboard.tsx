@@ -1,22 +1,25 @@
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../services/supabase';
 import { Article } from '../types';
-import { 
-  UserCheck, 
-  Activity, 
-  Mic, 
-  MonitorPlay, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
+import { newsService } from '../services/newsService';
+import {
+  UserCheck,
+  Activity,
+  Mic,
+  MonitorPlay,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
   RefreshCw,
   ChevronRight,
   Database,
   Cloud,
   Zap
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+
+const LinkTyped = Link as any;
+
 
 export const ResponsibleDashboard: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -35,19 +38,14 @@ export const ResponsibleDashboard: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase.from('articles').select('*').order('created_at', { ascending: false });
-      if (data) {
-        setArticles(data);
-        const audio = data.filter(a => !a.audio_url).length;
-        const slides = data.filter(a => !a.url_slide).length;
-        const ready = data.filter(a => a.audio_url && a.url_slide).length;
-        setStats({
-          total: data.length,
-          pendingAudio: audio,
-          pendingSlide: slides,
-          ready: ready
-        });
-      }
+      const [articlesData, statsData] = await Promise.all([
+        newsService.getArticles(),
+        newsService.getArticleStats()
+      ]);
+
+      if (articlesData) setArticles(articlesData);
+      if (statsData) setStats(statsData);
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -110,7 +108,7 @@ export const ResponsibleDashboard: React.FC = () => {
           </h3>
           <Link to="/noticias" className="text-[10px] font-black text-blue-600 uppercase hover:underline">Ver Editor Completo</Link>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -143,9 +141,9 @@ export const ResponsibleDashboard: React.FC = () => {
                     )}
                   </td>
                   <td className="px-8 py-5 text-right">
-                    <Link to={!article.audio_url ? "/audio-producer" : "/slides"} className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+                    <LinkTyped to={!article.audio_url ? "/audio-producer" : "/slides"} className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
                       <ChevronRight size={20} />
-                    </Link>
+                    </LinkTyped>
                   </td>
                 </tr>
               ))}

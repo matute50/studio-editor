@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "saladillovivo-voz-tts",
+  "private_key_id": "ae42b1077e080e54479d28518830fd3bbc9d0ea5",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDSzszUt02vrM+a\nmJ9C0qQ7lvgREoGYSStZQpWipErr6XeyN9bCfnES1Q/oG0YxT2xRen0+X8TjGebA\nwjrTdLNVY7f2m4p4h+z1VqWa55uXAVtbPQw1WJS+9ifE6T6BtvMwWmUjqh87k34g\neOoemLru/HeVcH6NheSZbwY5ATrBUUg/fqB0YITqCnPpu3U0J3FGa415INpfFma3\nYuVN6RhW8ge3d6QsxDn2sKQcWxs72FMIA3bVCLXGf0Xg7qr100aiZRHT4q92floK\nA1o+kXOMJ+9TfhgRHhKQGvgk7655GHzsdQpvuXB5c6BS+P7nn0r3aOchvBTV3sKg\nXry0+vgrAgMBAAECggEACNdnkTGxmRafC8Au8yHb2tagHNyGgZlABNmyu5mMaDc9\n2pmrm4irZrt3k/02L8dBpxaDaORMtlcAbeviL7rgnUo2DapvClMZGx5r361VweWV\nVqRJfiCdocy31PMQuLwFmGznelwePI9uZh+WzNBhtrhGrlvY0vK0qG1sTg5rz8PC\nG67SISEDPCML7vectmubUw2Bf3SFRZAOrZB52B7TqEI/F1qoOSMJO7OY2tLMx8fV\nAUX/dpMsQO+CWeNl9lw4xr6BWEyBrYMuKTY0LeJjFQYsv1jC5ROWWhmh+0uwh9vx\nybtbmIPXdqmolLSkDMOvooRZiAkkfXoGDYCVYrdWUQKBgQD2LPyl9pzvSwm6MYzl\naCWs7QEu+/QzwF+BfyPZjetzoAa9m7c/4/F8gUNvQSQ8op915KHrB9kFYS84IwN1\nwXVguxcUF2ff/c9XMOyxbnxR7DroGjX4cMQtawOcOD1eBI99S2mgVfGzZq11V5F5\ngU5W/vfanft4qvDzhRjwnQucfQKBgQDbOHuZwjSuCjUPtrvo9MVQfRo4hi0EjjLe\nPRsmhIHq1ohA1P3WvKEYWlb8/2IfHmloXea5YoRtg5KubTlk2cJhEEoSNqBA2OgK\nctptEsb+SbBjCdP9zVJvczPpxwnBEVT/2HJsaO+qNn71TUAV0ONzLOjhI7KHT0Qo\nr3xqnT0PxwKBgQDCHgtDW0m4r7UF61is9QjwaRsLz4Vq4YDt/jFota46SK/IB+fi\nK34arVtdeUJ3xcx0DEtZp6CLy2yOmZ1614gVNLIoF6TDTcKXgG7EItlJSDvTFggE\n1fb70WzRXM+XOYVkSXkLA3pJ+udApkKCS2JY20jaTMUlC7ZgcE2QPmYPiQKBgFKx\nBqakRBzWStenlVA1bGyFFCv4KOkL/pIoOKKZ3yvHStQxw6KJural9SQv7UJRxW8R\n5KNPTybEN8NF/h1VquXUMCyYoHB1oWm3kz8LkzZ+c2OYZHfbSFoz+YQYiUxjjk2H\nxvmvx5/MOK2tOxw/lFxwt1OdlI1H0C0MrQDGWS8nAoGBAIf6B1HcFnb0IB00DBlm\n9TR2nHqOkDjUo1ATq0X2BRTu9ejQgTxlu/C94GbLu8r6gzzImN17M/3xClU6Y8ee\nNUqso6KT+3Bh6b5eh06TBPJ3wXL0JLAQ+nD/ka4JcH9cYm9HUNJVlTCwH8+dBOVD\n6QFGO+MIAWo2yRr2BAwfZHZ/\n-----END PRIVATE KEY-----\n",
+  "client_email": "tts-service-agent@saladillovivo-voz-tts.iam.gserviceaccount.com",
+  "client_id": "100739649814740871001",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/tts-service-agent%40saladillovivo-voz-tts.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

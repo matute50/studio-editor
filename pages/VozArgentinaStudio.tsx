@@ -23,11 +23,12 @@ import {
   Download
 } from 'lucide-react';
 import { generateSpeech, generateClonedSpeech } from '../services/gemini';
+import { generateAudio } from '../services/googleTTS';
 import { VOICE_OPTIONS } from '../constants';
 import { uploadAudioToR2 } from '../services/r2';
 
 export const VozArgentinaStudio: React.FC = () => {
-  const [testText, setTestText] = useState('Yo ya llegué a la playa y está lloviendo un montón.');
+  const [testText, setTestText] = useState('¡Dale, vení! Ponéle buena onda que ya es tarde. ¿Qué hacés ahí parado? Ayer me tomé un feca con los pibes del laburo y me dijeron que la mitad del puente estaba cortado. ¡Un bolonqui bárbaro! Llamala a tu hermana y decile que se apure.');
   const [isGenerating, setIsGenerating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -100,29 +101,30 @@ export const VozArgentinaStudio: React.FC = () => {
         setAudioUrl(localUrl);
 
       } else {
-        // LOGIC FOR STANDARD VOICE
-        const accentInstruction = `[INSTRUCCIÓN VITAL DE ACENTO]: Actúa como un locutor Rioplatense (Buenos Aires, Argentina).
-          1. USÁ SHEÍSMO: Pronuncia 'y' y 'll' como 'SH' (ej: 'Playa' -> 'Plasha').
-          2. USÁ VOSEO: Usa 'vos' y no 'tú'.
-          3. ASPIRACIÓN DE 'S': Las 's' finales suenan suaves como 'h' (ej: 'Vamos' -> 'Vamoh').
-          4. ENTONACIÓN: Curva melódica porteña, con caída marcada al final.`;
+        // GEMINI TTS (Motor Principal con Soporte de Prompts Maestros)
+        const specificVoicePrompt = voicePrompts[selectedVoice] ? `[PERSONALIDAD ESPECÍFICA]: ${voicePrompts[selectedVoice]}` : '';
+        const fullExtraConfig = `${aiPrompt} ${specificVoicePrompt}`.trim();
 
-        // Helper para generar seed determinista basado en el nombre de la voz
-        const getVoiceSeed = (id: string): number => {
-          let hash = 0;
-          for (let i = 0; i < id.length; i++) {
-            hash = ((hash << 5) - hash) + id.charCodeAt(i);
-            hash |= 0; // Convert to 32bit integer
-          }
-          return Math.abs(hash);
-        };
+        console.log(`Generando con Gemini TTS (Prueba): ${selectedVoice} | Prompt Maestro: ${aiPrompt.slice(0, 30)}...`);
 
-        const voiceSeed = getVoiceSeed(selectedVoice);
-        const specificVoicePrompt = voicePrompts[selectedVoice] ? `[TU PERSONALIDAD ESPECÍFICA]: ${voicePrompts[selectedVoice]}` : '';
-
-        const fullInstruction = `${accentInstruction} ${aiPrompt} ${specificVoicePrompt}`;
-        const { localUrl } = await generateSpeech(testText, selectedVoice, 'medio', 1.0, fullInstruction, voiceSeed);
-        setAudioUrl(localUrl);
+        try {
+          const { localUrl } = await generateSpeech(
+            testText,
+            selectedVoice,
+            'medio',
+            1.05,
+            fullExtraConfig
+          );
+          setAudioUrl(localUrl);
+        } catch (err) {
+          console.warn("Gemini falló en prueba, intentando fallback de Google Cloud...");
+          const { localUrl } = await generateAudio(testText, {
+            voiceId: selectedVoice,
+            pitch: 0,
+            speakingRate: 1.05
+          });
+          setAudioUrl(localUrl);
+        }
       }
 
     } catch (err: any) {

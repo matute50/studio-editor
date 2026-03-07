@@ -1,10 +1,7 @@
 export const VOICE_OPTIONS = [
-    { id: 'Kore', label: 'Lucía', desc: 'Central', gender: 'female' },
-    { id: 'Fenrir', label: 'Marcelo', desc: 'Policial', gender: 'male' },
-    { id: 'Aoede', label: 'Sofía', desc: 'Cultura', gender: 'female' },
-    { id: 'Charon', label: 'Claudio', desc: 'Deportes', gender: 'male' },
-    { id: 'Puck', label: 'Mateo', desc: 'Juvenil', gender: 'male' },
-    { id: 'Zephyr', label: 'Paula', desc: 'Clima', gender: 'female' },
+    { id: 'Aoede', label: 'Sofía (Cultura)', desc: 'Femenina', gender: 'female' },
+    { id: 'Achird', label: 'Locutor (Noticias)', desc: 'Masculino', gender: 'male' },
+    { id: 'Kore', label: 'Lucía (Clima/General)', desc: 'Femenina', gender: 'female' },
 ] as const;
 
 export const SLOGANS = [

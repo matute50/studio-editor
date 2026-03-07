@@ -16,8 +16,11 @@ import {
   Clapperboard
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../services/supabase';
+
+const LinkTyped = Link as any;
+
 import { Article } from '../types';
+import { newsService } from '../services/newsService';
 
 const modules = [
   { title: 'Escritorio Responsable', desc: 'Resumen de producción.', icon: UserCheck, path: '/responsable', color: 'bg-blue-900', text: 'text-blue-900', bgLight: 'bg-blue-50' },
@@ -25,7 +28,6 @@ const modules = [
   { title: 'Editor Noticias', desc: 'Redactar y publicar.', icon: Newspaper, path: '/noticias', color: 'bg-blue-600', text: 'text-blue-600', bgLight: 'bg-blue-50' },
   { title: 'Estudio Locución', desc: 'Generar audio AI.', icon: ImageIcon, path: '/audio-producer', color: 'bg-purple-600', text: 'text-purple-600', bgLight: 'bg-purple-50' },
   { title: 'Generar Slides', desc: 'Carrusel de video.', icon: Presentation, path: '/slides', color: 'bg-indigo-600', text: 'text-indigo-600', bgLight: 'bg-indigo-50' },
-  { title: 'Director Daily Show', desc: 'Secuenciador.', icon: Clapperboard, path: '/daily-show', color: 'bg-emerald-600', text: 'text-emerald-600', bgLight: 'bg-emerald-50' },
   { title: 'YouTube Manager', desc: 'Gestión videoteca.', icon: Video, path: '/youtube-studio', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
   { title: 'Social Manager', desc: 'Publicar redes.', icon: Share2, path: '/social-manager', color: 'bg-pink-600', text: 'text-pink-600', bgLight: 'bg-pink-50' },
   { title: 'Avatar Studio', desc: 'Presentador AI.', icon: UserCheck, path: '/avatar-studio', color: 'bg-violet-600', text: 'text-violet-600', bgLight: 'bg-violet-50' },
@@ -38,14 +40,14 @@ export const DashboardHome: React.FC = () => {
 
   useEffect(() => {
     const fetchRecent = async () => {
-      const { data } = await supabase
-        .from('articles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(4);
-
-      if (data) setRecentArticles(data);
-      setLoading(false);
+      try {
+        const data = await newsService.getArticles();
+        if (data) setRecentArticles(data.slice(0, 4));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchRecent();
@@ -91,7 +93,7 @@ export const DashboardHome: React.FC = () => {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {modules.map((module) => (
-              <Link
+              <LinkTyped
                 key={module.path}
                 to={module.path}
                 className="group glass-card p-6 rounded-3xl relative overflow-hidden hover:-translate-y-1 transition-all duration-300"
@@ -109,7 +111,7 @@ export const DashboardHome: React.FC = () => {
                   <h4 className="font-black text-lg text-slate-200 uppercase tracking-tight group-hover:text-white transition-colors">{module.title}</h4>
                   <p className="text-[11px] text-slate-500 font-bold uppercase mt-2 tracking-wide group-hover:text-slate-400 transition-colors">{module.desc}</p>
                 </div>
-              </Link>
+              </LinkTyped>
             ))}
           </div>
         </div>

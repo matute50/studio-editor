@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import Cropper from 'https://esm.sh/react-easy-crop@5.0.4';
+import Cropper from 'react-easy-crop';
 import { supabase } from '../services/supabase';
 import { uploadHtmlToR2, deleteFileFromR2 } from '../services/r2';
 import { SlideAnimationPreview } from '../components/SlideAnimationPreview';

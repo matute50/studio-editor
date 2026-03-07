@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { optimizeBodyForAudio, generateSpeech, appendSloganToText } from '../services/gemini';
+import { generateAudio } from '../services/googleTTS';
 import { uploadAudioToR2 } from '../services/r2';
 import { mixSpeechWithCustomIntro } from '../services/audioMixer';
 import { Article } from '../types';
@@ -34,7 +35,10 @@ import {
   Theater,
   Zap,
   FilePlus,
-  Trash2
+  Trash2,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquareText
 } from 'lucide-react';
 import { VOICE_OPTIONS, SLOGANS } from '../constants';
 
@@ -78,6 +82,10 @@ export const AudioProducer: React.FC = () => {
   const [musicVol, setMusicVol] = useState<number>(0.6);
   const [isManualMode, setIsManualMode] = useState(false);
   const [manualTitle, setManualTitle] = useState('Audio Manual');
+  const [feedback, setFeedback] = useState('');
+  const [lastRating, setLastRating] = useState<boolean | null>(null);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [showFeedbackPanel, setShowFeedbackPanel] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -107,7 +115,7 @@ export const AudioProducer: React.FC = () => {
 
   useEffect(() => {
     if (selectedArticle) {
-      setScript(selectedArticle.body_voice_tuning || selectedArticle.text || '');
+      setScript(selectedArticle.text || '');
       setGeneratedAudioUrl(null);
     }
   }, [selectedArticle]);
@@ -150,6 +158,7 @@ export const AudioProducer: React.FC = () => {
       const { data, error } = await supabase.from('articles').select('*, body_voice_tuning').order('created_at', { ascending: false }).limit(20);
       if (error) throw error;
       setPendingArticles(data || []);
+
     } catch (err: any) {
       console.error("Error cargando noticias:", err);
       setError("Error cargando noticias: " + err.message);
@@ -212,7 +221,9 @@ export const AudioProducer: React.FC = () => {
       const tempPrompt = tempMap[creativityTemp] || "";
 
       // --- SELECCIÓN DE SLOGAN ROTATIVO (Regla de Oro: No repetir en el mismo día) ---
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      const today = new Date(now.getTime() - offset).toISOString().split('T')[0];
       const storageKey = `slogans_usage_${today}`;
       let usedIndices: number[] = [];
 
@@ -239,39 +250,57 @@ export const AudioProducer: React.FC = () => {
         ? script
         : appendSloganToText(script, `¡${selectedSlogan}!`); // Añadir signos para énfasis básico
 
-      const sloganInstruction = `[INSTRUCCIÓN DE REMATE]: El slogan final "${selectedSlogan}" debe leerse con CAMBIO DE TONO: más lento, contundente y con una sonrisa auditiva (si corresponde al vibe). ¡Que se note que es el cierre de marca!`;
+      // GOOGLE CLOUD TTS (CHIRP3-HD) - DETERMINISTA CON CACHÉ SHA-256
+      // No le pasamos prompts de actuación, solo el texto y el slogan.
+      const finalInputText = scriptWithSlogan;
 
-      const accentInstruction = `[INSTRUCCIÓN VITAL DE ACENTO]: Actúa como un locutor Rioplatense (Buenos Aires, Argentina). 
-      1. USÁ SHEÍSMO: Pronuncia 'y' y 'll' como 'SH' (ej: 'Playa' -> 'Plasha').
-      2. USÁ VOSEO: Usa 'vos' y no 'tú'.
-      3. ASPIRACIÓN DE 'S': Las 's' finales suenan suaves como 'h' (ej: 'Vamos' -> 'Vamoh').
-      4. ENTONACIÓN: Curva melódica porteña, con caída marcada al final.`;
+      let speechResult: any; // Using any to access hashFileName later
 
-      const getVoiceSeed = (id: string): number => {
-        let hash = 0;
-        for (let i = 0; i < id.length; i++) {
-          hash = ((hash << 5) - hash) + id.charCodeAt(i);
-          hash |= 0; // Convert to 32bit integer
-        }
-        return Math.abs(hash);
-      };
+      // 1. Obtener feedback histórico (los últimos 3 fallos) para "entrenar" contextualmente a Gemini
+      const { data: pastFeedback } = await supabase
+        .from('audio_feedback')
+        .select('feedback_text')
+        .eq('article_id', isManualMode ? 'manual' : String(selectedArticle?.id))
+        .eq('rating', false)
+        .order('created_at', { ascending: false })
+        .limit(3);
 
-      const voiceSeed = getVoiceSeed(selectedVoice);
-      const specificVoicePrompt = voicePrompts[selectedVoice] ? `[TU PERSONALIDAD ESPECÍFICA]: ${voicePrompts[selectedVoice]}` : '';
+      const feedbackContext = pastFeedback?.length
+        ? `\n[CORRECCIONES BASADAS EN FALLOS ANTERIORES]: ${pastFeedback.filter(f => f.feedback_text).map(f => f.feedback_text).join(', ')}. EVITA ESTOS ERRORES.`
+        : '';
 
-      const speechResult = await generateSpeech(
-        scriptWithSlogan,
-        selectedVoice,
-        'medio',
-        manualSpeed,
-        `${accentInstruction} ${masterAiPrompt} ${solemnPrompt} ${vibePrompt} ${tempPrompt} ${specificVoicePrompt} ${sloganInstruction}`,
-        voiceSeed
-      );
+      const fullExtraConfig = `${masterAiPrompt} ${feedbackContext}`.trim();
+
+      console.log(`Intentando con Motor Gemini (Acento Rioplatense): ${selectedVoice} | Config: ${fullExtraConfig.slice(0, 50)}...`);
+      try {
+        speechResult = await generateSpeech(
+          finalInputText,
+          selectedVoice,
+          'medio',
+          manualSpeed,
+          fullExtraConfig
+        );
+      } catch (geminiError) {
+        console.warn("Fallo Gemini TTS, usando Fallback de Google Cloud:", geminiError);
+        // Mapear ID simple a ID largo de Chirp3 para el fallback
+        const chirpVoiceId = `es-US-Chirp3-HD-${selectedVoice}`;
+
+        speechResult = await generateAudio(
+          finalInputText,
+          {
+            voiceId: chirpVoiceId,
+            pitch: 0.0,
+            speakingRate: 1.05
+          }
+        );
+      }
 
       const { blob: finalAudioBlob, duration: finalDuration } = await mixSpeechWithCustomIntro(speechResult.pcmData, selectedCurtain, musicVol);
 
       const finalUrl = URL.createObjectURL(finalAudioBlob);
       setGeneratedAudioUrl(finalUrl);
+      setShowFeedbackPanel(true);
+      setLastRating(null);
       setIsGeneratingAudio(false);
 
       // Si es manual, terminamos aquí (solo para pre-escucha y descarga local)
@@ -279,8 +308,9 @@ export const AudioProducer: React.FC = () => {
 
       if (!selectedArticle) return;
 
-      // Usar timestamp para evitar cache de Cloudflare/Navegador
-      const fileName = `locucion_${selectedArticle.id}_${Date.now()}.mp3`;
+      // Usar el hash file name generado por googleTTS.ts para garantizar la caché. 
+      // Si por alguna razón no viene (ej. fallback manual), usamos el ID y timestamp.
+      const fileName = speechResult.hashFileName || `locucion_${selectedArticle.id}_${Date.now()}.mp3`;
       const publicUrl = await uploadAudioToR2(finalAudioBlob, fileName);
 
       // GUARDAR EN NUEVA COLUMNA body_voice_tuning PARA NO SOBRESCRIBIR EL TEXTO VISUAL (TICKER)
@@ -391,6 +421,8 @@ export const AudioProducer: React.FC = () => {
             <button key={article.id} onClick={() => {
               setIsManualMode(false);
               setSelectedArticle(article);
+              setScript(article.text || '');
+              setGeneratedAudioUrl(null);
             }} className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${(!isManualMode && selectedArticle?.id === article.id) ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100' : 'bg-white border-slate-100 hover:border-slate-200'}`}>
               <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200 relative">
                 {article.image_url ? <img src={article.image_url} className="w-full h-full object-cover" /> : <ImageIcon size={14} className="m-auto mt-3 text-slate-300" />}
@@ -409,174 +441,251 @@ export const AudioProducer: React.FC = () => {
       <div className="lg:col-span-9 flex flex-col h-full bg-slate-950 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
         {error && <div className="bg-red-600 text-white text-[10px] font-bold px-6 py-2 flex items-center gap-2 animate-slideDown"><AlertTriangle size={12} /> {error}</div>}
 
-        <div className="px-6 py-5 border-b border-white/5 bg-slate-900/50 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-4">
-            <div className={`w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-xl ${isPlaying ? 'animate-pulse ring-4 ring-blue-500/20' : ''}`}><Radio size={20} /></div>
+        <div className="px-4 py-3 border-b border-white/5 bg-slate-900/50 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-xl ${isPlaying ? 'animate-pulse ring-4 ring-blue-500/20' : ''}`}><Radio size={16} /></div>
             <div>
-              <h2 className="text-xs font-black text-white uppercase tracking-[0.4em]">Broadcast <span className="text-blue-500">Master</span></h2>
-              <div className="flex items-center gap-2">
-                <p className="text-[9px] text-slate-500 font-bold uppercase mt-0.5">VozArgentina Studio</p>
-                {masterAiPrompt && (
-                  <span className="text-[8px] font-black text-green-400 bg-green-400/10 px-2 py-0.5 rounded border border-green-400/20 uppercase tracking-widest flex items-center gap-1 animate-pulse">
+              <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-1.5">
+                Broadcast <span className="text-blue-500">Master</span>
+                <span className="text-[7px] text-slate-500 bg-white/5 px-1 py-0.5 rounded ml-1">VozArgentina Studio</span>
+              </h2>
+              {masterAiPrompt && (
+                <div className="mt-0.5">
+                  <span className="text-[7px] font-black text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded border border-green-400/20 uppercase tracking-widest inline-flex items-center gap-1 animate-pulse">
                     <Sparkles size={8} /> Prompt Maestro Activo
                   </span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex flex-wrap gap-2 justify-end max-w-2xl bg-black/40 p-1.5 rounded-2xl border border-white/5">
-              {VIBE_OPTIONS.map(v => (
-                <button key={v.id} onClick={() => setSelectedVibe(v.id)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all flex items-center gap-1.5 ${selectedVibe === v.id ? 'bg-white/10 text-white border border-white/10 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
-                  <v.icon size={10} className={v.color} /> {v.label}
-                </button>
-              ))}
-            </div>
-            {/* Botón eliminado de aquí para moverlo a la barra inferior */}
+          <div className="flex flex-wrap gap-1 justify-end max-w-[500px] bg-black/40 p-1 rounded-xl border border-white/5">
+            {VIBE_OPTIONS.map(v => (
+              <button key={v.id} onClick={() => setSelectedVibe(v.id)} className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase transition-all flex items-center gap-1 leading-none ${selectedVibe === v.id ? 'bg-white/10 text-white border border-white/10 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
+                <v.icon size={8} className={v.color} /> {v.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="h-[30%] flex bg-slate-900 relative">
+        <div className="flex-1 flex flex-col bg-slate-900 border-b border-white/5 relative">
           {isManualMode && (
-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
-              <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Nombre del Archivo</label>
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 items-end">
+              <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Nombre</label>
               <input
                 type="text"
                 value={manualTitle}
                 onChange={(e) => setManualTitle(e.target.value)}
-                className="bg-slate-800 border border-white/10 rounded px-3 py-1 text-white text-[10px] uppercase font-bold outline-none focus:border-blue-500 transition-colors w-48"
-                placeholder="Ej: Promo_Evento"
+                className="bg-slate-800 border border-white/10 rounded px-2 py-1 text-white text-[10px] uppercase font-bold outline-none focus:border-blue-500 transition-colors w-40"
+                placeholder="Ej: Promo"
               />
             </div>
           )}
-          <textarea ref={textareaRef} value={script} onChange={(e) => setScript(e.target.value)} className="flex-1 p-6 bg-slate-900 text-white text-lg leading-relaxed outline-none resize-none font-medium custom-scrollbar" placeholder={isManualMode ? "Escribí aquí el texto que querés convertir en audio..." : "Guion de la noticia..."} />
-        </div>
+          <textarea ref={textareaRef} value={script} onChange={(e) => setScript(e.target.value)} className="flex-1 p-5 pb-10 bg-transparent text-white text-[15px] leading-relaxed outline-none resize-none font-medium custom-scrollbar min-h-[140px]" placeholder={isManualMode ? "Escribí aquí el texto que querés convertir en audio..." : "Guion de la noticia..."} />
 
-        {/* BARRA DE ACCIÓN: PREPARAR GUION */}
-        <div className="bg-amber-500/10 border-y border-amber-500/20 px-6 py-3 flex items-center justify-between shadow-[0_0_20px_rgba(245,158,11,0.1)] relative overflow-hidden group">
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="p-2 bg-amber-500/20 rounded-lg text-amber-500 animate-pulse">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <h3 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Optimización de Guion con IA</h3>
-              <p className="text-[9px] text-amber-200/60 font-medium">Aplica formato de locución, pausas y entonación profesional</p>
-            </div>
+          {/* BOTÓN FLOTANTE OPTIMIZAR (SIN BANNER) */}
+          <div className="absolute bottom-3 right-4 z-10 flex items-center gap-3">
+            {masterAiPrompt && <span className="text-[8px] text-slate-500 italic opacity-50">Prompt Maestro Aplicado</span>}
+            <button
+              onClick={handleOptimizeScript}
+              disabled={isOptimizingScript || !script.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/90 hover:bg-amber-400 text-black rounded-lg shadow-md disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[9px] font-black uppercase tracking-wider backdrop-blur-sm active:scale-95 border border-amber-400"
+            >
+              {isOptimizingScript ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              {isOptimizingScript ? 'Optimizando...' : 'Optimizar Guion'}
+            </button>
           </div>
-          <button
-            onClick={handleOptimizeScript}
-            disabled={isOptimizingScript || !script.trim()}
-            className="relative z-10 flex items-center gap-2 px-8 py-2.5 bg-amber-500 hover:bg-amber-400 text-black rounded-lg shadow-lg hover:shadow-amber-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-black uppercase tracking-wider transform hover:scale-105 active:scale-95"
-          >
-            {isOptimizingScript ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {isOptimizingScript ? 'Optimizando...' : 'Preparar Guion Ahora'}
-          </button>
-
-          {/* Fondo animado sutil */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
         </div>
 
-        <div className="flex-1 bg-slate-950 p-6 space-y-8 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-            <div className="md:col-span-4 space-y-3">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 border-l-2 border-blue-500 pl-2">Voces</label>
-              <div className="grid grid-cols-2 gap-4">
-                {/* COLUMNA VOCES FEMENINAS */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-black text-pink-400 uppercase tracking-widest flex items-center gap-2 border-b border-pink-500/20 pb-2">
-                    <Sparkles size={10} /> Voces Femeninas
+        {/* PANEL INFERIOR COMPACTADO */}
+        <div className="bg-slate-950 p-4 space-y-4 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Voces */}
+            <div className="lg:col-span-5 space-y-2">
+              <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1 border-l-2 border-blue-500 pl-2">Voces</label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <div className="text-[8px] font-black text-pink-400 uppercase tracking-widest flex items-center gap-1 border-b border-pink-500/20 pb-1">
+                    <Sparkles size={8} /> Fem
                   </div>
                   {VOICE_OPTIONS.filter(v => v.gender === 'female').map(v => (
-                    <button key={v.id} onClick={() => setSelectedVoice(v.id)} className={`w-full text-left p-2.5 rounded-xl border transition-all group ${selectedVoice === v.id ? 'bg-pink-600 border-pink-400 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-slate-900 border-white/5 text-slate-400 hover:border-pink-500/30'}`}>
-                      <div className={`font-black text-[10px] uppercase ${selectedVoice === v.id ? 'text-white' : 'text-slate-400 group-hover:text-pink-200'}`}>{v.label}</div>
-                      <div className={`text-[8px] italic opacity-60 ${selectedVoice === v.id ? 'text-pink-100' : ''}`}>{v.desc}</div>
+                    <button key={v.id} onClick={() => setSelectedVoice(v.id)} className={`w-full text-left p-1.5 rounded-lg border transition-all group ${selectedVoice === v.id ? 'bg-pink-600 border-pink-400 text-white shadow-[0_0_10px_rgba(236,72,153,0.3)]' : 'bg-slate-900 border-white/5 text-slate-400 hover:border-pink-500/30'}`}>
+                      <div className={`font-black text-[9px] uppercase leading-tight ${selectedVoice === v.id ? 'text-white' : 'text-slate-300 group-hover:text-pink-200'}`}>{v.label}</div>
+                      <div className={`text-[7px] italic opacity-60 truncate ${selectedVoice === v.id ? 'text-pink-100' : ''}`}>{v.desc}</div>
                     </button>
                   ))}
                 </div>
-
-                {/* COLUMNA VOCES MASCULINAS */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2 border-b border-blue-500/20 pb-2">
-                    <Zap size={10} /> Voces Masculinas
+                <div className="space-y-1.5">
+                  <div className="text-[8px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1 border-b border-blue-500/20 pb-1">
+                    <Zap size={8} /> Masc
                   </div>
                   {VOICE_OPTIONS.filter(v => v.gender === 'male').map(v => (
-                    <button key={v.id} onClick={() => setSelectedVoice(v.id)} className={`w-full text-left p-2.5 rounded-xl border transition-all group ${selectedVoice === v.id ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-slate-900 border-white/5 text-slate-400 hover:border-blue-500/30'}`}>
-                      <div className="font-black text-[10px] uppercase group-hover:text-blue-200">{v.label}</div>
-                      <div className={`text-[8px] italic opacity-60 ${selectedVoice === v.id ? 'text-blue-100' : ''}`}>{v.desc}</div>
+                    <button key={v.id} onClick={() => setSelectedVoice(v.id)} className={`w-full text-left p-1.5 rounded-lg border transition-all group ${selectedVoice === v.id ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'bg-slate-900 border-white/5 text-slate-400 hover:border-blue-500/30'}`}>
+                      <div className={`font-black text-[9px] uppercase leading-tight ${selectedVoice === v.id ? 'text-white' : 'text-slate-300 group-hover:text-blue-200'}`}>{v.label}</div>
+                      <div className={`text-[7px] italic opacity-60 truncate ${selectedVoice === v.id ? 'text-blue-100' : ''}`}>{v.desc}</div>
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="md:col-span-4 space-y-3">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 border-l-2 border-green-500 pl-2">Cortinas</label>
-              <div className="grid grid-cols-2 gap-2 overflow-y-auto max-h-40 pr-2 custom-scrollbar">
+            {/* Cortinas */}
+            <div className="lg:col-span-4 space-y-2">
+              <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1 border-l-2 border-green-500 pl-2">Cortinas</label>
+              <div className="grid grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                 {CURTAIN_OPTIONS.map(c => (
-                  <button key={c.id} onClick={() => setSelectedCurtain(c.url)} className={`p-3 rounded-xl border text-center transition-all ${selectedCurtain === c.url ? (c.id === 'none' ? 'bg-slate-700 border-white text-white' : 'bg-green-600 border-green-400 text-white shadow-lg') : 'bg-slate-900 border-white/5 text-slate-400'}`}>
-                    <c.icon size={14} className={`mx-auto mb-1 ${c.id === 'none' ? 'text-red-400' : ''}`} />
-                    <span className="text-[8px] font-black uppercase leading-tight">{c.label}</span>
+                  <button key={c.id} onClick={() => setSelectedCurtain(c.url)} className={`p-1.5 rounded-lg border flex flex-col items-center justify-center text-center transition-all ${selectedCurtain === c.url ? (c.id === 'none' ? 'bg-slate-700 border-white text-white' : 'bg-green-600 border-green-400 text-white shadow-md') : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-slate-800'}`}>
+                    <c.icon size={12} className={`mb-1 ${c.id === 'none' ? 'text-red-400' : ''}`} />
+                    <span className="text-[7.5px] font-black uppercase leading-[1.1]">{c.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="md:col-span-4 space-y-4 bg-white/5 p-4 rounded-2xl border border-white/10 flex flex-col justify-center">
-              <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                <span className="flex items-center gap-2"><SlidersHorizontal size={14} /> Mezcla</span>
-                <span className="text-blue-400">{(musicVol * 100).toFixed(0)}% Cortina</span>
+            {/* Ajustes Finos */}
+            <div className="lg:col-span-3 bg-white/5 p-3 rounded-xl border border-white/10 flex flex-col justify-between">
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  <span>Mezcla Cortina</span>
+                  <span className="text-blue-400">{(musicVol * 100).toFixed(0)}%</span>
+                </div>
+                <input type="range" min={0.1} max={1.0} step={0.05} value={musicVol} onChange={(e) => setMusicVol(parseFloat(e.target.value))} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" disabled={!selectedCurtain} />
               </div>
-              <input type="range" min={0.1} max={1.0} step={0.05} value={musicVol} onChange={(e) => setMusicVol(parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" disabled={!selectedCurtain} />
 
-              <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest mt-4">
-                <span className="flex items-center gap-2"><FastForward size={14} /> Velocidad</span>
-                <span className="text-blue-400">{manualSpeed}x</span>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  <span>Velocidad Voz</span>
+                  <span className="text-blue-400">{manualSpeed}x</span>
+                </div>
+                <input type="range" min={0.8} max={1.3} step={0.05} value={manualSpeed} onChange={(e) => setManualSpeed(parseFloat(e.target.value))} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" />
               </div>
-              <input type="range" min={0.8} max={1.3} step={0.05} value={manualSpeed} onChange={(e) => setManualSpeed(parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" />
 
-              {/* DESLIZABLE DE TEMPERATURA */}
-              <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest mt-4">
-                <span className="flex items-center gap-2"><Thermometer size={14} /> Temperatura</span>
-                <span className="text-amber-400">{getTempLabel(creativityTemp)}</span>
-              </div>
-              <input type="range" min={1} max={4} step={1} value={creativityTemp} onChange={(e) => setCreativityTemp(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-              <div className="flex justify-between text-[7px] text-slate-500 font-bold uppercase mt-1 px-1">
-                <span>Fiel</span>
-                <span>Expresivo</span>
-                <span>Creativo</span>
-                <span>Libre</span>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  <span>Interpretación</span>
+                  <span className="text-amber-400">{getTempLabel(creativityTemp)}</span>
+                </div>
+                <input type="range" min={1} max={4} step={1} value={creativityTemp} onChange={(e) => setCreativityTemp(parseInt(e.target.value))} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                <div className="flex justify-between text-[6px] text-slate-500 font-bold uppercase mt-1">
+                  <span>Fiel</span><span>Expres.</span><span>Creatv.</span><span>Libre</span>
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="pt-6 border-t border-white/5 flex items-center gap-8">
-            <button onClick={handleGenerate} disabled={isGeneratingAudio || !script.trim() || (!isManualMode && !selectedArticle)} className="h-16 px-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all font-black text-xs uppercase tracking-[0.3em]">
-              {isGeneratingAudio ? <Loader2 size={20} className="animate-spin" /> : <Music4 size={20} />} Largar Producción
-            </button>
-
-            {generatedAudioUrl && (
-              <div className="flex-1 flex items-center gap-6 animate-fadeIn bg-white/5 p-3 pr-6 rounded-2xl border border-white/10 backdrop-blur-sm">
-                <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-white text-slate-950 rounded-full hover:scale-105 transition-all">
-                  {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} className="ml-1" fill="currentColor" />}
-                </button>
-                <div className="flex-1 space-y-2">
-                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className={`h-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] ${isPlaying ? 'w-full' : 'w-0'} transition-all duration-[3000ms] linear`}></div>
-                  </div>
-                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Saladia de Master lista</span>
+        {/* FEEDBACK STATION - SISTEMA DE CALIFICACIÓN */}
+        {generatedAudioUrl && showFeedbackPanel && (
+          <div className="pt-4 border-t border-white/5 animate-slideDown">
+            <div className="bg-slate-900/80 border border-white/5 rounded-2xl p-4 flex flex-col lg:flex-row items-center gap-6">
+              <div className="flex flex-col gap-1 items-center lg:items-start shrink-0">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Calidad del Audio</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setLastRating(true);
+                      // Guardar éxito en DB
+                      await supabase.from('audio_feedback').insert({
+                        article_id: isManualMode ? 'manual' : String(selectedArticle?.id),
+                        rating: true,
+                        voice_id: selectedVoice
+                      });
+                      setShowFeedbackPanel(false); // Desaparece al dar positivo
+                    }}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${lastRating === true ? 'bg-green-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-green-400'}`}
+                  >
+                    <ThumbsUp size={20} fill={lastRating === true ? "currentColor" : "none"} />
+                  </button>
+                  <button
+                    onClick={() => setLastRating(false)}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${lastRating === false ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-red-400'}`}
+                  >
+                    <ThumbsDown size={20} fill={lastRating === false ? "currentColor" : "none"} />
+                  </button>
                 </div>
-                <button
-                  onClick={handleDownloadManual}
-                  className="p-3 bg-white/5 text-white/40 hover:text-blue-400 rounded-xl transition-all"
-                  title="Descargar Audio"
-                >
-                  <Download size={20} />
-                </button>
-                <audio ref={audioRef} src={generatedAudioUrl} onEnded={() => setIsPlaying(false)} className="hidden" />
               </div>
-            )}
+
+              <div className="flex-1 w-full space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <MessageSquareText size={12} className="text-blue-400" />
+                    {lastRating === false ? '¿Qué falló? (Feedback para entrenamiento)' : 'Sugerencia o comentario (Opcional)'}
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder={lastRating === false ? "Ej: ERROR DE YEISMO, RITMO MONOTONO..." : "Escribí aquí..."}
+                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white text-[11px] outline-none focus:ring-1 focus:ring-blue-500 transition-all shadow-inner"
+                  />
+                  <button
+                    disabled={isSubmittingFeedback || (lastRating === false && !feedback.trim())}
+                    onClick={async () => {
+                      setIsSubmittingFeedback(true);
+                      try {
+                        await supabase.from('audio_feedback').insert({
+                          article_id: isManualMode ? 'manual' : String(selectedArticle?.id),
+                          rating: lastRating ?? false,
+                          feedback_text: feedback,
+                          voice_id: selectedVoice
+                        });
+
+                        if (lastRating === false) {
+                          // Limpiar audio si no es satisfactorio para forzar reintento
+                          setGeneratedAudioUrl(null);
+                          if (selectedArticle) {
+                            await supabase.from('articles').update({ audio_url: null }).eq('id', selectedArticle.id);
+                          }
+                          alert("Feedback enviado. El audio ha sido marcado para reintento con estas mejoras.");
+                        } else {
+                          alert("Feedback guardado con éxito.");
+                        }
+                        setFeedback('');
+                        setShowFeedbackPanel(false); // Desaparece al presionar INFORMAR
+                      } catch (e) {
+                        console.error("Error enviando feedback:", e);
+                      } finally {
+                        setIsSubmittingFeedback(false);
+                      }
+                    }}
+                    className="px-6 bg-white/5 hover:bg-white/10 text-white text-[9px] font-black uppercase rounded-xl transition-all border border-white/5 disabled:opacity-30"
+                  >
+                    {isSubmittingFeedback ? <Loader2 size={12} className="animate-spin" /> : 'Informar'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+        )}
+
+        <div className="pt-6 border-t border-white/5 flex items-center gap-8">
+          <button onClick={handleGenerate} disabled={isGeneratingAudio || !script.trim() || (!isManualMode && !selectedArticle)} className="h-16 px-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all font-black text-xs uppercase tracking-[0.3em]">
+            {isGeneratingAudio ? <Loader2 size={20} className="animate-spin" /> : <Music4 size={20} />} Largar Producción
+          </button>
+
+          {generatedAudioUrl && (
+            <div className="flex-1 flex items-center gap-6 animate-fadeIn bg-white/5 p-3 pr-6 rounded-2xl border border-white/10 backdrop-blur-sm">
+              <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-white text-slate-950 rounded-full hover:scale-105 transition-all">
+                {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} className="ml-1" fill="currentColor" />}
+              </button>
+              <div className="flex-1 space-y-2">
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className={`h-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] ${isPlaying ? 'w-full' : 'w-0'} transition-all duration-[3000ms] linear`}></div>
+                </div>
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Saladia de Master lista</span>
+              </div>
+              <button
+                onClick={handleDownloadManual}
+                className="p-3 bg-white/5 text-white/40 hover:text-blue-400 rounded-xl transition-all"
+                title="Descargar Audio"
+              >
+                <Download size={20} />
+              </button>
+              <audio ref={audioRef} src={generatedAudioUrl} onEnded={() => setIsPlaying(false)} className="hidden" />
+            </div>
+          )}
         </div>
       </div>
     </div>

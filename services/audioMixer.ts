@@ -107,9 +107,15 @@ export const mixSpeechWithCustomIntro = async (
   try {
     let speechBuffer: AudioBuffer;
 
-    // Handle Raw PCM bytes from Gemini or generic URL
+    // Handle Blob/MP3 Uint8Array bytes from Google TTS or raw PCM
     if (speechInput instanceof Uint8Array) {
-      speechBuffer = await decodePcmData(speechInput, tempCtx, 24000, 1);
+      try {
+        // Google TTS returns MP3 encoded as a Uint8Array, we can decode it natively
+        speechBuffer = await tempCtx.decodeAudioData(speechInput.buffer.slice(0));
+      } catch (e) {
+        console.warn("Native decodeAudioData failed, falling back to custom raw PCM decode", e);
+        speechBuffer = await decodePcmData(speechInput, tempCtx, 24000, 1);
+      }
     } else {
       speechBuffer = await loadAudio(tempCtx, speechInput);
     }

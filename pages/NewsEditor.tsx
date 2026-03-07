@@ -2,41 +2,28 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { uploadImageToR2 } from '../services/r2';
+import { generateSuperResumen } from '../services/gemini';
 import { NewsImageEditor } from '../components/NewsImageEditor';
-import { generateProfessionalNews } from '../services/gemini';
 import { Article } from '../types';
+import { useNewsAI } from '../hooks/useNewsAI';
+import { FeatureStatusSelector, FeatureStatus } from '../components/FeatureStatusSelector';
+import { ImageManager, ImageSlot } from '../components/ImageManager';
 import {
   Trash2,
   Edit,
   PlusCircle,
   Loader2,
   RefreshCw,
-  Crown,
-  Star,
-  LayoutList,
   Save,
   Sparkles,
   AlertCircle,
-  ImageIcon as ImageIconLucide,
-  Clock,
-  FileText,
-  Plus,
-  Image as ImageIcon,
-  X,
+  LayoutList,
+  Globe,
+  ChevronRight,
   Upload,
   Link as LinkIcon,
-  Globe,
-  ChevronRight
+  DownloadCloud
 } from 'lucide-react';
-
-type FeatureStatus = 'featured' | 'secondary' | 'tertiary' | 'standard' | '';
-
-interface ImageSlot {
-  id: string;
-  url: string;
-  file?: File;
-  isProcessed: boolean;
-}
 
 export const NewsEditor: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -47,6 +34,7 @@ export const NewsEditor: React.FC = () => {
   // Campos de texto
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
+  const [superResumen, setSuperResumen] = useState('');
   const [featureStatus, setFeatureStatus] = useState<FeatureStatus>('standard');
 
   // Gestión de Imágenes
@@ -62,25 +50,25 @@ export const NewsEditor: React.FC = () => {
   const [activeEditor, setActiveEditor] = useState<{ src: string, type: 'featured' | 'gallery', index?: number } | null>(null);
 
   const [saving, setSaving] = useState(false);
-  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [generatingResumen, setGeneratingResumen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const { rewriteNews, isProcessingAI, aiError } = useNewsAI();
+
   useEffect(() => {
-    // Aseguramos limpieza al montar
-    setTitle('');
-    setText('');
-    setFeaturedImage(null);
-    setGalleryImages([]);
-    setEditingId(null);
+    resetForm();
     fetchArticles();
   }, []);
+
+  useEffect(() => {
+    if (aiError) setError(aiError);
+  }, [aiError]);
 
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   const estimatedReadingTime = Math.floor(wordCount / 2.15);
 
   const sanitizeTitle = (val: string): string => {
-    // Mantenemos los pipes durante la edición pero limpiamos saltos de línea reales
     return val.replace(/[\n\r]+/g, ' ').replace(/\s\s+/g, ' ').trim();
   };
 
@@ -94,28 +82,32 @@ export const NewsEditor: React.FC = () => {
   };
 
   const handleProfessionalRewrite = async () => {
-    if (!title.trim() && !text.trim()) {
-      setError("Ingresa al menos una idea o borrador para reescribir.");
-      return;
-    }
-    setIsProcessingAI(true);
-    setError(null);
-    try {
-      const result = await generateProfessionalNews(title + " " + text);
-
-      // Validation: Only update if we got valid content back
-      if (!result.title || result.title === "Título No Generado" || !result.body || result.body === "Cuerpo No Generado") {
-        throw new Error("La IA no pudo generar un formato válido. Intentá de nuevo.");
-      }
-
+    const result = await rewriteNews(title, text);
+    if (result) {
       setTitle(sanitizeTitle(result.title));
       setText(result.body);
       setSuccessMsg("Redacción profesional aplicada.");
       setTimeout(() => setSuccessMsg(null), 3000);
+    }
+  };
+
+  const handleGenerateResumen = async () => {
+    if (!text.trim()) {
+      setError("El cuerpo de la noticia está vacío. Escribe algo antes de resumir.");
+      return;
+    }
+    setGeneratingResumen(true);
+    setError(null);
+    try {
+      const resumen = await generateSuperResumen(text);
+      setSuperResumen(resumen);
+      setSuccessMsg("Súper resumen generado con éxito.");
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err: any) {
-      console.error("Error AI Redaction:", err);
-      setError(err.message || "Error al conectar con la Agencia AI.");
-    } finally { setIsProcessingAI(false); }
+      setError(err.message || "Error al generar el súper resumen.");
+    } finally {
+      setGeneratingResumen(false);
+    }
   };
 
   const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,7 +119,6 @@ export const NewsEditor: React.FC = () => {
     }
     e.target.value = '';
   };
-
   const handleUrlLoad = () => {
     if (urlInput.trim() && sourceSelector) {
       setActiveEditor({ src: urlInput.trim(), type: sourceSelector.type, index: sourceSelector.index });
@@ -161,12 +152,23 @@ export const NewsEditor: React.FC = () => {
         }
       }
 
+      let finalSuperResumen = superResumen.trim() || null;
+      if (!finalSuperResumen && text.trim()) {
+        try {
+          finalSuperResumen = await generateSuperResumen(text);
+          setSuperResumen(finalSuperResumen); // update ui optionally
+        } catch (aiErr) {
+          console.warn("Could not generate super resumen automatically:", aiErr);
+        }
+      }
+
       const articleData = {
         title: sanitizeTitle(title),
         text,
         image_url: finalFeaturedUrl,
         images_urls: finalGalleryUrls.length > 0 ? finalGalleryUrls : null,
-        featureStatus: featureStatus === 'standard' ? null : featureStatus
+        featureStatus: featureStatus === 'standard' ? null : featureStatus,
+        super_resumen: finalSuperResumen
       };
 
       if (editingId) {
@@ -190,6 +192,7 @@ export const NewsEditor: React.FC = () => {
     setEditingId(null);
     setTitle('');
     setText('');
+    setSuperResumen('');
     setFeaturedImage(null);
     setGalleryImages([]);
     setFeatureStatus('standard');
@@ -291,7 +294,6 @@ export const NewsEditor: React.FC = () => {
                 {editingId ? <Edit size={20} className="text-indigo-600" /> : <PlusCircle size={20} className="text-blue-600" />}
                 {editingId ? 'Editar Noticia' : 'Nueva Noticia'}
               </h2>
-
             </div>
 
             {error && <div className="p-4 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 flex items-center gap-2"><AlertCircle size={14} /> {error}</div>}
@@ -306,7 +308,6 @@ export const NewsEditor: React.FC = () => {
                   onChange={(e) => setTitle(e.target.value.replace(/[\n\r]+/g, ' '))}
                   required
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder=""
                 />
               </div>
 
@@ -314,9 +315,9 @@ export const NewsEditor: React.FC = () => {
                 <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
                   <label>Cuerpo de la Noticia</label>
                   <div className="flex gap-4 text-slate-400">
-                    <span className="flex items-center gap-1"><FileText size={12} /> {wordCount} pal.</span>
-                    <span className={`flex items-center gap-1 ${estimatedReadingTime > 100 ? 'text-red-500' : 'text-slate-400'}`}>
-                      <Clock size={12} /> {estimatedReadingTime}s / 100s
+                    <span className="flex items-center gap-1"><LayoutList size={12} /> {wordCount} pal.</span>
+                    <span className={`flex items-center gap-1 ${estimatedReadingTime > 80 ? 'text-red-500' : 'text-slate-400'}`}>
+                      <ChevronRight size={12} /> {estimatedReadingTime}s / 80s
                     </span>
                   </div>
                 </div>
@@ -325,78 +326,43 @@ export const NewsEditor: React.FC = () => {
                   onChange={(e) => setText(e.target.value)}
                   required
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-64 resize-none"
-                  placeholder=""
                 />
               </div>
 
-
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Imagen Destacada (1080p)</label>
-                <div
-                  onClick={() => setSourceSelector({ type: 'featured' })}
-                  className="w-full aspect-video bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-all overflow-hidden relative group"
-                >
-                  {featuredImage ? (
-                    <>
-                      <img src={featuredImage.url} className="w-full h-full object-cover" alt="Preview" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-                        <span className="text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><Edit size={14} /> Cambiar</span>
-                      </div>
-                    </>
-                  ) : (
-                    <><ImageIconLucide size={32} className="text-slate-300 mb-2" /><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Añadir Imagen Principal</span></>
-                  )}
-                </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Protocolo 12x3 (14-16 palabras por oración)</label>
+                <textarea
+                  value={superResumen}
+                  onChange={(e) => setSuperResumen(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24 resize-none"
+                  placeholder="Se genera automáticamente al publicar, o tocando 'Generar Súper Resumen' abajo."
+                />
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Galería Adicional</label>
-                  <button
-                    type="button"
-                    onClick={() => setSourceSelector({ type: 'gallery' })}
-                    className="flex items-center gap-1 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 hover:bg-blue-100 transition-all"
-                  >
-                    <Plus size={12} /> AÑADIR
-                  </button>
-                </div>
-                <div className="grid grid-cols-4 gap-3">
-                  {galleryImages.map((img, idx) => (
-                    <div key={img.id} className="aspect-square bg-slate-100 rounded-xl overflow-hidden relative group border border-slate-200">
-                      <img src={img.url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-all">
-                        <button type="button" onClick={() => setActiveEditor({ src: img.url, type: 'gallery', index: idx })} className="p-1.5 bg-blue-600 text-white rounded-lg"><Edit size={12} /></button>
-                        <button type="button" onClick={() => setGalleryImages(prev => prev.filter(item => item.id !== img.id))} className="p-1.5 bg-red-600 text-white rounded-lg"><X size={12} /></button>
-                      </div>
-                    </div>
-                  ))}
-                  {galleryImages.length === 0 && (
-                    <div className="col-span-4 py-8 bg-slate-50 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
-                      <ImageIcon size={24} className="mb-2 opacity-20" />
-                      <span className="text-[9px] font-black uppercase opacity-40">Galería vacía</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ImageManager
+                featuredImage={featuredImage}
+                galleryImages={galleryImages}
+                onAddFeatured={() => setSourceSelector({ type: 'featured' })}
+                onAddGallery={() => setSourceSelector({ type: 'gallery' })}
+                onEditGallery={(idx) => setActiveEditor({ src: galleryImages[idx].url, type: 'gallery', index: idx })}
+                onRemoveGallery={(id) => setGalleryImages(prev => prev.filter(item => item.id !== id))}
+              />
 
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jerarquía Editorial</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { id: 'featured', label: 'Portada', icon: Crown, color: 'text-amber-500' },
-                    { id: 'secondary', label: 'Secundaria', icon: Star, color: 'text-indigo-500' },
-                    { id: 'tertiary', label: 'Terciaria', icon: Sparkles, color: 'text-blue-500' },
-                    { id: 'standard', label: 'Estandar', icon: LayoutList, color: 'text-slate-400' }
-                  ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setFeatureStatus(s.id as FeatureStatus)} className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${featureStatus === s.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-                      <s.icon size={20} className={`${featureStatus === s.id ? s.color : 'text-slate-300'} mb-1`} />
-                      <span className="text-[8px] font-black uppercase">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <FeatureStatusSelector
+                currentStatus={featureStatus}
+                onStatusChange={setFeatureStatus}
+              />
+
               <div className="flex gap-3 pt-4 flex-col">
+                <button
+                  type="button"
+                  onClick={handleGenerateResumen}
+                  disabled={generatingResumen || !text.trim()}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {generatingResumen ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  Generar Súper Resumen
+                </button>
                 <button
                   type="button"
                   onClick={handleProfessionalRewrite}
@@ -409,8 +375,8 @@ export const NewsEditor: React.FC = () => {
                 <div className="flex gap-3">
                   <button type="button" onClick={resetForm} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Descartar</button>
                   <button type="submit" disabled={saving} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                    {editingId ? 'GUARDAR CAMBIOS' : 'PUBLICAR NOTICIA'}
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {editingId ? 'GUARDAR EDICIÓN (NOTICIA)' : 'PUBLICAR NOTICIA'}
                   </button>
                 </div>
               </div>
@@ -433,13 +399,13 @@ export const NewsEditor: React.FC = () => {
                     {article.featureStatus && <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase bg-amber-100 text-amber-600">{article.featureStatus}</span>}
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(article.created_at).toLocaleDateString()}</span>
                   </div>
-                  {/* Ocultamos el pipe en la visualización de la lista administrativa sustituyéndolo por un espacio */}
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-tight mb-2">{article.title.replace(/\|/g, ' ')}</h4>
                   <div className="flex gap-2">
                     <button onClick={() => {
                       setEditingId(article.id);
                       setTitle(sanitizeTitle(article.title));
                       setText(article.text);
+                      setSuperResumen(article.super_resumen || '');
                       setFeaturedImage({ id: 'featured', url: article.image_url, isProcessed: true });
                       setGalleryImages(article.images_urls ? article.images_urls.map((url, i) => ({ id: `old-${i}`, url, isProcessed: true })) : []);
                       window.scrollTo({ top: 0, behavior: 'smooth' });

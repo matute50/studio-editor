@@ -1,9 +1,12 @@
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../services/supabase';
 import { Article } from '../types';
+import { newsService } from '../services/newsService';
 import { Clock, ChevronRight, Newspaper, Calendar, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+const LinkTyped = Link as any;
+
 
 export const PublicHome: React.FC = () => {
   const [sections, setSections] = useState<{
@@ -26,12 +29,7 @@ export const PublicHome: React.FC = () => {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('articles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await newsService.getArticles();
       if (data) {
         organizeNews(data);
       }
@@ -72,26 +70,26 @@ export const PublicHome: React.FC = () => {
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.5em] ml-1">Portal de Noticias</p>
           </div>
           <div className="flex items-center gap-6">
-             <div className="hidden md:flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div> En Vivo</span>
-             </div>
-             <Link to="/admin" className="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10">
-                <ArrowLeft size={14} /> Volver al Panel
-             </Link>
+            <div className="hidden md:flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div> En Vivo</span>
+            </div>
+            <LinkTyped to="/admin" className="px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10">
+              <ArrowLeft size={14} /> Volver al Panel
+            </LinkTyped>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 space-y-20">
-        
+
         {/* NIVEL 1: NOTICIA DESTACADA (HERO) */}
         {sections.featured && (
           <section className="animate-slideUp">
-            <Link to={`/noticia/${sections.featured.id}`} className="group relative block aspect-[21/9] overflow-hidden rounded-[3rem] shadow-2xl border border-slate-100">
-              <img 
-                src={sections.featured.image_url} 
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
-                alt={sections.featured.title} 
+            <LinkTyped to={`/noticia/${sections.featured.id}`} className="group relative block aspect-[21/9] overflow-hidden rounded-[3rem] shadow-2xl border border-slate-100">
+              <img
+                src={sections.featured.image_url}
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                alt={sections.featured.title}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
               <div className="absolute bottom-0 left-0 p-8 md:p-16 w-full md:w-3/4">
@@ -109,7 +107,7 @@ export const PublicHome: React.FC = () => {
                   <span className="text-xs font-bold uppercase tracking-tight">Saladillo • Edición Central</span>
                 </div>
               </div>
-            </Link>
+            </LinkTyped>
           </section>
         )}
 
@@ -122,12 +120,12 @@ export const PublicHome: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               {sections.secondary.map(article => (
-                <Link key={article.id} to={`/noticia/${article.id}`} className="group space-y-6">
+                <LinkTyped key={article.id} to={`/noticia/${article.id}`} className="group space-y-6">
                   <div className="aspect-video overflow-hidden rounded-[2.5rem] bg-slate-100 shadow-xl ring-1 ring-slate-100">
-                    <img 
-                      src={article.image_url} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                      alt={article.title} 
+                    <img
+                      src={article.image_url}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      alt={article.title}
                     />
                   </div>
                   <div className="px-2 space-y-4">
@@ -139,14 +137,14 @@ export const PublicHome: React.FC = () => {
                     </p>
                     <div className="flex items-center justify-between pt-2">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <Clock size={12}/> {new Date(article.created_at).toLocaleDateString()}
+                        <Clock size={12} /> {new Date(article.created_at).toLocaleDateString()}
                       </span>
                       <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all">
                         <ChevronRight size={20} />
                       </div>
                     </div>
                   </div>
-                </Link>
+                </LinkTyped>
               ))}
             </div>
           </section>
@@ -162,7 +160,7 @@ export const PublicHome: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
                 {sections.tertiary.map(article => (
-                  <Link key={article.id} to={`/noticia/${article.id}`} className="group flex flex-col bg-white p-5 rounded-[2.5rem] border border-slate-100 hover:shadow-2xl transition-all duration-500">
+                  <LinkTyped key={article.id} to={`/noticia/${article.id}`} className="group flex flex-col bg-white p-5 rounded-[2.5rem] border border-slate-100 hover:shadow-2xl transition-all duration-500">
                     <div className="aspect-[4/3] overflow-hidden rounded-[2rem] mb-6">
                       <img src={article.image_url} className="w-full h-full object-cover transition-all duration-700" alt={article.title} />
                     </div>
@@ -171,11 +169,11 @@ export const PublicHome: React.FC = () => {
                         {article.title}
                       </h5>
                       <div className="mt-auto pt-6 flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest border-t border-slate-50">
-                        <span className="flex items-center gap-2"><Clock size={12}/> {new Date(article.created_at).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-2"><Clock size={12} /> {new Date(article.created_at).toLocaleDateString()}</span>
                         <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                       </div>
                     </div>
-                  </Link>
+                  </LinkTyped>
                 ))}
               </div>
             </div>
@@ -190,7 +188,7 @@ export const PublicHome: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {sections.standard.map(article => (
-              <Link key={article.id} to={`/noticia/${article.id}`} className="group space-y-4">
+              <LinkTyped key={article.id} to={`/noticia/${article.id}`} className="group space-y-4">
                 <div className="aspect-square overflow-hidden rounded-[1.5rem] bg-slate-100 border border-slate-200">
                   <img src={article.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt={article.title} />
                 </div>
@@ -202,10 +200,10 @@ export const PublicHome: React.FC = () => {
                     {new Date(article.created_at).toLocaleDateString()}
                   </p>
                 </div>
-              </Link>
+              </LinkTyped>
             ))}
           </div>
-          
+
           {sections.standard.length === 0 && !sections.featured && (
             <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
               <Newspaper size={40} />
@@ -223,14 +221,14 @@ export const PublicHome: React.FC = () => {
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.5em]">La información en movimiento</p>
           </div>
           <div className="flex flex-wrap justify-center gap-10 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">
-            <Link to="/admin" className="hover:text-white transition-colors">Redacción</Link>
+            <LinkTyped to="/admin" className="hover:text-white transition-colors">Redacción</LinkTyped>
             <a href="#" className="hover:text-white transition-colors">Nosotros</a>
             <a href="#" className="hover:text-white transition-colors">Publicidad</a>
             <a href="#" className="hover:text-white transition-colors">Contacto</a>
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-20 pt-10 border-t border-white/5 text-center text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-           Saladillo Vivo © 2025 • Desarrollado con IA Master Studio
+          Saladillo Vivo © 2025 • Desarrollado con IA Master Studio
         </div>
       </footer>
     </div>

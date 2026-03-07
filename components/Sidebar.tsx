@@ -17,6 +17,7 @@ import {
   Clapperboard
 } from 'lucide-react';
 
+
 const navItems = [
   { title: 'Inicio Panel', path: '/', icon: LayoutDashboard },
   { title: 'Escritorio Responsable', path: '/responsable', icon: UserCheck },
@@ -24,7 +25,6 @@ const navItems = [
   { title: 'Editor Noticias', path: '/noticias', icon: Newspaper },
   { title: 'Estudio Locución', path: '/audio-producer', icon: Mic },
   { title: 'Generar Slides', path: '/slides', icon: Presentation },
-  { title: 'Director Daily Show', path: '/daily-show', icon: Clapperboard },
   { title: 'YouTube Studio', path: '/youtube-studio', icon: Video },
   { title: 'Social Manager', path: '/social-manager', icon: Megaphone },
   { title: 'Avatar Studio', path: '/avatar-studio', icon: UserCheck },

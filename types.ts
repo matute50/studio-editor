@@ -33,6 +33,7 @@ export interface Article {
   updated_at: string;
   title: string;
   text: string;
+  super_resumen?: string | null; // Super resumen para Avatar Studio
   image_url: string; // Imagen Destacada
   images_urls: string[] | null; // Galería (JSONB)
   featureStatus: 'featured' | 'secondary' | 'tertiary' | null;
@@ -90,6 +91,12 @@ export interface SlideSceneConfig {
     duration: number;
     kenBurnsStart: number;
     kenBurnsEnd: number;
-    panDirection: 'x-left' | 'x-right' | 'y-up' | 'y-down' | 'static';
-  };
+}
+
+export interface FondoBiblioteca {
+  id: string;
+  nombre_lugar: string;
+  url_imagen: string;
+  created_at: string;
+  activa: boolean;
 }

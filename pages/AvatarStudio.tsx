@@ -31,13 +31,19 @@ import { improveScriptWithClaude } from '../services/claude';
 // CONSTANTES DE ESCENA Y PROMPTS (18 BLOQUES)
 const MASTER_CONSISTENCY_LOCK = "LOCK CONSISTENCY: Continue with 100% visual fidelity to the Ara Avatar reference. No creative deviations in her morphology. Maintain the exact same ethnic features, facial structure, skin tone, and character identity. HBO series standard of continuity.";
 
-const STILLNESS_CONTAINMENT = "[STILLNESS & CONTAINMENT]: Presenter must remain perfectly centered. No walking, no large arm swings, no significant torso rotation. Head movements are micro-adjustments only. Frame stays locked.";
+const STILLNESS_CONTAINMENT = `[STILLNESS & CONTAINMENT]: Presenter must remain perfectly centered. No walking, no large arm swings, no significant torso rotation. Head movements are micro-adjustments only. Frame stays locked.
+TONGUE — CONTAINED PROFESSIONAL PROTOCOL:
+Tongue remains fully contained within oral cavity at all times throughout the entire clip.
+Tongue tip rests behind lower incisors in grado cero. Tongue body maintains contact with hard palate. Lips maintain sealed professional composure during all non-speech moments. During active speech, tongue executes all movements strictly internally — alveolar contacts, palatal elevations, and lateral movements occur completely hidden behind the dental barrier. Oral cavity presents clean professional broadcast appearance at all times.`;
 
 const HUMAN_IMPERFECTION = "[HUMAN IMPERFECTION PROTOCOL]: Introduce micro-imperfections. Occasional natural eyelid blinks (unsynchronized), subtle involuntary lip twitches, mild asymmetric mouth movements during complex phonemes. Not a perfect CG model.";
 
-const PHONETIC_ENGINE_V4_1 = "[LIP SYNC — PHONETIC ENGINE V4.1]: Specialized Rioplatense Spanish synchronization. Emphasis on 'LL' and 'Y' as palate-fricative /ʃ/. Vowel transitions (A-E-I-O-U) must have visible jaw displacement. Plosive consonants (P, B, M) require tight lip closure. Natural fluid prosody.";
+const PHONETIC_ENGINE_V4_1 = `[LIP SYNC — PHONETIC ENGINE V4.1]: Specialized Rioplatense Spanish synchronization. Emphasis on 'LL' and 'Y' as palate-fricative /ʃ/. Vowel transitions (A-E-I-O-U) must have visible jaw displacement. Plosive consonants (P, B, M) require tight lip closure. Natural fluid prosody.
+ABSOLUTE GLOBAL APERTURE CAP: 40% maximum.
+ABSOLUTE SPACE=ZERO RULE: no return to grade zero between words.
+Tongue control: see [STILLNESS & CONTAINMENT].`;
 
-const SCRIPT_FIDELITY = "[SCRIPT FIDELITY]: Visual production must follow the provided text precisely. No ad-libbing or interpretation. Mouth movements strictly synchronized to the audio duration and phonetic density of the SCRIPT section.";
+const SCRIPT_FIDELITY = "ABSOLUTE VERBATIM MODE: Visual production must follow the provided text precisely. No ad-libbing or interpretation. Mouth movements strictly synchronized to the audio duration and phonetic density of the SCRIPT section.";
 
 const AUDIO_STYLE = "[AUDIO_STYLE]: Deep broadcast voice, natural Argentinian Rioplatense accent. Calm, authoritative but warm 'News Anchor' tone. Studio acoustics — no echo, no room reverb.";
 
@@ -128,11 +134,12 @@ export function AvatarStudio() {
         blocks.push(`[CAMERA]: Format ${araVideoFormat}. ${techMeta}`);
 
         // 10. CAMERA MOVEMENT
-        blocks.push(`[CAMERA MOVEMENT]: ${araCameraMov.toUpperCase()} movement only.`);
+        const camRule = araCameraMov === 'static' ? "ABSOLUTE ZERO MOVEMENT" : `${araCameraMov.toUpperCase()} movement only`;
+        blocks.push(`[CAMERA MOVEMENT]: ${camRule}.`);
 
         // 11. CHROMA KEY / BACKGROUND
         if (araBackground === 'chroma') {
-            blocks.push("[CHROMA KEY / BACKGROUND]: Pure Green Screen (Hex: #00FF00). Flat lighting. High contrast between presenter and background for clean extraction.");
+            blocks.push("[CHROMA KEY / BACKGROUND]: Pure Green Screen (Hex: #00B140). ABSOLUTE CHROMA KEY PROTOCOL. Flat lighting. High contrast between presenter and background for clean extraction.");
         } else {
             blocks.push(`[CHROMA KEY / BACKGROUND]: Background is ${araBackground.toUpperCase()}. Blur: f/1.8 depth of field. Focus exclusively on Ara.`);
         }

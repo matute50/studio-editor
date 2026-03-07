@@ -67,24 +67,32 @@ export const AIAssistant: React.FC = () => {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all duration-300 z-50 flex items-center justify-center ${
-          isOpen ? 'bg-slate-800 rotate-90' : 'bg-blue-600 hover:bg-blue-700 hover:scale-110'
-        }`}
+        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all duration-300 z-50 flex items-center justify-center ${isOpen ? 'bg-slate-800 rotate-90' : 'bg-blue-600 hover:bg-blue-700 hover:scale-110'
+          }`}
       >
         {isOpen ? <X className="w-6 h-6 text-white" /> : <Sparkles className="w-6 h-6 text-white" />}
       </button>
 
       {/* Chat Interface */}
       <div
-        className={`fixed bottom-24 right-6 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col transition-all duration-300 transform z-50 origin-bottom-right ${
-          isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
-        }`}
+        className={`fixed bottom-24 right-6 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col transition-all duration-300 transform z-50 origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'
+          }`}
         style={{ height: '500px' }}
       >
         {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-2xl flex items-center gap-2">
-          <Bot className="w-5 h-5 text-white" />
-          <h3 className="font-semibold text-white">Asistente IA</h3>
+        <div className="p-5 bg-slate-900 border-b border-white/10 rounded-t-2xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-black text-xs text-white uppercase tracking-widest">Asistente Maestro</h3>
+              <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">IA Calibrada</p>
+            </div>
+          </div>
+          <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
         </div>
 
         {/* Messages */}
@@ -95,13 +103,15 @@ export const AIAssistant: React.FC = () => {
               className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl p-3 text-sm shadow-sm ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-br-none'
-                    : 'bg-white text-slate-700 border border-slate-200 rounded-bl-none'
-                }`}
+                className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${msg.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-br-none shadow-lg shadow-blue-500/10'
+                    : 'bg-white text-slate-700 border border-slate-200 rounded-bl-none shadow-sm'
+                  }`}
               >
                 {msg.text}
+                <p className={`text-[8px] mt-2 font-bold uppercase opacity-50 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
               </div>
             </div>
           ))}
