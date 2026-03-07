@@ -11,7 +11,7 @@ import { ResponsibleDashboard } from './pages/ResponsibleDashboard';
 import { YouTubeStudio } from './pages/YouTubeStudio';
 import { SocialManager } from './pages/SocialManager';
 import { AvatarStudio } from './pages/AvatarStudio';
-import { DailyShowDirector } from './pages/DailyShowDirector';
+// import { DailyShowDirector } from './pages/DailyShowDirector';
 import { PublicHome } from './pages/PublicHome';
 import { AIAssistant } from './components/AIAssistant';
 import { Bell, User, Maximize2, Minimize2, Monitor, LayoutTemplate } from 'lucide-react';
@@ -129,7 +129,7 @@ function App() {
           <Route path="/noticias" element={<Layout><NewsEditor /></Layout>} />
           <Route path="/audio-producer" element={<Layout><AudioProducer /></Layout>} />
           <Route path="/slides" element={<Layout><SlideGenerator /></Layout>} />
-          <Route path="/daily-show" element={<Layout><DailyShowDirector /></Layout>} />
+          {/* <Route path="/daily-show" element={<Layout><DailyShowDirector /></Layout>} /> */}
           <Route path="/youtube-studio" element={<Layout><YouTubeStudio /></Layout>} />
           <Route path="/social-manager" element={<Layout><SocialManager /></Layout>} />
           <Route path="/avatar-studio" element={<Layout><AvatarStudio /></Layout>} />
