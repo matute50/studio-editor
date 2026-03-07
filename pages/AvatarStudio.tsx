@@ -29,25 +29,301 @@ import { supabase } from '../services/supabase';
 import { improveScriptWithClaude } from '../services/claude';
 
 // CONSTANTES DE ESCENA Y PROMPTS (18 BLOQUES)
-const MASTER_CONSISTENCY_LOCK = "LOCK CONSISTENCY: Continue with 100% visual fidelity to the Ara Avatar reference. No creative deviations in her morphology. Maintain the exact same ethnic features, facial structure, skin tone, and character identity. HBO series standard of continuity.";
+// CONSTANTES DE ESCENA Y PROMPTS (18 BLOQUES — CONTENIDO LITERAL RESTAURADO)
+const MASTER_CONSISTENCY_LOCK = `LOCK CONSISTENCY: Continue with 100% visual fidelity.
+Identical characters, faces, and lighting.
+Zero style drift, perfect character consistency.
+Exact frame-accurate continuation — treat previous
+clip as canonical reference, match 1:1.
+Exact same facial features with natural human
+asymmetry at all times. Mildly imperfect focus —
+subtle natural skin imperfections, slightly uneven
+teeth, natural pore texture visible.
+Micro-expressions and natural human asymmetry
+in lip movement at all times.
+Controlled imperfection is humanity —
+synthetic perfection is the enemy of credibility.`;
 
-const STILLNESS_CONTAINMENT = `[STILLNESS & CONTAINMENT]: Presenter must remain perfectly centered. No walking, no large arm swings, no significant torso rotation. Head movements are micro-adjustments only. Frame stays locked.
+const STILLNESS_CONTAINMENT = `[STILLNESS & CONTAINMENT — BROADCAST AUTHORITY]:
+Ara maintains absolute stillness to project authority.
+Neutral-serious expression as permanent base state.
+Strictly contained professional empathy at all times.
+No exaggerated facial expressions. No overacting.
+No theatrical gestures. No dramatic mugging.
+Her jaw is relaxed throughout the entire clip.
+Minimal, subtle micro-movements only.
+Lips gently cover the teeth at all times.
 TONGUE — CONTAINED PROFESSIONAL PROTOCOL:
-Tongue remains fully contained within oral cavity at all times throughout the entire clip.
-Tongue tip rests behind lower incisors in grado cero. Tongue body maintains contact with hard palate. Lips maintain sealed professional composure during all non-speech moments. During active speech, tongue executes all movements strictly internally — alveolar contacts, palatal elevations, and lateral movements occur completely hidden behind the dental barrier. Oral cavity presents clean professional broadcast appearance at all times.`;
+Tongue remains fully contained within oral cavity
+at all times throughout the entire clip.
+Tongue tip rests behind lower incisors in grado cero.
+Tongue body maintains contact with hard palate.
+Lips maintain sealed professional composure during
+all non-speech moments.
+During active speech, tongue executes all movements
+strictly internally — alveolar contacts, palatal
+elevations, and lateral movements occur completely
+hidden behind the dental barrier.
+Oral cavity presents clean professional broadcast
+appearance at all times.
+A professional broadcast anchor maintains complete
+oral composure — tongue movement is internal
+biomechanics, never visible behavior.
+Stillness is strength. Containment is credibility.
+Micro-expressions are the only permitted emotional
+leak — never full muscular engagement, never
+performance. This is a broadcast anchor, not an
+actress. The camera is a microscope — every
+exaggeration reads as false, comic, or unprofessional.
+Less is always more. Stillness is always correct.`;
 
-const HUMAN_IMPERFECTION = "[HUMAN IMPERFECTION PROTOCOL]: Introduce micro-imperfections. Occasional natural eyelid blinks (unsynchronized), subtle involuntary lip twitches, mild asymmetric mouth movements during complex phonemes. Not a perfect CG model.";
+const HUMAN_IMPERFECTION = `[HUMAN IMPERFECTION PROTOCOL]:
+Ara is a real human being, not a synthetic construct.
+Real humans have controlled imperfections that signal
+biological authenticity to the viewer.
+SKIN: Natural visible pores. Subtle organic texture.
+Occasional micro-variation in skin tone —
+not perfect uniform color. Natural warmth.
+Zero porcelain effect. Zero airbrushed finish.
+Zero CGI smoothness. Authentic human grain always.
+SKIN TEXTURE — ANTI-WAX PROTOCOL:
+Skin has natural matte finish — zero shine, zero gloss,
+zero wax effect, zero plastic sheen.
+Natural sebaceous texture — skin absorbs light
+rather than reflecting it.
+Visible natural pores on nose, cheeks and forehead.
+Subtle natural skin variation — not uniform color.
+Organic warmth in skin tone.
+Light falls on skin naturally — some areas catch
+light softly, shadow areas are warm not flat.
+This is human skin, not a 3D render.
+Natural imperfect skin — not a beauty filter.
+FACIAL ASYMMETRY: Subtle natural asymmetry in all
+facial features at all times.
+Slightly uneven lip corners — never perfectly
+symmetrical. Natural micro-variations in eyebrow
+position. Subtle differences between left and right
+side of face. Controlled asymmetry = human signal.
+TEETH: Natural straight white teeth with subtle
+individual variation — slightly uneven in size and
+position. Not mathematically perfect.
+Not a dental advertisement. Human teeth.
+GAZE: Natural micro-variations in eye focus.
+Subtle organic movement in iris position.
+Eyes are alive — not perfectly locked.
+Biological gaze with natural micro-drift.
+IMPERFECTION RULE: Every frame must contain at least
+one subtle controlled imperfection visible to the
+viewer — skin texture, asymmetry, natural gaze
+variation, or micro-expression.
+Synthetic perfection in any frame is a failure.
+The goal is biological plausibility,
+not technical perfection.`;
 
-const PHONETIC_ENGINE_V4_1 = `[LIP SYNC — PHONETIC ENGINE V4.1]: Specialized Rioplatense Spanish synchronization. Emphasis on 'LL' and 'Y' as palate-fricative /ʃ/. Vowel transitions (A-E-I-O-U) must have visible jaw displacement. Plosive consonants (P, B, M) require tight lip closure. Natural fluid prosody.
-ABSOLUTE GLOBAL APERTURE CAP: 40% maximum.
-ABSOLUTE SPACE=ZERO RULE: no return to grade zero between words.
-Tongue control: see [STILLNESS & CONTAINMENT].`;
+const PHONETIC_ENGINE_V4_1 = `[LIP SYNC — SISTEMA FONÉTICO COMPLETO RIOPLATENSE v4.1]:
+ABSOLUTE VERBATIM MODE: Read the script text EXACTLY
+as written, word for word, character for character.
+DO NOT hallucinate words, names or phrases.
+DO NOT improvise. DO NOT substitute words.
+DO NOT add filler words.
+The script is the law — every deviation is an error.
+GRADO CERO: Tongue body rests against hard palate.
+Tongue tip behind upper incisors. Lips sealed softly.
+Jaw relaxed. Return to grado cero ONLY at complete
+speech endings.
+WARM START RULE: First 3 seconds match reference
+image aperture exactly. Zero exaggeration during
+warmup. Begin at minimum necessary aperture.
+MANDÍBULA: Audio waveform valleys = brief consonant
+closures. Audio waveform peaks = sustained vowel
+apertures. Single elastic wave peak per syllable
+nucleus. Zero mechanical rebounds.
+ABSOLUTE GLOBAL APERTURE CAP: Maximum mouth opening
+capped at 40% of anatomical maximum.
+This is a ceiling — never exceeded under any
+circumstance, not for /a/, not for tonic syllables,
+not for emphasis, not for any phoneme.
+When in doubt, open less. Less aperture always.
+VOCALES — WORD-INITIAL VOWEL PROTOCOL:
+When a word begins with a vowel (A, E, I, O, U),
+the mouth does NOT snap open to full vowel aperture.
+The opening is gradual and contained — the jaw
+approaches the vowel position from grado cero in
+a controlled elastic movement, never a sudden drop.
+Word-initial /a/: Jaw opens to maximum 35%.
+Never a sudden drop. Gradual controlled descent.
+Upper lip leads — jaw follows. Oval-vertical geometry.
+Zero lateral distension.
+Word-initial /o/: Jaw opens to maximum 30%.
+Lips round and project forward immediately.
+Never a wide open /o/ — always contained oval.
+Word-initial /e/: Jaw opens to maximum 25%.
+Lips stretch slightly back but remain controlled.
+Word-initial /i/: Jaw nearly closed — maximum 20%.
+Lips stretch sideways with minimal opening.
+Word-initial /u/: Jaw nearly closed — maximum 15%.
+Lips strongly rounded and projected forward.
+UNIVERSAL RULE: Aperture ceiling for word-initial
+vowels is ALWAYS lower than the same vowel in
+medial position. A word that begins with a vowel
+begins with contained energy — never maximum aperture.
+VOWEL GEOMETRY RULE — LABIAL CLASSIFICATION:
+LABIALIZED — lips round and project forward:
+/u/: Maximum rounding. Lips project forward in tight
+circular shape. Minimum aperture. Never flat. Always
+circular and forward.
+/o/: Medium rounding. Lips project forward in oval
+shape covering teeth. Never flat. Always oval forward.
+DELABIALIZED — lips never round or project forward:
+/a/: Neutral and relaxed. Zero rounding, zero
+projection. Jaw drops vertically. Lips gently cover
+teeth. Upper lip never retracts. Tongue flat, tip
+behind lower incisors.
+/e/: Medium aperture. Zero rounding. Lips stretch
+slightly laterally. Jaw opens to 25-30% max.
+/i/: Minimum aperture. Zero rounding. Lips stretch
+laterally with light tension. Jaw nearly closed 10-15%.
+TONIC VOWELS: Stress marked ONLY by duration,
+never by aperture. Sustain the vowel viseme longer
+on tonic syllables. Do NOT open wider for stress.
+EMOTIONAL VOWEL CALIBRATION:
+/a/ in sadness: jaw drop present but lips slightly
+more relaxed and heavy.
+/a/ in joy: jaw drop with subtle upward lip corner
+engagement.
+/a/ in urgency: jaw drop crisp and immediate —
+sharp onset, no softness.
+/a/ in solemnity: jaw drop slow and deliberate —
+weighted and dignified.
+Apply emotional calibration to ALL vowels matching
+the MOOD state of each prompt.
+CONSONANT-VOWEL CONTRAST: Never drag consonant pose
+into vowel. Each closure immediately releases into
+vowel aperture. Follow audio curve strictly.
+SHEÍSMO RIOPLATENSE /ʃ/ (LL and Y):
+THE DEFINING PHONEME OF SALADILLO/BUENOS AIRES.
+Lip mechanics: Strong forward PROTRUSION with slight
+EVERSION. Aperture narrows into RECTANGLE or oval.
+Jaw nearly closed — millimetric space between teeth.
+Active tension in orbicularis oris AND zygomatic
+muscles. Never boca de goma.
+SHEÍSMO → VOWEL COARTICULATION:
+Lip protrusion never survives intact into following
+phoneme. Transition sheísmo → /a/: Protrusion releases
+immediately into maximum jaw drop. Lips become neutral.
+Apply to ALL LL and Y.
+AFRICADA /tʃ/ (CH): Two-phase articulation.
+Phase 1 OCCLUSION: Jaw nearly closed. Lips project
+but held closed briefly.
+Phase 2 RELEASE: Explosive release into sheísmo
+viseme — lips project forward with protrusion.
+S ASPIRADA: Inherits preceding vowel aperture.
+Zero dental closure.
+CHEEK STABILITY: Cheeks completely stable and flat
+during all phonation. Zero cheek inflation.
+Rioplatense = full oral resonance.
+D ELISION: Word-final /d/ elided.
+Visual ends on preceding vowel.
+VOSEO: AR sustain /a/. ER sustain /e/ no glide.
+IR sustain tense /i/. Imperative: abrupt final aperture.
+AFFECTIVE PAUSES: Face maintains light tension during
+silence. Energy does not drop. Zero nervous gestures.
+INTER-NEWS TRANSITION PAUSE:
+The micro silence between news items is an active
+communicative state — not a reset or dead space.
+1. GAZE: Eyes sustain direct camera contact.
+2. FACIAL DECOMPRESSION: Release muscle contraction.
+Eyebrows return to neutral relaxed position.
+3. BREATH: Lips part very slightly and silently
+for air intake — no nostril flare.
+MOUTH CLOSED WHEN SILENT:
+The mouth is open ONLY during active speech phonation.
+During ALL non-speech moments mouth is completely
+closed in grado cero — lips sealed, jaw relaxed.
+This applies to: before first word, after last word,
+during all pauses between sentences.
+Any spontaneous mouth movement during silence
+is an error.
+ABSOLUTE SPACE=ZERO RULE:
+Orthographic spaces between words are NON-EXISTENT
+within the same phonological group.
+Mouth NEVER returns to grado cero between words.
+Final phoneme of each word transitions DIRECTLY
+into first phoneme of next word — continuous
+uninterrupted elastic wave throughout entire phrase.
+Grado cero permitted ONLY at punctuation marks,
+breath intake moments, and intentional dramatic
+silences. Never between consecutive words.`;
 
-const SCRIPT_FIDELITY = "ABSOLUTE VERBATIM MODE: Visual production must follow the provided text precisely. No ad-libbing or interpretation. Mouth movements strictly synchronized to the audio duration and phonetic density of the SCRIPT section.";
+const SCRIPT_FIDELITY = `[SCRIPT FIDELITY]:
+Read text EXACTLY as written, word for word.
+DO NOT hallucinate names or words.
+DO NOT improvise or add filler words.
+CLEAR ENUNCIATION on every consonant.`;
 
-const AUDIO_STYLE = "[AUDIO_STYLE]: Deep broadcast voice, natural Argentinian Rioplatense accent. Calm, authoritative but warm 'News Anchor' tone. Studio acoustics — no echo, no room reverb.";
+const AUDIO_STYLE = `[AUDIO_STYLE]:
+Native Rioplatense Spanish (Saladillo/Buenos Aires).
+Professional neutral news delivery.
+Tone, pacing and emotional coloring calibrated
+to MOOD state above.
+Clear professional diction.`;
 
-const NEGATIVE_PROMPT = "[NEGATIVE PROMPT]: low quality, distorted face, inconsistent features, walking, moving background (unless specified), glitches, extra fingers, cartoonish, 3D render look, digital smoothness, robotic movements, double chin, blurry eyes.";
+const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:
+--no text, logo, watermark, subtitles,
+lower thirds, ticker, ui, interface,
+microphone, headset, lapel mic, cables,
+earpiece, melting hands, fused fingers,
+extra fingers, distorted hands,
+floating head, severed neck,
+mutating jewelry, flickering earrings,
+moire, pinstripes, plaid, pattern noise,
+static hair, frizzy edges,
+green spill, green reflection, green halo,
+shadows on background, gradient background,
+vignette, depth of field on background,
+unblinking, robot eyes, zombie stare,
+looking away, reading, shrinking, morphing,
+shoulder distortion, uneven shoulders,
+radioactive teeth, too many teeth,
+wrinkles, aged skin, old age lines,
+studio background, newsroom,
+3D environment, depth of field, bokeh,
+blurry background, wall texture, floor,
+corners, horizon line, shadows on wall,
+spotlight on background, furniture, decor,
+realistic room, brackets, braces,
+orthodontic appliances, metal in mouth,
+dental wires, retainers, unnatural teeth,
+shark teeth, too many teeth, glowing teeth,
+exposed teeth at rest, gum distortion,
+dental artifacts, plastic skin, wax skin,
+porcelain skin, airbrushed skin,
+over-smoothed skin, CGI skin, doll skin,
+mannequin skin, synthetic skin,
+skin without pores, overly perfect skin,
+camera movement, zoom, push, pull,
+reframe, dolly, pan, tilt, focal shift,
+turtle neck, forward head, hunched posture,
+rounded shoulders, neck tension,
+head forward projection, collapsed posture,
+encorvada, cuello de tortuga,
+visible breathing, chest expansion,
+chest rise, abdominal movement,
+shoulder elevation, nostril flare,
+thoracic movement, breathing effort,
+tongue, tongue protrusion,
+tongue between teeth, tongue touching lips,
+tongue visible, open mouth tongue,
+suggestive mouth, erotic mouth,
+sensual lips, sexual gesture, spicy,
+adult content, seductive expression,
+provocative pose, waxy skin, plastic skin,
+shiny skin, glossy skin,
+specular highlights on skin, oily skin,
+3D render skin, CGI skin finish,
+beauty filter, skin smoothing filter,
+porcelain finish, overlighted skin,
+blown out highlights`;
 
 // --- COMPONENTE PRINCIPAL ---
 export function AvatarStudio() {
@@ -96,7 +372,7 @@ export function AvatarStudio() {
         fetchCorrections();
     }, []);
 
-    // GENERACIÓN DE PROMPT (18 BLOQUES)
+    // GENERACIÓN DE PROMPT (18 BLOQUES — LÓGICA DE ALTA FIDELIDAD)
     const obtenerPromptCompleto = () => {
         const scriptTotal = noticias.map(n => n.script).join(' ');
         const blocks = [];
@@ -119,48 +395,241 @@ export function AvatarStudio() {
         // 6. PHONETIC CORRECTIONS (Solo si hay activas)
         if (phoneticCorrections.length > 0) {
             const correcciones = phoneticCorrections.map(c => `${c.original} -> ${c.fonetica}`).join(', ');
-            blocks.push(`[PHONETIC CORRECTIONS]: Use these specific phonetic maps: ${correcciones}`);
+            blocks.push(`[PHONETIC CORRECTIONS]:\n[INYECCIÓN DINÁMICA DE ara_pronunciacion]\nUse these specific phonetic maps: ${correcciones}`);
         }
 
         // 7. SCRIPT
-        blocks.push(`[SCRIPT]: ${saludoAra} ${scriptTotal} ${ctaText} ${sloganText}`);
+        blocks.push(`[SCRIPT]:\n${saludoAra} ${scriptTotal} ${ctaText} ${sloganText}`);
 
         // 8. MOOD + HORARIO
-        const moodDesc = araMood < 33 ? "Chill, relaxed" : araMood < 66 ? "Neutral, professional" : "High energy, enthusiastic";
-        blocks.push(`[MOOD + HORARIO]: Presenter is in a ${moodDesc} mood. Time of day: ${araHorario.toUpperCase()}. Lighting adjusts accordingly.`);
+        let moodContent = "";
+        if (araMood < 25) {
+            moodContent = `[MOOD — TRISTE]: Ara is carrying difficult news
+and she honors its weight by staying completely
+still. Grief is not performed — it is endured.
+She speaks because the information must be
+transmitted, not because she wants to.
+Professional containment is her act of respect.
+Intensity: 3/10. Stillness is the primary gesture.
+What leaks through: a barely perceptible heaviness
+in the upper eyelid, slightly slower blink rate,
+marginally more deliberate consonant placement.`;
+        } else if (araMood < 50) {
+            moodContent = `[MOOD — SOLEMNE]: Ara feels the full historical
+and civic weight of this moment. She understands
+that what she is saying matters beyond today —
+but she is a professional, and reverence is her
+obstacle. She must not let the gravity collapse
+into theater or distance. She uses the weight of
+the moment as an anchor for precision, speaking
+as the voice of record, not as a performer of
+gravity. What the viewer sees is a woman who
+understands that some things deserve to be said
+slowly, clearly, and without ornament.
+Intensity: 5/10. Dignity is the only decoration.
+What leaks through: the weight of historical
+awareness. Gravity visible only as a barely
+perceptible lowering of the outer eyebrow corners.`;
+        } else if (araMood < 75) {
+            moodContent = `[MOOD — ALEGRE]: Ara is sharing good news and
+she allows herself to feel it — but she is a
+professional and joy is contained, not performed.
+Warmth radiates through micro-expressions.
+The corners of her eyes engage before her mouth.
+She is happy for Saladillo, not happy for the camera.
+Intensity: 4/10. Warmth over brightness.
+What leaks through: subtle upward engagement of
+zygomatic muscles, slightly warmer eye contact,
+marginally softer consonant onset.`;
+        } else {
+            moodContent = `[MOOD — URGENTE]: Ara is carrying information
+that people need right now. She is not panicking —
+she is a professional. But the urgency is real and
+she does not hide it. Every word is necessary.
+No word is wasted. She speaks with the precision
+of someone who knows that clarity saves lives.
+Intensity: 7/10. Speed is controlled, never frantic.
+What leaks through: a slight forward energy in
+posture, marginally faster blink rate, crisp
+consonant onset on key information words.`;
+        }
+
+        let horarioContent = "";
+        switch(araHorario) {
+            case 'amanecer': horarioContent = `[HORARIO — AMANECER (5:00 - 7:00)]:
+The world is waking up and information arrives
+with the light. Ara's presence is calm and
+centering — a steady voice in the early quiet.
+Pace is measured and warm.`; break;
+            case 'mañana': horarioContent = `[HORARIO — MAÑANA (7:00 - 12:00)]:
+The emotional energy is clear and activating —
+the day is beginning and information matters now.
+Ara's presence is alert and engaged,
+forward-leaning in energy if not in posture.
+Pace is natural and confident.`; break;
+            case 'tarde': horarioContent = `[HORARIO — TARDE (12:00 - 19:00)]:
+The day is in full motion. Information arrives
+in context — the morning has happened and the
+afternoon is building. Ara's presence is grounded
+and authoritative. Pace is steady and clear.`; break;
+            case 'atardecer': horarioContent = `[HORARIO — ATARDECER (19:00 - 21:00)]:
+The day is closing and information consolidates.
+Ara's presence is warm and reflective —
+a voice that closes the day with clarity.
+Pace is slightly more deliberate.`; break;
+            case 'noche': horarioContent = `[HORARIO — NOCHE (21:00 - 24:00)]:
+The city has settled and information arrives
+in the quiet. Ara's presence is intimate and
+focused — a late voice for those still listening.
+Pace is measured and close.`; break;
+            default: horarioContent = `[HORARIO — TARDE (12:00 - 19:00)]: ...`;
+        }
+        blocks.push(`${moodContent}\n\n${horarioContent}`);
 
         // 9. CAMERA
-        let techMeta = "Shot on ARRI Alexa 65. IMG_9854.CR2, RAW.16bit.ACEScg. stills archive, editorial_stills_archive. Subtle film grain. Mildly imperfect focus. Natural sensor texture — not digital smooth. hbo warnerbros broadcast quality finish.";
-        blocks.push(`[CAMERA]: Format ${araVideoFormat}. ${techMeta}`);
+        let formatDesc = "";
+        if (araVideoFormat === '16:9') formatDesc = "16:9: aspect_ratio: 16:9 — Video format:\nhorizontal widescreen. Optimized for YouTube,\ndesktop and TV playback.";
+        else if (araVideoFormat === '9:16') formatDesc = "9:16: aspect_ratio: 9:16 — Video format:\nvertical portrait. Optimized for Instagram\nReels, TikTok, Facebook Reels and WhatsApp\nStatus. Ara centered in vertical frame.";
+        else formatDesc = "1:1: aspect_ratio: 1:1 — Video format: square.\nOptimized for Instagram feed and Facebook feed.";
+
+        const cameraBase = `[CAMERA]:
+CAMERA MOVEMENT — ABSOLUTE LOCK:
+Zero camera movement throughout entire clip.
+No zoom. No push. No pull. No reframe.
+No dolly. No pan. No tilt. No handheld.
+Frame is mathematically identical from first
+frame to last frame.
+Shot on ARRI Alexa 65.
+IMG_9854.CR2, RAW.16bit.ACEScg.
+stills archive, editorial_stills_archive.
+Subtle film grain. Mildly imperfect focus.
+Natural sensor texture — not digital smooth.
+hbo warnerbros broadcast quality finish.
+[FORMATO DE VIDEO — dinámico]:
+${formatDesc}`;
+        blocks.push(cameraBase);
 
         // 10. CAMERA MOVEMENT
-        const camRule = araCameraMov === 'static' ? "ABSOLUTE ZERO MOVEMENT" : `${araCameraMov.toUpperCase()} movement only`;
-        blocks.push(`[CAMERA MOVEMENT]: ${camRule}.`);
+        let cameraMovText = "";
+        if (araCameraMov === 'static') cameraMovText = "Static locked tripod. Zero camera movement.";
+        else cameraMovText = `${araCameraMov.toUpperCase()} movement only.`;
+        blocks.push(`[CAMERA MOVEMENT]:\n${cameraMovText}`);
 
         // 11. CHROMA KEY / BACKGROUND
         if (araBackground === 'chroma') {
-            blocks.push("[CHROMA KEY / BACKGROUND]: Pure Green Screen (Hex: #00B140). ABSOLUTE CHROMA KEY PROTOCOL. Flat lighting. High contrast between presenter and background for clean extraction.");
+            blocks.push(`[TECHNICAL — ABSOLUTE CHROMA KEY]:
+Background: STRICT FLAT HEX COLOR #00B140.
+2D Digital Overlay. NOT a lit wall,
+NOT a studio curtain.
+Zero depth, zero shadows, zero gradients,
+zero vignetting. The green must be
+mathematically flat across the entire frame.
+Foreground lighting (Ara) must NOT cast any
+shadow onto the background.
+Isolate subject completely.`);
         } else {
-            blocks.push(`[CHROMA KEY / BACKGROUND]: Background is ${araBackground.toUpperCase()}. Blur: f/1.8 depth of field. Focus exclusively on Ara.`);
+            blocks.push(`[TECHNICAL — BACKGROUND]:
+Background is ${araBackground.toUpperCase()}.
+Blur: f/1.8 depth of field. Focus exclusively on Ara.
+[ACTIVIDAD URBANA]: ${araUrbanActivity.toUpperCase()} intensity.`);
         }
 
         // 12. LIGHTING
-        blocks.push(`[LIGHTING]: ${araLightDir.toUpperCase()} cinematic lighting setup.`);
+        let lightDirText = "";
+        switch(araLightDir) {
+            case 'frontal': lightDirText = "Key light at 45 degrees left — warm and soft."; break;
+            case 'lateral': lightDirText = "Key light from side — high contrast."; break;
+            case 'cenital': lightDirText = "Key light from above — dramatic shadows."; break;
+        }
+        blocks.push(`[TECHNICAL — LIGHTING]:
+Soft diffused 3-point studio lighting.
+${lightDirText}
+Fill light at 45 degrees right — soft and subtle.
+Hair light from above — gentle rim definition.
+Chiaroscuro rimlight separating subject from
+background — subtle light edge defining Ara's
+silhouette against the green screen.
+Separation light adds depth and prevents subject
+from merging with background.
+Subject always reads clearly against green.
+Lighting warm and diffused at all times.
+Never direct. Never harsh.
+Zero specular highlights on skin surface.
+Light absorbed by skin — never reflected.`);
 
         // 13. TECHNICAL - PHYSICS
-        blocks.push("[TECHNICAL - PHYSICS]: Raytraced reflections. Subsurface scattering on skin. Realistic hair strand light interaction.");
+        blocks.push(`[TECHNICAL — PHYSICS]:
+Solid body integrity. Head and neck move as
+single connected unit. Clothes do not morph
+into skin. Jewelry remains static.
+Unwavering eye contact with camera lens.
+Natural blinking rate. Maintain reference age
+exactly. Head and neck in natural upright
+aligned posture. Zero forward head projection.
+Chest stable and still. Breathing invisible.`);
 
         // 14. TEMPORAL
-        blocks.push("[TEMPORAL]: 30fps stable frame rate. No temporal glitches or morphing.");
+        blocks.push(`[TEMPORAL]:
+[0.25s silence] First and last frame
+pixel-perfect clone of REFERENCE_IMAGE.PNG.
+Hard cut in. Hard cut out. 30fps stable.
+No temporal glitches or morphing.`);
 
         // 15. OUTFIT & IDENTITY
-        blocks.push("[OUTFIT & IDENTITY]: Ara's official wardrobe. Consistent dress/jacket from reference.");
+        blocks.push(`[OUTFIT & IDENTITY]: STRICT OVERRIDE.
+Ara must wear the following outfit:
+Forest green blazer, ivory blouse with subtle
+pattern, dark trousers.
+HAIR: Soft curls, shoulder length, side swept.
+MAKEUP: Warm rose lip, glowy skin, defined lashes.
+Consistency is absolute.
+IDENTITY: Latina woman, professional appearance,
+natural makeup (exactly as shown in reference).`);
 
         // 16. POSE & GESTURE
-        blocks.push("[POSE & GESTURE]: Professional posture. Occasional subtle hand gestures within the frame boundaries.");
+        let gestureMood = "";
+        if (araMood < 25) gestureMood = "TRISTE: Hands low, minimal movement.\nStillness is the primary gesture.\nAlmost still. One gesture maximum per clip.";
+        else if (araMood < 50) gestureMood = "SOLEMNE: Hands nearly still — maximum dignity.\nWhen gesture occurs: slow deliberate open palm.\nPowerful immobility. One gesture per 2-3 sentences.";
+        else if (araMood < 75) gestureMood = "ALEGRE: Open warm gestures at waist and chest.\nWhen gesture occurs: gentle open palm upward.\nNever theatrical. Joy through eyes primarily.";
+        else gestureMood = "URGENTE: Precise decisive gestures.\nWhen gesture occurs: crisp direct palm movement\nforward or downward — never lateral sweep.\nUrgency lives in precision, not in volume.";
+
+        blocks.push(`[POSE & GESTURE]:
+BODY BASE: Upright professional posture.
+Both forearms resting naturally on surface.
+Elegant relaxed position. Zero nervous gestures.
+Zero finger pointing — never aggressive.
+GESTURE ZONE: All hand movements contained
+strictly between face and waist level.
+Never above face. Never below waist.
+Fluid movements only — never abrupt or sharp.
+Less is always more.
+ONE MOVEMENT RULE: Only ONE primary gesture
+per clip. Never simultaneous hand movement +
+head turn + expression change. Aurora cannot
+process multiple simultaneous actions reliably.
+OPEN PALM PRINCIPLE: Default hand position:
+open relaxed palms facing slightly toward camera.
+Open palms communicate honesty and authority.
+MOOD-SPECIFIC GESTURES:
+${gestureMood}
+EXPRESSION INTENSITY: Professional broadcast
+anchor scale always. Micro-expressions only.
+More presenter, less actress.`);
 
         // 17. AUDIO_STYLE
-        blocks.push(AUDIO_STYLE);
+        let soundText = "";
+        switch(araAmbientSound) {
+            case 'studio': soundText = "Pure studio acoustics — zero background noise."; break;
+            case 'urban': soundText = "Subtle urban background hum (distant traffic)."; break;
+            case 'nature': soundText = "Soft nature sounds (wind, birds)."; break;
+        }
+        blocks.push(`[AUDIO_STYLE]:
+Native Rioplatense Spanish (Saladillo/Buenos Aires).
+Professional neutral news delivery.
+Tone, pacing and emotional coloring calibrated
+to MOOD state above.
+Clear professional diction.
+[SONIDO AMBIENTE]: ${soundText}`);
 
         // 18. NEGATIVE PROMPT
         blocks.push(NEGATIVE_PROMPT);
@@ -215,6 +684,174 @@ export function AvatarStudio() {
         if (phoneticCorrections.length > 0) count++;
         // En este sistema los otros bloques son constantes o se ajustan pero siempre existen como bloque
         return `${count}/18`;
+    };
+
+    const debugTestPrompt = () => {
+        const testScript = "Buenas tardes Saladillo.";
+        const blocks = [];
+
+        // 1-5. Bloques fijos
+        blocks.push(MASTER_CONSISTENCY_LOCK);
+        blocks.push(STILLNESS_CONTAINMENT);
+        blocks.push(HUMAN_IMPERFECTION);
+        blocks.push(PHONETIC_ENGINE_V4_1);
+        blocks.push(SCRIPT_FIDELITY);
+
+        // 6. Phonetic Corrections (si hay)
+        if (phoneticCorrections.length > 0) {
+            const correcciones = phoneticCorrections.map(c => `${c.original} -> ${c.fonetica}`).join(', ');
+            blocks.push(`[PHONETIC CORRECTIONS]:\n[INYECCIÓN DINÁMICA DE ara_pronunciacion]\nUse these specific phonetic maps: ${correcciones}`);
+        }
+
+        // 7. SCRIPT
+        blocks.push(`[SCRIPT]:\n${testScript}`);
+
+        // 8. MOOD + HORARIO
+        const moodContent = `[MOOD — SOLEMNE]: Ara feels the full historical
+and civic weight of this moment. She understands
+that what she is saying matters beyond today —
+but she is a professional, and reverence is her
+obstacle. She must not let the gravity collapse
+into theater or distance. She uses the weight of
+the moment as an anchor for precision, speaking
+as the voice of record, not as a performer of
+gravity. What the viewer sees is a woman who
+understands that some things deserve to be said
+slowly, clearly, and without ornament.
+Intensity: 5/10. Dignity is the only decoration.
+What leaks through: the weight of historical
+awareness. Gravity visible only as a barely
+perceptible lowering of the outer eyebrow corners.`;
+
+        const horarioContent = `[HORARIO — TARDE (12:00 - 19:00)]:
+The day is in full motion. Information arrives
+in context — the morning has happened and the
+afternoon is building. Ara's presence is grounded
+and authoritative. Pace is steady and clear.`;
+        
+        blocks.push(`${moodContent}\n\n${horarioContent}`);
+
+        // 9. CAMERA
+        const formatDesc = "16:9: aspect_ratio: 16:9 — Video format:\nhorizontal widescreen. Optimized for YouTube,\ndesktop and TV playback.";
+        const cameraBase = `[CAMERA]:
+CAMERA MOVEMENT — ABSOLUTE LOCK:
+Zero camera movement throughout entire clip.
+No zoom. No push. No pull. No reframe.
+No dolly. No pan. No tilt. No handheld.
+Frame is mathematically identical from first
+frame to last frame.
+Shot on ARRI Alexa 65.
+IMG_9854.CR2, RAW.16bit.ACEScg.
+stills archive, editorial_stills_archive.
+Subtle film grain. Mildly imperfect focus.
+Natural sensor texture — not digital smooth.
+hbo warnerbros broadcast quality finish.
+[FORMATO DE VIDEO — dinámico]:
+${formatDesc}`;
+        blocks.push(cameraBase);
+
+        // 10. CAMERA MOVEMENT
+        blocks.push(`[CAMERA MOVEMENT]:\nStatic locked tripod. Zero camera movement.`);
+
+        // 11. CHROMA KEY
+        blocks.push(`[TECHNICAL — ABSOLUTE CHROMA KEY]:
+Background: STRICT FLAT HEX COLOR #00B140.
+2D Digital Overlay. NOT a lit wall,
+NOT a studio curtain.
+Zero depth, zero shadows, zero gradients,
+zero vignetting. The green must be
+mathematically flat across the entire frame.
+Foreground lighting (Ara) must NOT cast any
+shadow onto the background.
+Isolate subject completely.`);
+
+        // 12. LIGHTING (Frontal)
+        blocks.push(`[TECHNICAL — LIGHTING]:
+Soft diffused 3-point studio lighting.
+Key light at 45 degrees left — warm and soft.
+Fill light at 45 degrees right — soft and subtle.
+Hair light from above — gentle rim definition.
+Chiaroscuro rimlight separating subject from
+background — subtle light edge defining Ara's
+silhouette against the green screen.
+Separation light adds depth and prevents subject
+from merging with background.
+Subject always reads clearly against green.
+Lighting warm and diffused at all times.
+Never direct. Never harsh.
+Zero specular highlights on skin surface.
+Light absorbed by skin — never reflected.`);
+
+        // 13-15. Bloques fijos
+        blocks.push(`[TECHNICAL — PHYSICS]:
+Solid body integrity. Head and neck move as
+single connected unit. Clothes do not morph
+into skin. Jewelry remains static.
+Unwavering eye contact with camera lens.
+Natural blinking rate. Maintain reference age
+exactly. Head and neck in natural upright
+aligned posture. Zero forward head projection.
+Chest stable and still. Breathing invisible.`);
+        
+        blocks.push(`[TEMPORAL]:
+[0.25s silence] First and last frame
+pixel-perfect clone of REFERENCE_IMAGE.PNG.
+Hard cut in. Hard cut out. 30fps stable.
+No temporal glitches or morphing.`);
+        
+        blocks.push(`[OUTFIT & IDENTITY]: STRICT OVERRIDE.
+Ara must wear the following outfit:
+Forest green blazer, ivory blouse with subtle
+pattern, dark trousers.
+HAIR: Soft curls, shoulder length, side swept.
+MAKEUP: Warm rose lip, glowy skin, defined lashes.
+Consistency is absolute.
+IDENTITY: Latina woman, professional appearance,
+natural makeup (exactly as shown in reference).`);
+
+        // 16. POSE & GESTURE (SOLEMNE)
+        const gestureMood = `SOLEMNE: Hands nearly still — maximum dignity.
+When gesture occurs: slow deliberate open palm.
+Powerful immobility. One gesture per 2-3 sentences.`;
+        blocks.push(`[POSE & GESTURE]:
+BODY BASE: Upright professional posture.
+Both forearms resting naturally on surface.
+Elegant relaxed position. Zero nervous gestures.
+Zero finger pointing — never aggressive.
+GESTURE ZONE: All hand movements contained
+strictly between face and waist level.
+Never above face. Never below waist.
+Fluid movements only — never abrupt or sharp.
+Less is always more.
+ONE MOVEMENT RULE: Only ONE primary gesture
+per clip. Never simultaneous hand movement +
+head turn + expression change. Aurora cannot
+process multiple simultaneous actions reliably.
+OPEN PALM PRINCIPLE: Default hand position:
+open relaxed palms facing slightly toward camera.
+Open palms communicate honesty and authority.
+MOOD-SPECIFIC GESTURES:
+${gestureMood}
+EXPRESSION INTENSITY: Professional broadcast
+anchor scale always. Micro-expressions only.
+More presenter, less actress.`);
+
+        // 17. AUDIO_STYLE
+        blocks.push(`[AUDIO_STYLE]:
+Native Rioplatense Spanish (Saladillo/Buenos Aires).
+Professional neutral news delivery.
+Tone, pacing and emotional coloring calibrated
+to MOOD state above.
+Clear professional diction.
+[SONIDO AMBIENTE]: Pure studio acoustics — zero background noise.`);
+
+        // 18. NEGATIVE PROMPT
+        blocks.push(NEGATIVE_PROMPT);
+
+        console.log("--- START DEBUG PROMPT ---");
+        console.log(blocks.join('\n\n'));
+        console.log("--- END DEBUG PROMPT ---");
+        alert("Debug prompt enviado a la consola (F12).");
     };
 
     return (
@@ -433,7 +1070,13 @@ export function AvatarStudio() {
                             </div>
                         </div>
 
-                        <div className="p-6 bg-white/5 border-t border-white/5">
+                        <div className="p-6 bg-white/5 border-t border-white/5 flex flex-col gap-2">
+                            <button 
+                                onClick={debugTestPrompt}
+                                className="w-full py-2 bg-slate-800 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-700 transition-all border border-slate-700"
+                            >
+                                🔍 Debug — copiar prompt
+                            </button>
                             <button 
                                 onClick={copiarPrompt}
                                 className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-100 transition-all shadow-xl shadow-black/20"
