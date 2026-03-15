@@ -381,6 +381,7 @@ export function AvatarStudio() {
                     if (res.ok) {
                         localStorage.setItem(lsKey, today);
                         console.log(`[Vestuario] Rotación completada con éxito para ${workingMode}`);
+                        setImageTimestamp(Date.now());
                     }
                 } catch (err) {
                     console.error('[Vestuario] Error en rotación diaria:', err);

@@ -492,6 +492,7 @@ const serveAudiosPlugin = () => ({
 
 const serveVestuarioPlugin = () => ({
   name: 'serve-vestuario',
+  enforce: 'pre' as const,
   configureServer(server: any) {
     const EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
     server.middlewares.use((req: any, res: any, next: any) => {
