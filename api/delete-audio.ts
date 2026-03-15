@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const R2_ACCOUNT_ID = '3f11be5ae3d34a83cf63343662eec80e';
 const R2_ACCESS_KEY_ID = '6e5e3dce4038a338abfb5fe96c5cb8a9';
@@ -17,22 +17,23 @@ const r2Client = new S3Client({
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  const fileName = req.query.fileName;
+  if (!fileName || Array.isArray(fileName)) {
+    return res.status(400).json({ error: 'Falta fileName válido' });
+  }
+  
   try {
-    const listCmd = new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: 'audios_Ara/' });
-    const listed = await r2Client.send(listCmd);
-    
-    // Filtramos los objetos que sean mp3 o wav y que no sean la carpeta principal
-    const audios = (listed.Contents || [])
-        .map(item => item.Key?.replace('audios_Ara/', ''))
-        .filter(key => key && (key.endsWith('.mp3') || key.endsWith('.wav')));
-    
-    return res.status(200).json({ audios });
+    await r2Client.send(new DeleteObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: `audios_Ara/${fileName}`
+    }));
+    return res.status(200).json({ success: true });
   } catch (err: any) {
-    console.error("Error al listar audios en R2:", err);
+    console.error("Error al borrar audio en R2:", err);
     return res.status(500).json({ error: err.message || 'Unknown Server Error' });
   }
 }

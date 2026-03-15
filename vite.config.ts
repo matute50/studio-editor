@@ -4,7 +4,7 @@ import { exec } from 'child_process';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import ffmpeg from 'fluent-ffmpeg';
-import { S3Client, ListObjectsV2Command, CopyObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, CopyObjectCommand, DeleteObjectsCommand, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 
 const R2_ACCOUNT_ID = '3f11be5ae3d34a83cf63343662eec80e';
 const R2_ACCESS_KEY_ID = '6e5e3dce4038a338abfb5fe96c5cb8a9';
@@ -70,15 +70,16 @@ const listAudiosPlugin = () => ({
   configureServer(server: any) {
     server.middlewares.use(async (req: any, res: any, next: any) => {
       if (req.url === '/api/list-audios' && req.method === 'GET') {
-        const targetDir = path.resolve(__dirname, 'audios_Ara');
         try {
-          if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-          }
-          const files = fs.readdirSync(targetDir).filter(f => f.endsWith('.mp3') || f.endsWith('.wav'));
+          const listCmd = new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: 'audios_Ara/' });
+          const listed = await r2Client.send(listCmd);
+          const audios = (listed.Contents || [])
+              .map(item => item.Key?.replace('audios_Ara/', ''))
+              .filter(key => key && (key.endsWith('.mp3') || key.endsWith('.wav')));
+          
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ audios: files }));
+          res.end(JSON.stringify({ audios }));
         } catch (err: any) {
           res.statusCode = 500;
           res.end(JSON.stringify({ error: err.message }));
@@ -86,7 +87,6 @@ const listAudiosPlugin = () => ({
       } else if (req.url?.startsWith('/api/delete-audio') && req.method === 'DELETE') {
         const url = new URL(req.url, `http://${req.headers.host}`);
         const fileName = url.searchParams.get('fileName');
-        const targetDir = path.resolve(__dirname, 'audios_Ara');
         
         if (!fileName) {
           res.statusCode = 400;
@@ -95,10 +95,10 @@ const listAudiosPlugin = () => ({
         }
 
         try {
-          const filePath = path.join(targetDir, fileName);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
+          await r2Client.send(new DeleteObjectsCommand({
+            Bucket: R2_BUCKET_NAME,
+            Delete: { Objects: [{ Key: `audios_Ara/${fileName}` }] }
+          }));
           res.statusCode = 200;
           res.end(JSON.stringify({ success: true }));
         } catch (err: any) {
@@ -117,7 +117,7 @@ const saveAudioPlugin = () => ({
   configureServer(server: any) {
     server.middlewares.use(async (req: any, res: any, next: any) => {
       if (req.url?.startsWith('/api/save-audio')) {
-        const targetDir = path.resolve(__dirname, 'audios_Ara');
+        const targetPrefix = 'audios_Ara/';
         
         if (req.method === 'GET') {
           const url = new URL(req.url, `http://${req.headers.host}`);
@@ -129,24 +129,35 @@ const saveAudioPlugin = () => ({
             return;
           }
 
-          const fileExists = fs.existsSync(path.join(targetDir, fileName));
-          res.statusCode = 200;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ exists: fileExists }));
+          try {
+            await r2Client.send(new HeadObjectCommand({ 
+              Bucket: R2_BUCKET_NAME, 
+              Key: `${targetPrefix}${fileName}` 
+            }));
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ exists: true }));
+          } catch (err: any) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ exists: false }));
+          }
           return;
         }
 
         if (req.method === 'POST') {
           let body = '';
           req.on('data', (chunk: any) => body += chunk);
-          req.on('end', () => {
+          req.on('end', async () => {
             try {
               const { fileName, audioBase64 } = JSON.parse(body);
-              if (!fs.existsSync(targetDir)) {
-                fs.mkdirSync(targetDir, { recursive: true });
-              }
               const buffer = Buffer.from(audioBase64, 'base64');
-              fs.writeFileSync(path.join(targetDir, fileName), buffer);
+              await r2Client.send(new PutObjectCommand({
+                Bucket: R2_BUCKET_NAME,
+                Key: `${targetPrefix}${fileName}`,
+                Body: buffer,
+                ContentType: fileName.endsWith('.wav') ? 'audio/wav' : 'audio/mpeg'
+              }));
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: true }));
@@ -172,10 +183,15 @@ const saveNoticiasPlugin = () => ({
       if (req.url === '/api/save-noticias' && req.method === 'POST') {
         let body = '';
         req.on('data', (chunk: any) => body += chunk);
-        req.on('end', () => {
+        req.on('end', async () => {
           try {
             const { content } = JSON.parse(body);
-            fs.writeFileSync(path.resolve(__dirname, 'noticias.txt'), content, 'utf-8');
+            await r2Client.send(new PutObjectCommand({
+              Bucket: R2_BUCKET_NAME,
+              Key: `noticias.txt`,
+              Body: content,
+              ContentType: 'text/plain; charset=utf-8'
+            }));
             res.statusCode = 200;
             res.end(JSON.stringify({ success: true }));
           } catch (err: any) {

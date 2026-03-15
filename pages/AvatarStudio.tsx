@@ -227,8 +227,8 @@ export function AvatarStudio() {
     // Cargar audio cuando cambie el activo
     useEffect(() => {
         if (activeAudio && waveSurferRef.current) {
-            console.log(`[WaveSurfer] Cargando audio: /audios/${activeAudio}`);
-            waveSurferRef.current.load(`/audios/${activeAudio}`);
+            console.log(`[WaveSurfer] Cargando audio: https://media.saladillovivo.com.ar/audios_Ara/${activeAudio}`);
+            waveSurferRef.current.load(`https://media.saladillovivo.com.ar/audios_Ara/${activeAudio}`);
             
             waveSurferRef.current.once('ready', () => {
                 const ws = waveSurferRef.current;
@@ -567,8 +567,8 @@ export function AvatarStudio() {
         try {
             // 1. Obtener imagen de referencia en base64
             const imagePath = workingMode === 'estudio' 
-                ? `/vestuario_de_hoy_estudio/REFERENCE_IMAGE.PNG`
-                : `/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.PNG`;
+                ? `https://media.saladillovivo.com.ar/vestuario_de_hoy_estudio/REFERENCE_IMAGE.PNG`
+                : `https://media.saladillovivo.com.ar/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.PNG`;
             
             const imgResp = await fetch(imagePath);
             const imgBlob = await imgResp.blob();
@@ -585,7 +585,7 @@ export function AvatarStudio() {
             let audBase64: string | undefined = undefined;
             if (sourceType === 'AUDIO' || (clip.audioFile && !clip.audioFile.includes('NOTICIA_'))) {
                 try {
-                    const audioUrl = `/audios/${clip.audioFile}`;
+                    const audioUrl = `https://media.saladillovivo.com.ar/audios_Ara/${clip.audioFile}`;
                     const audResp = await fetch(audioUrl);
                     if (audResp.ok) {
                         const audBlob = await audResp.blob();
@@ -1089,7 +1089,7 @@ export function AvatarStudio() {
                                 ) : (
                                     <>
                                         <img 
-                                            src={workingMode === 'estudio' ? `/vestuario_de_hoy_estudio/REFERENCE_IMAGE.PNG?t=${imageTimestamp}` : `/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.PNG?t=${imageTimestamp}`} 
+                                            src={workingMode === 'estudio' ? `https://media.saladillovivo.com.ar/vestuario_de_hoy_estudio/REFERENCE_IMAGE.PNG?t=${imageTimestamp}` : `https://media.saladillovivo.com.ar/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.PNG?t=${imageTimestamp}`} 
                                             className="absolute inset-0 w-full h-full object-cover transition-opacity" 
                                             alt="Avatar Preview"
                                         />
