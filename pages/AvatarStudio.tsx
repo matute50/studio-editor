@@ -433,17 +433,22 @@ export function AvatarStudio() {
     const fetchAudios = async () => {
         try {
             const res = await fetch('/api/list-audios');
-            const data = await res.json();
-            if (data.audios) {
-                // Ordenar alfabéticamente para consistencia
-                setAudioList(data.audios.sort());
+            if (res.ok) {
+                const data = await res.json();
+                if (data.audios) {
+                    setAudioList(data.audios.sort());
+                }
             }
+        } catch (err) {
+            console.error("Error cargando audios:", err);
+        }
 
-            // También cargamos las noticias de Supabase
+        try {
+            // También cargamos las noticias de Supabase independiente de si el audio falla
             const news = await newsService.getArticles();
             setArticles(news as Article[]);
         } catch (err) {
-            console.error("Error cargando datos:", err);
+            console.error("Error cargando noticias de Supabase:", err);
         }
     };
 
@@ -511,13 +516,17 @@ export function AvatarStudio() {
 
     const abrirCarpetaVestuario = async () => {
         try {
-            await fetch('/api/abrir-carpeta', {
+            const res = await fetch('/api/abrir-carpeta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ location: workingMode === 'estudio' ? 'estudio' : 'exteriores' })
             });
+            const data = await res.json();
+            if (data.redirectUrl) {
+                window.open(data.redirectUrl, "_blank");
+            }
         } catch (error) {
-            console.error("Error al abrir carpeta:", error);
+            console.error("Error al abrir cloudflare:", error);
             addToast('error', '✗ Error al intentar abrir la carpeta');
         }
     };

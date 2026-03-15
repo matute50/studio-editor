@@ -503,10 +503,9 @@ const serveVestuarioPlugin = () => ({
             const { location } = JSON.parse(body) as { location: 'estudio' | 'exteriores' };
             const prefix = location === 'estudio' ? 'vestuario_estudio%2F' : 'vestuario_exteriores%2F';
             const url = `https://dash.cloudflare.com/${R2_ACCOUNT_ID}/r2/default/buckets/${R2_BUCKET_NAME}/objects?prefix=${prefix}`;
-            exec(`start "" "${url}"`);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ success: true }));
+            res.end(JSON.stringify({ success: true, redirectUrl: url }));
           } catch (err: any) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
