@@ -523,7 +523,11 @@ const serveVestuarioPlugin = () => ({
             if (!fs.existsSync(targetPath)) {
                 fs.mkdirSync(targetPath, { recursive: true });
             }
-            exec(`start "" "${targetPath}"`);
+            exec(`explorer.exe "${targetPath}"`, (error) => {
+              if (error) {
+                console.error(`Error abriendo explorador de archivos: ${error}`);
+              }
+            });
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ success: true }));
