@@ -1490,12 +1490,12 @@ export function AvatarStudio() {
                             <p className="text-gray-400 text-sm mb-4">
                                 Arrastra y suelta (drag and drop) cualquier imagen directamente hacia Luma, Runway o tu escritorio.
                             </p>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 auto-rows-max">
+                            <div className="grid grid-cols-5 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-12 gap-1 auto-rows-max">
                                 <div className="flex flex-col relative group col-span-2 row-span-2">
-                                    <div className="text-[10px] absolute top-2 left-2 bg-[#00B140] text-black px-2 py-0.5 rounded font-bold z-10 shadow-lg pointer-events-none">REFERENCE_IMAGE</div>
+                                    <div className="text-[9px] absolute top-1 left-1 bg-[#00B140] text-black px-1 py-0.5 rounded font-bold z-10 shadow-lg pointer-events-none">REF.</div>
                                     <img 
                                         src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/REFERENCE_IMAGE.PNG?t=${imageTimestamp}`}
-                                        className="w-full h-full object-cover rounded-xl border-2 border-[#00B140] cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-xl"
+                                        className="w-full h-full object-cover rounded-md border border-[#00B140] cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-xl"
                                         draggable="true"
                                         alt="Reference"
                                     />
@@ -1504,10 +1504,10 @@ export function AvatarStudio() {
                                     const numStr = String(i + 1).padStart(2, '0');
                                     return (
                                         <div key={numStr} className="flex flex-col relative group">
-                                            <div className="text-[10px] absolute top-1 left-1 bg-black/80 text-gray-300 px-1.5 py-0.5 rounded backdrop-blur-md pointer-events-none z-10">{numStr}.png</div>
+                                            <div className="text-[8px] absolute top-0.5 left-0.5 bg-black/80 text-gray-300 px-1 py-0.5 rounded backdrop-blur-md pointer-events-none z-10">{numStr}</div>
                                             <img 
                                                 src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${numStr}.png?t=${imageTimestamp}`}
-                                                className="w-full aspect-square object-cover rounded-lg border border-[#333] cursor-grab active:cursor-grabbing hover:border-[#00B140] transition-colors shadow-md hover:shadow-lg"
+                                                className="w-full aspect-square object-cover rounded-sm border border-[#222] cursor-grab active:cursor-grabbing hover:border-[#00B140] transition-colors"
                                                 draggable="true"
                                                 alt={`Copia ${numStr}`}
                                             />
