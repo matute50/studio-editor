@@ -9,7 +9,7 @@ export const newsService = {
         try {
             const { data, error } = await supabase
                 .from('articles')
-                .select('id, title, created_at, image_url, audio_url, url_slide, featureStatus, text')
+                .select('id, title, created_at, image_url, audio_url, url_slide, featureStatus, text, super_resumen')
                 .order('created_at', { ascending: false });
 
             if (error) {

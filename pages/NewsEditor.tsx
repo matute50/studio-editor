@@ -162,7 +162,7 @@ export const NewsEditor: React.FC = () => {
         }
       }
 
-      const articleData = {
+      const articleData: any = {
         title: sanitizeTitle(title),
         text,
         image_url: finalFeaturedUrl,
@@ -172,6 +172,8 @@ export const NewsEditor: React.FC = () => {
       };
 
       if (editingId) {
+        // Al editar siempre actualizamos la fecha de creación para que suba a lo más reciente
+        articleData.created_at = new Date().toISOString();
         await supabase.from('articles').update(articleData).eq('id', editingId);
       } else {
         await supabase.from('articles').insert([articleData]);
@@ -330,12 +332,12 @@ export const NewsEditor: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Protocolo 12x3 (14-16 palabras por oración)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Súper Resumen (Estilo Ara: 4 oraciones)</label>
                 <textarea
                   value={superResumen}
                   onChange={(e) => setSuperResumen(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24 resize-none"
-                  placeholder="Se genera automáticamente al publicar, o tocando 'Generar Súper Resumen' abajo."
+                  placeholder="Se genera automáticamente aplicando las 13 reglas del Estilo Ara (17-20 pal en 1ra oración, 15-18 en las demás)."
                 />
               </div>
 
@@ -361,7 +363,7 @@ export const NewsEditor: React.FC = () => {
                   className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {generatingResumen ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                  Generar Súper Resumen
+                  Generar Súper Resumen (Estilo Ara)
                 </button>
                 <button
                   type="button"

@@ -106,8 +106,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </button>
         )}
 
-        <main className={`flex-1 transition-all duration-500 ${isZen ? 'p-0' : 'pt-24 pb-12 px-8'}`}>
-          <div className={`${isZen ? 'w-full h-full' : 'max-w-7xl mx-auto h-full'}`}>
+        <main className={`flex-1 transition-all duration-500 ${isZen ? 'p-0' : 'pt-16 p-0'}`}>
+          <div className="w-full h-full">
             {children}
           </div>
         </main>

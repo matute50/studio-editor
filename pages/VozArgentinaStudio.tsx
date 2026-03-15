@@ -20,7 +20,11 @@ import {
   Mic2,
   Sliders,
   UploadCloud,
-  Download
+  Download,
+  Smile,
+  Heart,
+  Frown,
+  Briefcase
 } from 'lucide-react';
 import { generateSpeech, generateClonedSpeech } from '../services/gemini';
 import { generateAudio } from '../services/googleTTS';
@@ -28,13 +32,68 @@ import { VOICE_OPTIONS } from '../constants';
 import { uploadAudioToR2 } from '../services/r2';
 
 export const VozArgentinaStudio: React.FC = () => {
-  const [testText, setTestText] = useState('¡Dale, vení! Ponéle buena onda que ya es tarde. ¿Qué hacés ahí parado? Ayer me tomé un feca con los pibes del laburo y me dijeron que la mitad del puente estaba cortado. ¡Un bolonqui bárbaro! Llamala a tu hermana y decile que se apure.');
+  const defaultAraPrompt = `[CONFIGURACIÓN TÉCNICA DE ARA - NO BORRAR]
+Identidad Acústica (Seed): 2147483647. (Este comando obliga al sistema a usar siempre la misma variante de voz).
+Motor Base (Voice_name): aoede. (Esto fija el "molde" de locutora institucional).
+Filtro Regional: es-AR (Español Argentina). (Activa el diccionario fonético rioplatense).
+Perfil Profesional: Locutora de 35 años, Saladillo, Buenos Aires. Especialista en noticias gremiales y políticas. Tono de noticiero central y actos oficiales.
+
+Prompt para el campo: Advanced Settings / API Config
+\`\`\`json
+{
+  "speech_config": {
+    "voice_name": "aoede",
+    "language_code": "es-AR",
+    "seed": 2147483647,
+    "speaking_rate": 1.0,
+    "pitch": 0.0
+  },
+  "metadata": {
+    "character_name": "Ara",
+    "age": 35,
+    "location": "Saladillo, Buenos Aires",
+    "role": "Locutora de noticias y actos oficiales"
+  }
+}
+\`\`\`
+[INSTRUCCIÓN DE SISTEMA - PRIORIDAD ALTA]
+Actuar como Ara, locutora profesional de 35 años de Saladillo, Argentina.
+1. Consistencia: Utilizar la semilla técnica 2147483647 para mantener el mismo timbre de voz en cada generación.
+2. Fonética: Aplicar estrictamente el español rioplatense de Buenos Aires, con yeísmo (sh) y aspiración de la 's'.
+3. Estilo: Tono de noticiero central, especialista en temas gremiales y políticos.
+4. Registro: Usar siempre el "vos" y vocabulario técnico-profesional de radio y TV.
+5. Identidad: Esta voz es reconocida por la comunidad local; no debe sonar genérica ni neutra.
+
+Perfil de Actuación: Ara "En Vivo" (Comunicación Directa)
+Instrucción de Dirección Escénica (Metadata):
+Contexto de Comunicación: Ara ya no está grabando un audio en un estudio aislado; ahora se encuentra frente a una audiencia en vivo (en un atril de acto oficial o en un piso de noticias con público).
+Proyección Vocal: La voz debe ser proyectada hacia adelante, con la energía necesaria para captar la atención de una audiencia presente, no como una lectura íntima.
+Dinámica de Habla: Incorporar pausas naturales de "contacto visual auditivo". Debe sonar como si estuviera explicando la noticia a personas reales en Saladillo, permitiendo variaciones leves de énfasis en términos clave como política o gremios.
+Presencia Física: La respiración y el ritmo deben reflejar a una profesional de 35 años que gesticula mientras habla, manteniendo la sobriedad pero con la calidez de la comunicación directa.
+Ajustes de Fonética y Voseo:
+Acento Rioplatense Directo: Reforzar el uso del voseo y la entonación rioplatense (sh) para sonar cercana y auténtica a la comunidad local, evitando cualquier rastro de acento neutro o robótico.
+Consistencia Técnica: Mantener el parámetro seed: 2147483647 y el voice_name: aoede (Berenice) para que el timbre no varíe.
+
+Prompt de Configuración: Segmentación para Veo 3.1 (Ara)
+Instrucción de Formateo y Estructura:
+Objetivo: Dividir el súper resumen de la noticia en bloques de oraciones independientes, optimizados para clips de video de 8 y 7 segundos.
+Regla del Bloque 1 (Inicio): La primera oración del súper resumen debe tener obligatoriamente entre 17 y 20 palabras estrictamente. Este bloque está destinado a cubrir exactamente 7.5 segundos de locución efectiva con pausas de seguridad.
+Regla de Bloques Siguientes (Extensiones): Todas las oraciones a partir de la segunda deben tener obligatoriamente entre 15 y 18 palabras estrictamente. Estos bloques están diseñados para las extensiones de video de 7 segundos de Veo 3.1.
+Unidad de Sentido: Cada segmento debe terminar en un punto seguido o punto aparte. No se permite cortar oraciones a la mitad ni dejar ideas incompletas entre bloques.
+Tono y Estilo de Ara:
+Voz Presencial: Redactar en formato de "comunicación directa a la audiencia", usando el voseo (español rioplatense de Buenos Aires).
+Temática: Mantener el léxico profesional para noticias políticas, sociales y gremiales de Saladillo.
+Ejemplo de Salida:
+[Bloque 1 - 17-20 palabras]: "Buenas tardes, los trabajadores municipales de Saladillo alcanzaron hoy un acuerdo salarial histórico tras una extensa reunión gremial."
+[Bloque 2 - 15-18 palabras]: "El incremento será del veinte por ciento y se aplicará directamente con los sueldos del próximo mes."`;
+
+  const [testText, setTestText] = useState('EL INTENDENTE CONFIRMA HOY LA POSTULACIÓN DE AUBASA PARA CONCESIONAR LA RUTA NACIONAL DOSCIENTOS CINCO.');
   const [isGenerating, setIsGenerating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState(() => localStorage.getItem('master_ai_audio_instruction') || '');
+  const [aiPrompt, setAiPrompt] = useState(() => localStorage.getItem('master_ai_audio_instruction') || defaultAraPrompt);
   const [showSaved, setShowSaved] = useState(false);
-  const [manualTitle, setManualTitle] = useState('VozArgentina_Estudio');
+  const [manualTitle, setManualTitle] = useState('Voz_Ara');
 
   // Voice Tuning State
   const [selectedVoice, setSelectedVoice] = useState<string>(VOICE_OPTIONS[0].id);
@@ -45,6 +104,16 @@ export const VozArgentinaStudio: React.FC = () => {
   const [clonedVoiceUrl, setClonedVoiceUrl] = useState(() => localStorage.getItem('cloned_voice_url') || '');
   const [clonedVoicePrompt, setClonedVoicePrompt] = useState(() => localStorage.getItem('cloned_voice_prompt') || '');
   const [isUploading, setIsUploading] = useState(false);
+
+  // Interpretation Styles
+  const [selectedEmotion, setSelectedEmotion] = useState(() => localStorage.getItem('ara_emotion_style') || 'formal');
+
+  const EMOTION_STYLES = [
+    { id: 'alegre', label: 'Alegre', icon: Smile, desc: 'Sonrisa', color: 'text-amber-400', bg: 'bg-amber-400/10', border: 'border-amber-400/30', prompt: '[ACTITUD EMOCIONAL]: ALEGRE. Ara dirá los textos obligatoriamente con una SORRISA, transmitiendo positividad, cercanía alegre y muy buena energía en la voz.' },
+    { id: 'sensible', label: 'Sensible', icon: Heart, desc: 'Empática y cercana', color: 'text-pink-400', bg: 'bg-pink-400/10', border: 'border-pink-400/30', prompt: '[ACTITUD EMOCIONAL]: SENSIBLE. Ara dirá los textos con imagen muy EMPÁTICA y CERCANA, comunicando comprensión, humanidad y calidez afectuosa.' },
+    { id: 'formal', label: 'Formal', icon: Briefcase, desc: 'Solemne', color: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/30', prompt: '[ACTITUD EMOCIONAL]: FORMAL. Ara se verá SOLEMNE y estricta al dar la noticia, manteniendo la compostura profesional, periodística y seria clásica.' },
+    { id: 'triste', label: 'Triste', icon: Frown, desc: 'Malas noticias', color: 'text-slate-400', bg: 'bg-slate-400/10', border: 'border-slate-400/30', prompt: '[ACTITUD EMOCIONAL]: TRISTE. Especial para dar MALA NOTICIAS. Ara hablará con tono consternado, lamentando lo sucedido, respetuoso, pausado y triste.' }
+  ];
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -103,9 +172,12 @@ export const VozArgentinaStudio: React.FC = () => {
       } else {
         // GEMINI TTS (Motor Principal con Soporte de Prompts Maestros)
         const specificVoicePrompt = voicePrompts[selectedVoice] ? `[PERSONALIDAD ESPECÍFICA]: ${voicePrompts[selectedVoice]}` : '';
-        const fullExtraConfig = `${aiPrompt} ${specificVoicePrompt}`.trim();
+        const emotionObj = EMOTION_STYLES.find(e => e.id === selectedEmotion);
+        const emotionPrompt = emotionObj ? emotionObj.prompt : '';
+        
+        const fullExtraConfig = `${aiPrompt} ${specificVoicePrompt} ${emotionPrompt}`.trim();
 
-        console.log(`Generando con Gemini TTS (Prueba): ${selectedVoice} | Prompt Maestro: ${aiPrompt.slice(0, 30)}...`);
+        console.log(`Generando con Gemini TTS (Prueba): ${selectedVoice} | Emoción: ${selectedEmotion} | Prompt Maestro: ${aiPrompt.slice(0, 30)}...`);
 
         try {
           const { localUrl } = await generateSpeech(
@@ -113,7 +185,8 @@ export const VozArgentinaStudio: React.FC = () => {
             selectedVoice,
             'medio',
             1.05,
-            fullExtraConfig
+            fullExtraConfig,
+            2147483647 // Semilla dura obligatoria para identidad acústica de Ara
           );
           setAudioUrl(localUrl);
         } catch (err) {
@@ -241,37 +314,20 @@ export const VozArgentinaStudio: React.FC = () => {
 
               {!useClonedVoice ? (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* COLUMNA VOCES FEMENINAS */}
+                  <div className="space-y-3">
+                    {/* LA VOZ PRINCIPAL - ARA */}
                     <div className="space-y-2">
                       <h3 className="text-[9px] font-black text-pink-400 uppercase tracking-widest flex items-center gap-2 border-b border-pink-500/20 pb-1.5">
-                        <Sparkles size={10} /> Femeninas
+                        <Sparkles size={10} /> Presentadora Oficial
                       </h3>
-                      {VOICE_OPTIONS.filter(v => v.gender === 'female').map(v => (
+                      {VOICE_OPTIONS.map(v => (
                         <button
                           key={v.id}
                           onClick={() => setSelectedVoice(v.id)}
-                          className={`w-full p-2 rounded-lg border text-left transition-all group ${selectedVoice === v.id ? 'bg-pink-600 border-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-black/20 border-white/5 hover:border-pink-500/30'}`}
+                          className={`w-full p-3 rounded-xl border text-left transition-all group ${selectedVoice === v.id ? 'bg-pink-600 border-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-black/20 border-white/5 hover:border-pink-500/30'}`}
                         >
-                          <div className={`text-[9px] font-black uppercase truncate ${selectedVoice === v.id ? 'text-white' : 'text-slate-400 group-hover:text-pink-200'}`}>{v.label}</div>
-                          <div className={`text-[7px] truncate ${selectedVoice === v.id ? 'text-pink-100' : 'text-slate-600'}`}>{v.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* COLUMNA VOCES MASCULINAS */}
-                    <div className="space-y-2">
-                      <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2 border-b border-blue-500/20 pb-1.5">
-                        <Zap size={10} /> Masculinas
-                      </h3>
-                      {VOICE_OPTIONS.filter(v => v.gender === 'male').map(v => (
-                        <button
-                          key={v.id}
-                          onClick={() => setSelectedVoice(v.id)}
-                          className={`w-full p-2 rounded-lg border text-left transition-all group ${selectedVoice === v.id ? 'bg-blue-600 border-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-black/20 border-white/5 hover:border-blue-500/30'}`}
-                        >
-                          <div className={`text-[9px] font-black uppercase truncate ${selectedVoice === v.id ? 'text-white' : 'text-slate-400 group-hover:text-blue-200'}`}>{v.label}</div>
-                          <div className={`text-[7px] truncate ${selectedVoice === v.id ? 'text-blue-100' : 'text-slate-600'}`}>{v.desc}</div>
+                          <div className={`text-[11px] font-black uppercase truncate ${selectedVoice === v.id ? 'text-white' : 'text-slate-400 group-hover:text-pink-200'}`}>{v.label}</div>
+                          <div className={`text-[9px] mt-1 truncate ${selectedVoice === v.id ? 'text-pink-100' : 'text-slate-600'}`}>{v.desc}</div>
                         </button>
                       ))}
                     </div>
@@ -420,6 +476,31 @@ export const VozArgentinaStudio: React.FC = () => {
               </div>
 
               <div className="space-y-6">
+                
+                <div className="flex flex-col gap-2 mb-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Estilos de Interpretación</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {EMOTION_STYLES.map(em => {
+                      const Icon = em.icon;
+                      const isActive = selectedEmotion === em.id;
+                      return (
+                        <button
+                          key={em.id}
+                          onClick={() => {
+                            setSelectedEmotion(em.id);
+                            localStorage.setItem('ara_emotion_style', em.id);
+                          }}
+                          className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${isActive ? `${em.bg} ${em.border} shadow-inner scale-105 ring-1 ring-white/10` : 'bg-black/20 border-white/5 hover:bg-white/5'}`}
+                        >
+                          <Icon size={18} className={`mb-1.5 ${isActive ? em.color : 'text-slate-500'}`} />
+                          <span className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-white' : 'text-slate-400'}`}>{em.label}</span>
+                          <span className={`text-[7px] text-center mt-1 uppercase ${isActive ? em.color : 'text-slate-600'}`}>{em.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="relative">
                   <textarea
                     value={testText}

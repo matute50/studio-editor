@@ -1,7 +1,5 @@
 export const VOICE_OPTIONS = [
-    { id: 'Aoede', label: 'Sofía (Cultura)', desc: 'Femenina', gender: 'female' },
-    { id: 'Achird', label: 'Locutor (Noticias)', desc: 'Masculino', gender: 'male' },
-    { id: 'Kore', label: 'Lucía (Clima/General)', desc: 'Femenina', gender: 'female' },
+    { id: 'aoede', label: 'Ara (Presentadora)', desc: 'Femenina, 35 años', gender: 'female' },
 ] as const;
 
 export const SLOGANS = [

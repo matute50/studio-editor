@@ -91,6 +91,7 @@ export interface SlideSceneConfig {
     duration: number;
     kenBurnsStart: number;
     kenBurnsEnd: number;
+  };
 }
 
 export interface FondoBiblioteca {

@@ -3,7 +3,23 @@ import fs from 'fs';
 import { exec } from 'child_process';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import ffmpeg from 'fluent-ffmpeg';
+import { S3Client, ListObjectsV2Command, CopyObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 
+const R2_ACCOUNT_ID = '3f11be5ae3d34a83cf63343662eec80e';
+const R2_ACCESS_KEY_ID = '6e5e3dce4038a338abfb5fe96c5cb8a9';
+const R2_SECRET_ACCESS_KEY = 'c6873a1c2d0dd7b55bca1a51ecf42c5e4ab5c21563df79ad37c33295b86c2b70';
+const R2_BUCKET_NAME = 'saladillovivo-media';
+
+const r2Client = new S3Client({
+  region: "auto",
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+  forcePathStyle: true
+});
 const diccionarioFoneticoPlugin = () => ({
   name: 'diccionario-fonetico',
   configureServer(server: any) {
@@ -49,6 +65,106 @@ const diccionarioFoneticoPlugin = () => ({
   }
 });
 
+const listAudiosPlugin = () => ({
+  name: 'list-audios',
+  configureServer(server: any) {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      if (req.url === '/api/list-audios' && req.method === 'GET') {
+        const targetDir = path.resolve(__dirname, 'audios_Ara');
+        try {
+          if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+          }
+          const files = fs.readdirSync(targetDir).filter(f => f.endsWith('.mp3') || f.endsWith('.wav'));
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ audios: files }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      } else if (req.url?.startsWith('/api/delete-audio') && req.method === 'DELETE') {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const fileName = url.searchParams.get('fileName');
+        const targetDir = path.resolve(__dirname, 'audios_Ara');
+        
+        if (!fileName) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'Falta fileName' }));
+          return;
+        }
+
+        try {
+          const filePath = path.join(targetDir, fileName);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: true }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      } else {
+        next();
+      }
+    });
+  }
+});
+
+const saveAudioPlugin = () => ({
+  name: 'save-audio',
+  configureServer(server: any) {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      if (req.url?.startsWith('/api/save-audio')) {
+        const targetDir = path.resolve(__dirname, 'audios_Ara');
+        
+        if (req.method === 'GET') {
+          const url = new URL(req.url, `http://${req.headers.host}`);
+          const fileName = url.searchParams.get('fileName');
+          
+          if (!fileName) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'Falta fileName' }));
+            return;
+          }
+
+          const fileExists = fs.existsSync(path.join(targetDir, fileName));
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ exists: fileExists }));
+          return;
+        }
+
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => body += chunk);
+          req.on('end', () => {
+            try {
+              const { fileName, audioBase64 } = JSON.parse(body);
+              if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+              }
+              const buffer = Buffer.from(audioBase64, 'base64');
+              fs.writeFileSync(path.join(targetDir, fileName), buffer);
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true }));
+            } catch (err: any) {
+              console.error("Error en save-audio:", err);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+      }
+      next();
+    });
+  }
+});
+
 const saveNoticiasPlugin = () => ({
   name: 'save-noticias',
   configureServer(server: any) {
@@ -74,124 +190,40 @@ const saveNoticiasPlugin = () => ({
   }
 });
 
-const geminiProxyPlugin = () => ({
-  name: 'gemini-proxy',
+const claudeProxyPlugin = () => ({
+  name: 'claude-proxy',
   configureServer(server: any) {
     server.middlewares.use(async (req: any, res: any, next: any) => {
-      if (req.url === '/api/gemini-proxy' && req.method === 'POST') {
+      if (req.url === '/api/claude-proxy' && req.method === 'POST') {
         let body = '';
         req.on('data', (chunk: any) => body += chunk);
         req.on('end', async () => {
           try {
             const env = loadEnv('', process.cwd(), '');
-            const apiKeys = [env.GEMINI_API_KEY, env.GEMINI_API_KEY_2].filter(Boolean);
-            const { system, prompt } = JSON.parse(body);
-            let lastError = "";
+            const apiKey = env.ANTHROPIC_API_KEY;
+            if (!apiKey) throw new Error("ANTHROPIC_API_KEY no encontrada en .env");
 
-            // 1. INTENTAR CON GEMINI (ORDEN DE PRIORIDAD)
-            const configs = [
-              { model: "gemini-2.0-flash", v: "v1beta" },
-              { model: "gemini-1.5-flash", v: "v1" },
-              { model: "gemini-1.5-pro", v: "v1" }
-            ];
+            const { messages, system, model = 'claude-3-5-sonnet-latest', max_tokens = 1000 } = JSON.parse(body);
 
-            for (const config of configs) {
-              for (const apiKey of apiKeys) {
-                try {
-                  const url = `https://generativelanguage.googleapis.com/${config.v}/models/${config.model}:generateContent?key=${apiKey}`;
-                  const response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      contents: [{ parts: [{ text: `INSTRUCCIONES DEL SISTEMA:\n${system}\n\nMENSAJE DEL USUARIO:\n${prompt}` }] }],
-                      generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
-                    })
-                  });
-                  const data = await response.json();
-                  if (response.ok) {
-                    res.statusCode = 200;
-                    res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify(data));
-                    return;
-                  }
-                  lastError = data.error?.message || JSON.stringify(data.error);
-                } catch (e: any) { lastError = e.message; }
-              }
-            }
+            const response = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: {
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+              },
+              body: JSON.stringify({
+                model,
+                max_tokens,
+                system,
+                messages
+              })
+            });
 
-            // 2. FALLBACK A GROQ (NUEVO RESBALÓN DE ALTA VELOCIDAD)
-            if (env.GROQ_API_KEY && env.GROQ_API_KEY !== "TU_CLAVE_DE_GROQ_AQUI") {
-              console.warn("Gemini agotado. Iniciando fallback a Groq (Llama3-70b)...");
-              try {
-                const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                  method: "POST",
-                  headers: {
-                    "Authorization": `Bearer ${env.GROQ_API_KEY}`,
-                    "Content-Type": "application/json"
-                  },
-                  body: JSON.stringify({
-                    model: "llama3-70b-8192",
-                    messages: [
-                      { role: "system", content: system },
-                      { role: "user", content: prompt }
-                    ],
-                    temperature: 0.1
-                  })
-                });
-                const groqData = await groqResponse.json();
-                if (groqResponse.ok) {
-                  const mapped = {
-                    candidates: [{
-                      content: { parts: [{ text: groqData.choices[0].message.content }] }
-                    }]
-                  };
-                  res.statusCode = 200;
-                  res.setHeader('Content-Type', 'application/json');
-                  res.end(JSON.stringify(mapped));
-                  return;
-                }
-                lastError = groqData.error?.message || "Error en Groq Fallback";
-              } catch (e: any) { lastError = e.message; }
-            }
-
-            // 3. FALLBACK A OPENAI (SALVAVIDAS FINAL)
-            if (env.OPENAI_API_KEY) {
-              console.warn("Gemini y Groq agotados. Iniciando fallback a OpenAI (GPT-4o-mini)...");
-              try {
-                const oaResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-                  method: "POST",
-                  headers: {
-                    "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
-                    "Content-Type": "application/json"
-                  },
-                  body: JSON.stringify({
-                    model: "gpt-4o-mini",
-                    messages: [
-                      { role: "system", content: system },
-                      { role: "user", content: prompt }
-                    ],
-                    temperature: 0.1
-                  })
-                });
-                const oaData = await oaResponse.json();
-                if (oaResponse.ok) {
-                  const mapped = {
-                    candidates: [{
-                      content: { parts: [{ text: oaData.choices[0].message.content }] }
-                    }]
-                  };
-                  res.statusCode = 200;
-                  res.setHeader('Content-Type', 'application/json');
-                  res.end(JSON.stringify(mapped));
-                  return;
-                }
-                lastError = oaData.error?.message || "Error en OpenAI Fallback";
-              } catch (e: any) { lastError = e.message; }
-            }
-
-            res.statusCode = 500;
+            const data = await response.json();
+            res.statusCode = response.status || 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: `Agotados todos los recursos (Gemini, Groq y OpenAI). Último error: ${lastError}` }));
+            res.end(JSON.stringify(data));
           } catch (err: any) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
@@ -205,22 +237,273 @@ const geminiProxyPlugin = () => ({
   }
 });
 
+const geminiProxyPlugin = () => {
+  let apiKeys: string[] = [];
+  
+  return {
+    name: 'gemini-proxy',
+    configResolved(config: any) {
+      const folder = config.root || process.cwd();
+      const env = loadEnv(config.mode || 'development', folder, '');
+      apiKeys = [
+        env.GEMINI_API_KEY, env.GEMINI_API_KEY_2, env.GEMINI_API_KEY_3, env.GEMINI_API_KEY_4, 
+        env.GEMINI_API_KEY_5, env.GEMINI_API_KEY_6, env.GEMINI_API_KEY_7, env.GEMINI_API_KEY_8, 
+        env.GEMINI_API_KEY_9, env.GEMINI_API_KEY_10, env.GEMINI_API_KEY_11, env.GEMINI_API_KEY_12, 
+        env.GEMINI_API_KEY_13, env.GEMINI_API_KEY_14, process.env.GEMINI_API_KEY
+      ].filter(Boolean) as string[];
+    },
+    configureServer(server: any) {
+      server.middlewares.use(async (req: any, res: any, next: any) => {
+        if (req.url === '/api/gemini-proxy' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => body += chunk);
+          req.on('end', async () => {
+            try {
+              const { system, prompt } = JSON.parse(body);
+              let lastError = "";
+
+              const configs = [
+                { model: "gemini-2.0-flash", v: "v1beta" },
+                { model: "gemini-1.5-flash", v: "v1beta" },
+                { model: "gemini-1.5-flash-latest", v: "v1beta" },
+                { model: "gemini-1.5-pro", v: "v1beta" },
+                { model: "gemini-1.5-pro-latest", v: "v1beta" },
+                { model: "gemini-1.5-flash", v: "v1" }
+              ];
+
+              if (apiKeys.length === 0) {
+                throw new Error("No se encontraron GEMINI_API_KEY en el entorno.");
+              }
+
+              for (const config of configs) {
+                for (const apiKey of apiKeys) {
+                  try {
+                    const url = `https://generativelanguage.googleapis.com/${config.v}/models/${config.model}:generateContent?key=${apiKey}`;
+                    
+                    const payload: any = {
+                      contents: [{ parts: [{ text: prompt }] }],
+                      generationConfig: { 
+                        temperature: 0.2, 
+                        maxOutputTokens: 2048,
+                        topP: 0.8,
+                        topK: 40
+                      },
+                      safetySettings: [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                      ]
+                    };
+
+                    if (config.v === 'v1beta' && system) {
+                      payload.system_instruction = { parts: [{ text: system }] };
+                    } else if (system) {
+                      payload.contents[0].parts[0].text = `SYSTEM INSTRUCTIONS:\n${system}\n\nUSER PROMPT:\n${prompt}`;
+                    }
+
+                    const response = await fetch(url, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                      res.statusCode = 200;
+                      res.setHeader('Content-Type', 'application/json');
+                      res.end(JSON.stringify(data));
+                      return;
+                    }
+
+                    // Log para debug (aparece en la terminal del server)
+                    if (!response.ok) {
+                      console.warn(`[Gemini Proxy] Falló ${config.model} (${config.v}):`, data.error?.message || response.statusText);
+                    } else if (data.promptFeedback?.blockReason) {
+                      console.warn(`[Gemini Proxy] Bloqueado por seguridad: ${data.promptFeedback.blockReason}`);
+                    }
+
+                    lastError = data.error?.message || (data.promptFeedback?.blockReason ? `Bloqueado: ${data.promptFeedback.blockReason}` : JSON.stringify(data.error)) || "Respuesta vacía o sin candidatos";
+                  } catch (e: any) { 
+                    lastError = e.message;
+                    console.error(`[Gemini Proxy] Error fatal en intento:`, e.message);
+                  }
+                }
+              }
+
+              // Fallback a GROQ si falla Gemini
+              const env = loadEnv('development', process.cwd(), '');
+              if (env.GROQ_API_KEY) {
+                try {
+                  const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                      "Authorization": `Bearer ${env.GROQ_API_KEY}`,
+                      "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                      model: "llama-3.3-70b-versatile",
+                      messages: [
+                        { role: "system", content: system },
+                        { role: "user", content: prompt }
+                      ],
+                      temperature: 0.2
+                    })
+                  });
+                  const groqData = await groqResponse.json();
+                  if (groqResponse.ok) {
+                    const mapped = {
+                      candidates: [{
+                        content: { parts: [{ text: groqData.choices[0].message.content }] }
+                      }]
+                    };
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify(mapped));
+                    return;
+                  }
+                  lastError = groqData.error?.message || "Error en Groq fallback";
+                } catch (e: any) { lastError = e.message; }
+              }
+
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: `No se pudo obtener respuesta de ninguna IA. Último error: ${lastError}` }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+        } else {
+          next();
+        }
+      });
+    }
+  };
+};
+
+const processAudioPlugin = () => ({
+  name: 'process-audio',
+  configureServer(server: any) {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      if (req.url === '/api/process-audio' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+          try {
+            const { fileName, segments } = JSON.parse(body);
+            const rootDir = process.cwd();
+            const targetDir = path.resolve(rootDir, 'audios_Ara');
+            const sourceFile = path.join(targetDir, fileName);
+
+            if (!fs.existsSync(sourceFile)) {
+              throw new Error(`No se encontró el audio original: ${fileName} en ${targetDir}`);
+            }
+
+            // Extraer ID de la noticia del nombre del archivo (ej: "noticia 1_1.mp3" -> "1")
+            const noticiaIdMatch = fileName.match(/noticia (\d+)/i);
+            const noticiaId = noticiaIdMatch ? noticiaIdMatch[1] : 'X';
+
+            const segmentosDir = path.resolve(targetDir, 'SEGMENTOS');
+            if (!fs.existsSync(segmentosDir)) {
+              fs.mkdirSync(segmentosDir, { recursive: true });
+            }
+
+            console.log(`[FFMPEG] Procesando ${segments.length} segmentos para Noticia ${noticiaId} en ${segmentosDir}`);
+
+            // Procesar cada segmento
+            const promises = segments.map((seg: any, idx: number) => {
+                return new Promise((resolve, reject) => {
+                    const outputName = `NOT${noticiaId}_SEG${idx + 1}.mp3`;
+                    const outputPath = path.join(segmentosDir, outputName);
+                    
+                    ffmpeg(sourceFile)
+                        .setStartTime(seg.start)
+                        .setDuration(seg.end - seg.start)
+                        .output(outputPath)
+                        .on('end', () => {
+                            console.log(`[FFMPEG] Creado: ${outputName}`);
+                            resolve(outputName);
+                        })
+                        .on('error', (err) => {
+                            console.error(`[FFMPEG] Error en ${outputName}:`, err);
+                            reject(err);
+                        })
+                        .run();
+                });
+            });
+
+            await Promise.all(promises);
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: true, count: segments.length }));
+          } catch (err: any) {
+            console.error("Error al procesar audio:", err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      } else {
+        next();
+      }
+    });
+  }
+});
+
+const serveAudiosPlugin = () => ({
+  name: 'serve-audios',
+  configureServer(server: any) {
+    server.middlewares.use((req: any, res: any, next: any) => {
+      const url = req.url || '';
+      if (url.startsWith('/audios/')) {
+        try {
+          const rootDir = process.cwd();
+          const targetDir = path.resolve(rootDir, 'audios_Ara');
+          const urlPath = new URL(url, 'http://localhost').pathname;
+          const fileName = decodeURIComponent(urlPath.slice(8));
+          const filePath = path.join(targetDir, fileName);
+          
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            const ext = path.extname(filePath).toLowerCase();
+            const mimeMap: Record<string, string> = {
+              '.mp3': 'audio/mpeg',
+              '.wav': 'audio/wav',
+              '.m4a': 'audio/mp4',
+              '.ogg': 'audio/ogg'
+            };
+            res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Access-Control-Allow-Origin', '*'); 
+            fs.createReadStream(filePath).pipe(res);
+            return;
+          }
+        } catch (e) {
+          console.error("Audio Serve Error:", e);
+        }
+      }
+      next();
+    });
+  }
+});
+
 const serveVestuarioPlugin = () => ({
   name: 'serve-vestuario',
   configureServer(server: any) {
     const EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
-
-    // ── API: cambiar vestuario al azar ────────────────────────────────────────
     server.middlewares.use((req: any, res: any, next: any) => {
-      // POST /api/abrir-carpeta — abre explorador de Windows en la carpeta vestuario_de_hoy
       if (req.url === '/api/abrir-carpeta' && req.method === 'POST') {
         let body = '';
         req.on('data', (c: any) => body += c);
         req.on('end', () => {
           try {
             const { location } = JSON.parse(body) as { location: 'estudio' | 'exteriores' };
-            const targetDir = path.resolve(__dirname, location === 'estudio' ? 'vestuario_de_hoy_estudio' : 'vestuario_de_hoy_exteriores');
-            exec(`explorer "${targetDir}"`);
+            const prefix = location === 'estudio' ? 'vestuario_estudio%2F' : 'vestuario_exteriores%2F';
+            const url = `https://dash.cloudflare.com/${R2_ACCOUNT_ID}/r2/default/buckets/${R2_BUCKET_NAME}/objects?prefix=${prefix}`;
+            exec(`start "" "${url}"`);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ success: true }));
@@ -232,16 +515,13 @@ const serveVestuarioPlugin = () => ({
         });
         return;
       }
-
-      // GET /api/vestuario-paths?location=estudio|exteriores
       if (req.url?.startsWith('/api/vestuario-paths') && req.method === 'GET') {
         try {
           const loc = new URL(req.url, 'http://localhost').searchParams.get('location') ?? 'estudio';
-          const targetDir = path.resolve(__dirname, loc === 'estudio' ? 'vestuario_de_hoy_estudio' : 'vestuario_de_hoy_exteriores');
+          const targetPrefix = loc === 'estudio' ? 'vestuario_de_hoy_estudio/' : 'vestuario_de_hoy_exteriores/';
           const paths: string[] = [];
           for (let i = 1; i <= 30; i++) {
-            const f = path.join(targetDir, `${String(i).padStart(2, '0')}.png`);
-            if (fs.existsSync(f)) paths.push(f);
+            paths.push(`https://media.saladillovivo.com.ar/${targetPrefix}${String(i).padStart(2, '0')}.png`);
           }
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
@@ -253,42 +533,56 @@ const serveVestuarioPlugin = () => ({
         }
         return;
       }
-
       if (req.url === '/api/cambiar-vestuario' && req.method === 'POST') {
         let body = '';
         req.on('data', (c: any) => body += c);
-        req.on('end', () => {
+        req.on('end', async () => {
           try {
             const { location } = JSON.parse(body) as { location: 'estudio' | 'exteriores' };
-            const sourceDir = path.resolve(__dirname, location === 'estudio' ? 'vestuario_estudio' : 'vestuario_exteriores');
-            const targetDir = path.resolve(__dirname, location === 'estudio' ? 'vestuario_de_hoy_estudio' : 'vestuario_de_hoy_exteriores');
-
-            // 1. Limpiar destino (excepto lock)
-            fs.mkdirSync(targetDir, { recursive: true });
-            for (const f of fs.readdirSync(targetDir)) {
-              if (f !== '.last_update') fs.rmSync(path.join(targetDir, f), { force: true });
+            const sourcePrefix = location === 'estudio' ? 'vestuario_estudio/' : 'vestuario_exteriores/';
+            const targetPrefix = location === 'estudio' ? 'vestuario_de_hoy_estudio/' : 'vestuario_de_hoy_exteriores/';
+            
+            // 1. Elegir una foto al azar de sourcePrefix
+            const listCmd = new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: sourcePrefix });
+            const listed = await r2Client.send(listCmd);
+            const imagenes = (listed.Contents || []).filter(item => item.Key && !item.Key.endsWith('/'));
+            if (imagenes.length === 0) throw new Error('No hay imágenes en la carpeta fuente en R2');
+            
+            const elegida = imagenes[Math.floor(Math.random() * imagenes.length)].Key!;
+            
+            // 2. Limpiar targetPrefix
+            const listTarget = await r2Client.send(new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: targetPrefix }));
+            if (listTarget.Contents && listTarget.Contents.length > 0) {
+               await r2Client.send(new DeleteObjectsCommand({
+                 Bucket: R2_BUCKET_NAME,
+                 Delete: { Objects: listTarget.Contents.map(i => ({ Key: i.Key! })) }
+               }));
             }
-
-            // 2. Elegir imagen al azar
-            const imagenes = fs.readdirSync(sourceDir).filter(f => EXTS.has(path.extname(f).toLowerCase()));
-            if (imagenes.length === 0) throw new Error('No hay imágenes en la carpeta fuente');
-            const elegida = imagenes[Math.floor(Math.random() * imagenes.length)];
-
-            // 3. Copiar como REFERENCE_IMAGE.PNG
-            fs.copyFileSync(path.join(sourceDir, elegida), path.join(targetDir, 'REFERENCE_IMAGE.PNG'));
-
-            // 4. 30 copias numeradas
+            
+            // 3. Copiar a REFERENCE_IMAGE.PNG
+            await r2Client.send(new CopyObjectCommand({
+               Bucket: R2_BUCKET_NAME,
+               CopySource: `${R2_BUCKET_NAME}/${elegida}`,
+               Key: `${targetPrefix}REFERENCE_IMAGE.PNG`,
+            }));
+            
+            // 4. Generar las copias 01.png a 30.png (Extension original)
+            const extension = elegida.split('.').pop() || 'png';
+            const copyPromises = [];
             for (let i = 1; i <= 30; i++) {
-              fs.copyFileSync(path.join(sourceDir, elegida), path.join(targetDir, `${String(i).padStart(2, '0')}.png`));
+               copyPromises.push(r2Client.send(new CopyObjectCommand({
+                 Bucket: R2_BUCKET_NAME,
+                 CopySource: `${R2_BUCKET_NAME}/${elegida}`,
+                 Key: `${targetPrefix}${String(i).padStart(2, '0')}.${extension}`
+               })));
             }
-
-            // 5. Actualizar lock
-            fs.writeFileSync(path.join(targetDir, '.last_update'), new Date().toISOString().slice(0, 10), 'utf8');
+            await Promise.all(copyPromises);
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ success: true, elegida }));
           } catch (err: any) {
+            console.error("Error al rotar vestuario en R2:", err);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ error: err.message }));
@@ -298,31 +592,8 @@ const serveVestuarioPlugin = () => ({
       }
       next();
     });
-
-    // ── Servir imágenes estáticas de vestuario_de_hoy_* ───────────────────────
-    const vestDirs: Record<string, string> = {
-      '/vestuario_de_hoy_estudio/': path.resolve(__dirname, 'vestuario_de_hoy_estudio'),
-      '/vestuario_de_hoy_exteriores/': path.resolve(__dirname, 'vestuario_de_hoy_exteriores'),
-    };
-    server.middlewares.use((req: any, res: any, next: any) => {
-      for (const [prefix, dir] of Object.entries(vestDirs)) {
-        if (req.url?.startsWith(prefix)) {
-          const file = path.join(dir, req.url.slice(prefix.length).split('?')[0]);
-          if (fs.existsSync(file) && fs.statSync(file).isFile()) {
-            const ext = path.extname(file).toLowerCase();
-            const mime = ext === '.png' ? 'image/png'
-              : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
-                : ext === '.webp' ? 'image/webp'
-                  : 'application/octet-stream';
-            res.setHeader('Content-Type', mime);
-            res.setHeader('Cache-Control', 'no-cache');
-            fs.createReadStream(file).pipe(res);
-            return;
-          }
-        }
-      }
-      next();
-    });
+      // Ya no se requiere servir las carpetas de vestuario localmente
+      // dado que ahora provienen en su totalidad de R2 (media.saladillovivo.com.ar).
   }
 });
 
@@ -336,13 +607,35 @@ export default defineConfig(({ mode }) => {
         ignored: ['**/noticias.txt']
       }
     },
-    plugins: [react(), diccionarioFoneticoPlugin(), saveNoticiasPlugin(), serveVestuarioPlugin(), geminiProxyPlugin()],
+    plugins: [
+      react(), 
+      listAudiosPlugin(), 
+      diccionarioFoneticoPlugin(), 
+      saveNoticiasPlugin(), 
+      saveAudioPlugin(), 
+      serveAudiosPlugin(),
+      processAudioPlugin(),
+      serveVestuarioPlugin(), 
+      geminiProxyPlugin(), 
+      claudeProxyPlugin()
+    ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GOOGLE_TTS_API_KEY': JSON.stringify(env.GOOGLE_TTS_API_KEY),
       'process.env.GEMINI_API_KEY_2': JSON.stringify(env.GEMINI_API_KEY_2),
-      'process.env.GEMINI_API_KEY_3': JSON.stringify(env.GEMINI_API_KEY_3)
+      'process.env.GEMINI_API_KEY_3': JSON.stringify(env.GEMINI_API_KEY_3),
+      'process.env.GEMINI_API_KEY_4': JSON.stringify(env.GEMINI_API_KEY_4),
+      'process.env.GEMINI_API_KEY_5': JSON.stringify(env.GEMINI_API_KEY_5),
+      'process.env.GEMINI_API_KEY_6': JSON.stringify(env.GEMINI_API_KEY_6),
+      'process.env.GEMINI_API_KEY_7': JSON.stringify(env.GEMINI_API_KEY_7),
+      'process.env.GEMINI_API_KEY_8': JSON.stringify(env.GEMINI_API_KEY_8),
+      'process.env.GEMINI_API_KEY_9': JSON.stringify(env.GEMINI_API_KEY_9),
+      'process.env.GEMINI_API_KEY_10': JSON.stringify(env.GEMINI_API_KEY_10),
+      'process.env.GEMINI_API_KEY_11': JSON.stringify(env.GEMINI_API_KEY_11),
+      'process.env.GEMINI_API_KEY_12': JSON.stringify(env.GEMINI_API_KEY_12),
+      'process.env.GEMINI_API_KEY_13': JSON.stringify(env.GEMINI_API_KEY_13),
+      'process.env.GEMINI_API_KEY_14': JSON.stringify(env.GEMINI_API_KEY_14)
     },
     resolve: {
       alias: {

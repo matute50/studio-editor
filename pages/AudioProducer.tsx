@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../services/supabase';
-import { optimizeBodyForAudio, generateSpeech, appendSloganToText } from '../services/gemini';
+import { optimizeBodyForAudio, generateSpeech, appendSloganToText, corregirOracionAra } from '../services/gemini';
 import { generateAudio } from '../services/googleTTS';
 import { uploadAudioToR2 } from '../services/r2';
 import { mixSpeechWithCustomIntro } from '../services/audioMixer';
@@ -75,8 +75,8 @@ export const AudioProducer: React.FC = () => {
   const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null);
   const [useLunfardo, setUseLunfardo] = useState(true);
   const [creativityTemp, setCreativityTemp] = useState<number>(1);
-  const [selectedVoice, setSelectedVoice] = useState<string>('Kore');
-  const [manualSpeed, setManualSpeed] = useState<number>(1.0);
+  const [selectedVoice, setSelectedVoice] = useState<string>('aoede');
+  const [manualSpeed, setManualSpeed] = useState<number>(1.05); // Velocidad optimizada de Ara 1.05px
   const [selectedVibe, setSelectedVibe] = useState<string>('clasica');
   const [selectedCurtain, setSelectedCurtain] = useState<string>(CURTAIN_OPTIONS[1].url);
   const [musicVol, setMusicVol] = useState<number>(0.6);
@@ -90,7 +90,24 @@ export const AudioProducer: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isGeneratingAraAudios, setIsGeneratingAraAudios] = useState(false);
   const [masterAiPrompt, setMasterAiPrompt] = useState(() => localStorage.getItem('master_ai_audio_instruction') || '');
+  const [araAudiosStatus, setAraAudiosStatus] = useState<Record<number, boolean>>({});
+  const [localSentences, setLocalSentences] = useState<string[]>([]);
+  const [confirmedSentences, setConfirmedSentences] = useState<Record<number, boolean>>({});
+  const [isCorrectingSentence, setIsCorrectingSentence] = useState<Record<number, boolean>>({});
+
+  const checkAllAraAudios = async (articles: Article[]) => {
+    const newStatus: Record<number, boolean> = {};
+    for (let i = 0; i < articles.length; i++) {
+        try {
+          const r = await fetch(`/api/save-audio?fileName=noticia%20${i + 1}_1.mp3`);
+          const d = await r.json();
+          newStatus[i] = !!d.exists;
+        } catch (e) { newStatus[i] = false; }
+    }
+    setAraAudiosStatus(newStatus);
+  };
 
   const [voicePrompts, setVoicePrompts] = useState<Record<string, string>>({});
 
@@ -117,8 +134,56 @@ export const AudioProducer: React.FC = () => {
     if (selectedArticle) {
       setScript(selectedArticle.text || '');
       setGeneratedAudioUrl(null);
+      
+      const textToSplit = selectedArticle.super_resumen || selectedArticle.text || '';
+      const s = textToSplit.match(/[^.!?]+[.!?]/g)?.map(str => str.trim()) || [];
+      const top4 = s.slice(0, 4);
+      while(top4.length < 4) top4.push("");
+      setLocalSentences(top4);
+      setConfirmedSentences({});
+    } else {
+      setLocalSentences([]);
+      setConfirmedSentences({});
     }
   }, [selectedArticle]);
+
+  const handleSentenceChange = (idx: number, val: string) => {
+    const newS = [...localSentences];
+    newS[idx] = val;
+    setLocalSentences(newS);
+    setConfirmedSentences(prev => ({...prev, [idx]: false}));
+  };
+
+  const confirmSentence = async (idx: number) => {
+    if (!selectedArticle || isManualMode) return;
+    const newFullText = localSentences.join(" ");
+    try {
+      await supabase.from('articles').update({ super_resumen: newFullText }).eq('id', selectedArticle.id);
+      setConfirmedSentences(prev => ({...prev, [idx]: true}));
+    } catch(e) {
+      console.error("Error confirming sentence:", e);
+    }
+  };
+
+  const handleCorregirSentence = async (idx: number) => {
+    const textToCorrect = localSentences[idx];
+    if (!textToCorrect || textToCorrect.trim() === '') return;
+    
+    setIsCorrectingSentence(prev => ({...prev, [idx]: true}));
+    try {
+       const corrected = await corregirOracionAra(textToCorrect);
+       if (corrected) {
+          const newS = [...localSentences];
+          newS[idx] = corrected;
+          setLocalSentences(newS);
+          setConfirmedSentences(prev => ({...prev, [idx]: false})); // Al corregir se requiere confirmar de nuevo
+       }
+    } catch(e) {
+       console.error("Error corrigiendo oración:", e);
+    } finally {
+       setIsCorrectingSentence(prev => ({...prev, [idx]: false}));
+    }
+  };
 
   // Al cambiar la vibra, ajustamos velocidad y parámetros automáticamente
   useEffect(() => {
@@ -158,6 +223,7 @@ export const AudioProducer: React.FC = () => {
       const { data, error } = await supabase.from('articles').select('*, body_voice_tuning').order('created_at', { ascending: false }).limit(20);
       if (error) throw error;
       setPendingArticles(data || []);
+      if (data) checkAllAraAudios(data);
 
     } catch (err: any) {
       console.error("Error cargando noticias:", err);
@@ -278,7 +344,8 @@ export const AudioProducer: React.FC = () => {
           selectedVoice,
           'medio',
           manualSpeed,
-          fullExtraConfig
+          fullExtraConfig,
+          2147483647 // Semilla dura obligatoria para identidad acústica
         );
       } catch (geminiError) {
         console.warn("Fallo Gemini TTS, usando Fallback de Google Cloud:", geminiError);
@@ -327,11 +394,148 @@ export const AudioProducer: React.FC = () => {
       } : a));
     } catch (err: any) {
       let msg = err.message || "Error desconocido";
-      if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
-        msg = "⏳ Límite de cuota gratuito excedido (Gemini Free Tier). Esperá unos 60 segundos antes de intentar de nuevo.";
+      if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Límite de cuota")) {
+        msg = "⏳ Límite de cuota alcanzado (Free Tier). La IA de audio es experimental y tiene un límite estricto de peticiones. Por favor, esperá un minuto o usá otra clave API.";
       }
       setError(msg);
       setIsGeneratingAudio(false);
+    }
+  };
+  const checkAudioExists = async (fileName: string): Promise<boolean> => {
+    try {
+      const resp = await fetch(`/api/save-audio?fileName=${encodeURIComponent(fileName)}`);
+      const data = await resp.json();
+      return !!data.exists;
+    } catch (e) {
+      return false;
+    }
+  };
+  
+  const saveAudioToDisk = async (blob: Blob, fileName: string) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string)?.split(',')[1];
+        if (!base64) return reject(new Error("No se pudo obtener base64 del audio"));
+        try {
+          const response = await fetch('/api/save-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileName, audioBase64: base64 })
+          });
+          const res = await response.json();
+          if (res.success) resolve(res);
+          else reject(new Error(res.error || "Error guardando archivo"));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const handleGenerateAraAudios = async () => {
+    if (!selectedArticle) return alert("Por favor selecciona una noticia primero en el panel izquierdo.");
+    setIsGeneratingAraAudios(true);
+    let successCount = 0;
+    let quotaExceeded = false;
+    
+    try {
+      if (quotaExceeded) return;
+
+      const articleIndex = pendingArticles.findIndex((a) => a.id === selectedArticle.id);
+      if (articleIndex === -1) {
+          alert("Error: La noticia seleccionada no se encuentra en la lista actual.");
+          setIsGeneratingAraAudios(false);
+          return;
+      }
+      
+      const i = articleIndex;
+      const article = selectedArticle;
+
+      // --- Filtro Anti-Cuota Innecesaria: Solo Hoy ---
+      const articleDate = new Date((article as any).updated_at || article.created_at);
+      const today = new Date();
+      const isToday = 
+          articleDate.getDate() === today.getDate() &&
+          articleDate.getMonth() === today.getMonth() &&
+          articleDate.getFullYear() === today.getFullYear();
+          
+      if (!isToday) {
+          alert(`Esta es una noticia de archivo (fecha anterior). No se procesará para no desperdiciar la cuota gratuita.`);
+          setIsGeneratingAraAudios(false);
+          return;
+      }
+
+      const textToSplit = article.body_voice_tuning || article.super_resumen || article.text;
+      if (!textToSplit) {
+          alert("La noticia no tiene texto disponible o apto para generar el audio.");
+          setIsGeneratingAraAudios(false);
+          return;
+      }
+
+      const sentences = textToSplit.match(/[^.!?]+[.!?]/g)?.map(s => s.trim()) || [];
+      
+      let finalSentencesToRead: string[] = [];
+      if (!isManualMode && selectedArticle && localSentences.some(s => s.trim().length > 0)) {
+         finalSentencesToRead = localSentences.filter(s => s.trim().length > 0);
+      } else {
+         finalSentencesToRead = sentences;
+      }
+      
+      // SOLUCIÓN DEFINITIVA DE CONSISTENCIA Y CUOTA (Opción B)
+      // Generamos UN solo audio por noticia completa.
+      // - Garantiza consistencia perfecta sin reinicios.
+      // - Reduce el consumo de cuota un 400%.
+      // - Para Veo 3.1 el operador trozará el clip general de video en edición o pasaremos
+      //   el MP3 por una herramienta posterior de particionado.
+      
+      const fileName = `noticia ${i + 1}_1.mp3`;
+      
+      const exists = await checkAudioExists(fileName);
+      if (exists) {
+        console.log(`Saltando ${fileName} (ya existe en disco)`);
+        successCount++;
+        // Continúa la ejecución sin error
+      } else {
+        // Unimos las oraciones en un solo bloque con fuerte separación (pausa natural).
+        const fullTextToRead = finalSentencesToRead.slice(0, 4).join(" ... ");
+        
+        console.log(`Generando Ara Audio UNIFICADO: ${fileName} -> "${fullTextToRead.slice(0, 60)}..."`);
+        
+        try {
+          const result = await generateSpeech(
+            fullTextToRead,
+            selectedVoice || 'aoede',
+            'medio',
+            manualSpeed,
+            masterAiPrompt,
+            2147483647
+          );
+          
+          await saveAudioToDisk(result.blob, fileName);
+          successCount++; // Acá 1 successCount vale por la noticia entera
+          
+          await new Promise(r => setTimeout(r, 2000));
+        } catch (itemErr: any) {
+          console.error(`Error en ${fileName}:`, itemErr);
+          if (itemErr.message.includes("cuota") || itemErr.message.includes("429") || itemErr.message.includes("quota")) {
+            quotaExceeded = true;
+            alert(`Límite de cuota alcanzado. Se guardó hasta la noticia ${successCount}.`);
+          }
+        }
+      }
+
+      if (!quotaExceeded) {
+        alert(`¡Generación completa! Se prepararon ${successCount} fragmentos listos para esta noticia.`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Error fatal en proceso: " + err.message);
+    } finally {
+      setIsGeneratingAraAudios(false);
+      checkAllAraAudios(pendingArticles);
     }
   };
 
@@ -417,7 +621,7 @@ export const AudioProducer: React.FC = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-          {pendingArticles.map(article => (
+          {pendingArticles.map((article, index) => (
             <button key={article.id} onClick={() => {
               setIsManualMode(false);
               setSelectedArticle(article);
@@ -430,7 +634,13 @@ export const AudioProducer: React.FC = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-[11px] font-bold truncate text-slate-700 uppercase">{article.title}</h4>
-                {article.audio_url && <p className="text-[8px] text-green-600 font-bold uppercase">Audio Producido</p>}
+                {article.audio_url && <p className="text-[8px] text-green-600 font-bold uppercase mt-0.5">Audio Producido</p>}
+                {araAudiosStatus[index] && (
+                  <p className="text-[8px] text-amber-500 font-bold tracking-wider mt-0.5 uppercase flex items-center gap-1">
+                    <Sparkles size={10} className="text-amber-500 rounded-sm bg-gradient-to-r from-amber-200 to-amber-100 p-0.5" /> 
+                    Audios Ara
+                  </p>
+                )}
               </div>
             </button>
           ))}
@@ -468,7 +678,7 @@ export const AudioProducer: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col bg-slate-900 border-b border-white/5 relative">
+        <div className="flex-none flex flex-col bg-slate-900 border-b border-white/5 relative h-[30vh] min-h-[200px]">
           {isManualMode && (
             <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 items-end">
               <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Nombre</label>
@@ -497,9 +707,11 @@ export const AudioProducer: React.FC = () => {
           </div>
         </div>
 
-        {/* PANEL INFERIOR COMPACTADO */}
-        <div className="bg-slate-950 p-4 space-y-4 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* CONTENEDOR INFERIOR SCROLLEABLE GENERAL */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-950 flex flex-col">
+          {/* PANEL INFERIOR COMPACTADO */}
+          <div className="p-4 space-y-4 shrink-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Voces */}
             <div className="lg:col-span-5 space-y-2">
               <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1 border-l-2 border-blue-500 pl-2">Voces</label>
@@ -519,7 +731,7 @@ export const AudioProducer: React.FC = () => {
                   <div className="text-[8px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1 border-b border-blue-500/20 pb-1">
                     <Zap size={8} /> Masc
                   </div>
-                  {VOICE_OPTIONS.filter(v => v.gender === 'male').map(v => (
+                  {VOICE_OPTIONS.filter((v: any) => v.gender === 'male').map(v => (
                     <button key={v.id} onClick={() => setSelectedVoice(v.id)} className={`w-full text-left p-1.5 rounded-lg border transition-all group ${selectedVoice === v.id ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'bg-slate-900 border-white/5 text-slate-400 hover:border-blue-500/30'}`}>
                       <div className={`font-black text-[9px] uppercase leading-tight ${selectedVoice === v.id ? 'text-white' : 'text-slate-300 group-hover:text-blue-200'}`}>{v.label}</div>
                       <div className={`text-[7px] italic opacity-60 truncate ${selectedVoice === v.id ? 'text-blue-100' : ''}`}>{v.desc}</div>
@@ -576,7 +788,7 @@ export const AudioProducer: React.FC = () => {
 
         {/* FEEDBACK STATION - SISTEMA DE CALIFICACIÓN */}
         {generatedAudioUrl && showFeedbackPanel && (
-          <div className="pt-4 border-t border-white/5 animate-slideDown">
+          <div className="p-4 pt-4 border-t border-white/5 animate-slideDown shrink-0">
             <div className="bg-slate-900/80 border border-white/5 rounded-2xl p-4 flex flex-col lg:flex-row items-center gap-6">
               <div className="flex flex-col gap-1 items-center lg:items-start shrink-0">
                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Calidad del Audio</span>
@@ -660,33 +872,88 @@ export const AudioProducer: React.FC = () => {
           </div>
         )}
 
-        <div className="pt-6 border-t border-white/5 flex items-center gap-8">
-          <button onClick={handleGenerate} disabled={isGeneratingAudio || !script.trim() || (!isManualMode && !selectedArticle)} className="h-16 px-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all font-black text-xs uppercase tracking-[0.3em]">
-            {isGeneratingAudio ? <Loader2 size={20} className="animate-spin" /> : <Music4 size={20} />} Largar Producción
-          </button>
+        <div className="p-4 pt-4 border-t border-white/5 flex flex-col gap-4 shrink-0 mt-auto">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleGenerate} 
+              disabled={isGeneratingAudio || !script.trim() || (!isManualMode && !selectedArticle)} 
+              className="h-12 px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-xl flex items-center justify-center gap-2 disabled:opacity-30 transition-all font-black text-[10px] uppercase tracking-[0.2em]"
+            >
+              {isGeneratingAudio ? <Loader2 size={16} className="animate-spin" /> : <Music4 size={16} />} Largar Producción
+            </button>
 
-          {generatedAudioUrl && (
-            <div className="flex-1 flex items-center gap-6 animate-fadeIn bg-white/5 p-3 pr-6 rounded-2xl border border-white/10 backdrop-blur-sm">
-              <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-white text-slate-950 rounded-full hover:scale-105 transition-all">
-                {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} className="ml-1" fill="currentColor" />}
-              </button>
-              <div className="flex-1 space-y-2">
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div className={`h-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] ${isPlaying ? 'w-full' : 'w-0'} transition-all duration-[3000ms] linear`}></div>
+            {generatedAudioUrl && (
+              <div className="flex-1 flex items-center gap-6 animate-fadeIn bg-white/5 p-3 pr-6 rounded-2xl border border-white/10 backdrop-blur-sm">
+                <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-white text-slate-950 rounded-full hover:scale-105 transition-all">
+                  {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} className="ml-1" fill="currentColor" />}
+                </button>
+                <div className="flex-1 space-y-2">
+                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className={`h-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] ${isPlaying ? 'w-full' : 'w-0'} transition-all duration-[3000ms] linear`}></div>
+                  </div>
+                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Salida de Master lista</span>
                 </div>
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Saladia de Master lista</span>
+                <button
+                  onClick={handleDownloadManual}
+                  className="p-3 bg-white/5 text-white/40 hover:text-blue-400 rounded-xl transition-all"
+                  title="Descargar Audio"
+                >
+                  <Download size={20} />
+                </button>
+                <audio ref={audioRef} src={generatedAudioUrl} onEnded={() => setIsPlaying(false)} className="hidden" />
               </div>
-              <button
-                onClick={handleDownloadManual}
-                className="p-3 bg-white/5 text-white/40 hover:text-blue-400 rounded-xl transition-all"
-                title="Descargar Audio"
-              >
-                <Download size={20} />
-              </button>
-              <audio ref={audioRef} src={generatedAudioUrl} onEnded={() => setIsPlaying(false)} className="hidden" />
-            </div>
+            )}
+          </div>
+
+          {!isManualMode && selectedArticle && localSentences.length > 0 && (
+             <div className="space-y-4 bg-slate-900/50 p-4 border border-white/10 rounded-xl mt-4">
+                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-white/10 pb-2 mb-4">Súper Resumen (4 Oraciones Estrictas)</h4>
+                 {localSentences.map((sent, idx) => (
+                    <div key={idx} className="flex gap-3 items-stretch">
+                       <div className="w-16 shrink-0 bg-slate-800 rounded-lg flex flex-col items-center justify-center border border-white/5 shadow-inner">
+                           <span className="text-[14px] font-black text-white">{sent.trim().split(/\s+/).filter(w => w.length > 0).length}</span>
+                           <span className="text-[7px] text-slate-400 uppercase tracking-widest">Palabras</span>
+                       </div>
+                       <div className="flex-1 flex flex-col gap-2">
+                           <textarea 
+                              value={sent} 
+                              onChange={e => handleSentenceChange(idx, e.target.value)} 
+                              className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-[12px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none h-16 transition-all" 
+                              placeholder={`Oración ${idx + 1}...`}
+                           />
+                           <div className="self-end flex items-center gap-2">
+                             <button 
+                                onClick={() => confirmSentence(idx)} 
+                                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${confirmedSentences[idx] ? 'bg-green-600/20 text-green-400 border-green-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-white/10'}`}
+                             >
+                                {confirmedSentences[idx] ? 'Confirmada' : 'Confirmar'}
+                             </button>
+                             <button 
+                                onClick={() => handleCorregirSentence(idx)} 
+                                disabled={isCorrectingSentence[idx] || !sent.trim()}
+                                className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/30 flex items-center gap-1 disabled:opacity-50"
+                             >
+                                {isCorrectingSentence[idx] ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                                Corregir
+                             </button>
+                           </div>
+                       </div>
+                    </div>
+                 ))}
+
+                <div className="pt-4 mt-2 border-t border-white/5">
+                  <button 
+                    onClick={handleGenerateAraAudios} 
+                    disabled={isGeneratingAraAudios || pendingArticles.length === 0} 
+                    className="h-12 w-full bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-xl flex items-center justify-center gap-2 disabled:opacity-30 transition-all font-black text-[10px] uppercase tracking-[0.2em]"
+                  >
+                    {isGeneratingAraAudios ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Audios Ara (Generar Bloque Unificado)
+                  </button>
+                </div>
+             </div>
           )}
         </div>
+        </div> {/* FIN CONTENEDOR SCROLLEABLE */}
       </div>
     </div>
   );
