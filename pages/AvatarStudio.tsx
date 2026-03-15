@@ -526,6 +526,8 @@ export function AvatarStudio() {
             const data = await res.json();
             if (data.redirectUrl) {
                 window.open(data.redirectUrl, "_blank");
+            } else if (data.success) {
+                addToast('success', '✓ Carpeta local abierta exitosamente');
             }
         } catch (error) {
             console.error("Error al abrir cloudflare:", error);

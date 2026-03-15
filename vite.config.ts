@@ -518,11 +518,15 @@ const serveVestuarioPlugin = () => ({
         req.on('end', () => {
           try {
             const { location } = JSON.parse(body) as { location: 'estudio' | 'exteriores' };
-            const prefix = location === 'estudio' ? 'vestuario_estudio%2F' : 'vestuario_exteriores%2F';
-            const url = `https://dash.cloudflare.com/${R2_ACCOUNT_ID}/r2/default/buckets/${R2_BUCKET_NAME}/objects?prefix=${prefix}`;
+            const folderName = location === 'estudio' ? 'vestuario_de_hoy_estudio' : 'vestuario_de_hoy_exteriores';
+            const targetPath = path.resolve(__dirname, folderName);
+            if (!fs.existsSync(targetPath)) {
+                fs.mkdirSync(targetPath, { recursive: true });
+            }
+            exec(`start "" "${targetPath}"`);
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ success: true, redirectUrl: url }));
+            res.end(JSON.stringify({ success: true }));
           } catch (err: any) {
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json');
