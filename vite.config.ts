@@ -547,40 +547,13 @@ const serveVestuarioPlugin = () => ({
             const imagenes = (listed.Contents || []).filter(item => item.Key && !item.Key.endsWith('/'));
             if (imagenes.length === 0) throw new Error('No hay imágenes en la carpeta fuente en R2');
             
+            // (Solo leer de R2, las copias van directo a LOCAL)
             const elegida = imagenes[Math.floor(Math.random() * imagenes.length)].Key!;
             
-            // 2. Limpiar targetPrefix
-            const listTarget = await r2Client.send(new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: targetPrefix }));
-            if (listTarget.Contents && listTarget.Contents.length > 0) {
-               await r2Client.send(new DeleteObjectsCommand({
-                 Bucket: R2_BUCKET_NAME,
-                 Delete: { Objects: listTarget.Contents.map(i => ({ Key: i.Key! })) }
-               }));
-            }
-            
-            // 3. Copiar a REFERENCE_IMAGE.PNG
-            await r2Client.send(new CopyObjectCommand({
-               Bucket: R2_BUCKET_NAME,
-               CopySource: `${R2_BUCKET_NAME}/${elegida}`,
-               Key: `${targetPrefix}REFERENCE_IMAGE.PNG`,
-            }));
-            
-            // 4. Generar las copias 01.png a 30.png (Extension original)
-            const extension = elegida.split('.').pop() || 'png';
-            const copyPromises = [];
-            for (let i = 1; i <= 30; i++) {
-               copyPromises.push(r2Client.send(new CopyObjectCommand({
-                 Bucket: R2_BUCKET_NAME,
-                 CopySource: `${R2_BUCKET_NAME}/${elegida}`,
-                 Key: `${targetPrefix}${String(i).padStart(2, '0')}.${extension}`
-               })));
-            }
-            await Promise.all(copyPromises);
-
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             
-            // --- NUEVO: FUNCIONALIDAD CARPETA LOCAL ---
+            // --- FUNCIONALIDAD CARPETA LOCAL EXCLUSIVA ---
             // Limpiar la carpeta local primero
             const localTargetDir = path.resolve(__dirname, targetPrefix.replace('/', ''));
             if (!fs.existsSync(localTargetDir)) {
@@ -592,9 +565,13 @@ const serveVestuarioPlugin = () => ({
                }
             }
             
-            // Descargar la imagen elegida de R2 (es de dominio público)
-            const publicUrl = `https://media.saladillovivo.com.ar/${elegida}`;
+            // Descargar la imagen elegida de R2 (es de dominio público), codificando la URL para evitar errores con espacios
+            const encodeKey = elegida.split('/').map(segment => encodeURIComponent(segment)).join('/');
+            const publicUrl = `https://media.saladillovivo.com.ar/${encodeKey}`;
+            
             const imgRes = await fetch(publicUrl);
+            if (!imgRes.ok) throw new Error(`Fallo al descargar la imagen de R2 desde ${publicUrl} (Status: ${imgRes.status})`);
+            
             const imgBuffer = await imgRes.arrayBuffer();
             const nodeBuffer = Buffer.from(imgBuffer);
             
