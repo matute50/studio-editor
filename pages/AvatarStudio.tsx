@@ -158,6 +158,7 @@ export function AvatarStudio() {
     const [extLocacion, setExtLocacion] = useState('PLAZA PRINCIPAL');
     const [extAccion, setExtAccion] = useState('');
     const [imageTimestamp, setImageTimestamp] = useState(Date.now());
+    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
 
     const [isGeneratingScripts, setIsGeneratingScripts] = useState(false);
     const waveformRef = useRef<HTMLDivElement>(null);
@@ -516,23 +517,9 @@ export function AvatarStudio() {
         addToast('success', '✓ Prompt copiado al portapapeles');
     };
 
-    const abrirCarpetaVestuario = async () => {
-        try {
-            const res = await fetch('/api/abrir-carpeta', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ location: workingMode === 'estudio' ? 'estudio' : 'exteriores' })
-            });
-            const data = await res.json();
-            if (data.redirectUrl) {
-                window.open(data.redirectUrl, "_blank");
-            } else if (data.success) {
-                addToast('success', '✓ Carpeta local abierta exitosamente');
-            }
-        } catch (error) {
-            console.error("Error al abrir cloudflare:", error);
-            addToast('error', '✗ Error al intentar abrir la carpeta');
-        }
+    const abrirCarpetaVestuario = () => {
+        setIsGalleryOpen(true);
+        addToast('success', '✓ Galería de Vestuario abierta');
     };
 
     const cambiarVestuarioManual = async () => {
@@ -1482,6 +1469,57 @@ export function AvatarStudio() {
                     </div>
                 ))}
             </div>
+
+            {/* VESTUARIO GALLERY MODAL */}
+            {isGalleryOpen && (
+                <div className="fixed inset-0 z-[99999] bg-[#0A0A0A]/90 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl">
+                        <div className="p-4 border-b border-[#2A2A2A] flex justify-between items-center bg-[#1A1A1A] rounded-t-2xl">
+                            <h3 className="text-[#00B140] font-medium flex items-center gap-2">
+                                <FolderOpen size={18} />
+                                Galería de Vestuario ({workingMode.toUpperCase()})
+                            </h3>
+                            <button 
+                                onClick={() => setIsGalleryOpen(false)}
+                                className="text-gray-400 hover:text-white transition-colors p-1"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                            <p className="text-gray-400 text-sm mb-4">
+                                Arrastra y suelta (drag and drop) cualquier imagen directamente hacia Luma, Runway o tu escritorio.
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 auto-rows-max">
+                                <div className="flex flex-col relative group col-span-2 row-span-2">
+                                    <div className="text-[10px] absolute top-2 left-2 bg-[#00B140] text-black px-2 py-0.5 rounded font-bold z-10 shadow-lg pointer-events-none">REFERENCE_IMAGE</div>
+                                    <img 
+                                        src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/REFERENCE_IMAGE.PNG?t=${imageTimestamp}`}
+                                        className="w-full h-full object-cover rounded-xl border-2 border-[#00B140] cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-xl"
+                                        draggable="true"
+                                        alt="Reference"
+                                    />
+                                </div>
+                                {Array.from({ length: 30 }, (_, i) => {
+                                    const numStr = String(i + 1).padStart(2, '0');
+                                    return (
+                                        <div key={numStr} className="flex flex-col relative group">
+                                            <div className="text-[10px] absolute top-1 left-1 bg-black/80 text-gray-300 px-1.5 py-0.5 rounded backdrop-blur-md pointer-events-none z-10">{numStr}.png</div>
+                                            <img 
+                                                src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${numStr}.png?t=${imageTimestamp}`}
+                                                className="w-full aspect-square object-cover rounded-lg border border-[#333] cursor-grab active:cursor-grabbing hover:border-[#00B140] transition-colors shadow-md hover:shadow-lg"
+                                                draggable="true"
+                                                alt={`Copia ${numStr}`}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
