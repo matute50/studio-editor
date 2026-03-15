@@ -630,7 +630,11 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
       watch: {
-        ignored: ['**/noticias.txt']
+        ignored: [
+          '**/noticias.txt', 
+          '**/vestuario_de_hoy_estudio/**', 
+          '**/vestuario_de_hoy_exteriores/**'
+        ]
       }
     },
     plugins: [

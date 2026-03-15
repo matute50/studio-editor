@@ -367,7 +367,8 @@ export function AvatarStudio() {
         // Verificación de vestuario automático diario
         const checkVestuario = async () => {
             const today = new Date().toISOString().slice(0, 10);
-            const lastUpdate = localStorage.getItem('last_vestuario_update');
+            const lsKey = `last_vestuario_update_${workingMode}`;
+            const lastUpdate = localStorage.getItem(lsKey);
             
             if (lastUpdate !== today) {
                 console.log(`[Vestuario] Iniciando rotación diaria para: ${workingMode}`);
@@ -378,8 +379,8 @@ export function AvatarStudio() {
                         body: JSON.stringify({ location: workingMode === 'estudio' ? 'estudio' : 'exteriores' })
                     });
                     if (res.ok) {
-                        localStorage.setItem('last_vestuario_update', today);
-                        console.log('[Vestuario] Rotación completada con éxito');
+                        localStorage.setItem(lsKey, today);
+                        console.log(`[Vestuario] Rotación completada con éxito para ${workingMode}`);
                     }
                 } catch (err) {
                     console.error('[Vestuario] Error en rotación diaria:', err);
