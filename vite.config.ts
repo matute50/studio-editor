@@ -616,10 +616,35 @@ const serveVestuarioPlugin = () => ({
         });
         return;
       }
+      if (req.url && (req.url.startsWith('/vestuario_de_hoy_estudio/') || req.url.startsWith('/vestuario_de_hoy_exteriores/'))) {
+        try {
+          const rootDir = process.cwd();
+          const routeParts = req.url.split('?')[0].split('/');
+          const dirName = routeParts[1]; // vestuario_de_hoy_estudio o exteriores
+          const fileName = decodeURIComponent(routeParts[2]);
+          const targetDir = path.resolve(rootDir, dirName);
+          const filePath = path.join(targetDir, fileName);
+          
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            const ext = path.extname(filePath).toLowerCase();
+            const mimeMap: Record<string, string> = {
+              '.png': 'image/png',
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.webp': 'image/webp'
+            };
+            res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Access-Control-Allow-Origin', '*'); 
+            fs.createReadStream(filePath).pipe(res);
+            return;
+          }
+        } catch (e) {
+          console.error("Local Vestuario Serve Error:", e);
+        }
+      }
       next();
     });
-      // Ya no se requiere servir las carpetas de vestuario localmente
-      // dado que ahora provienen en su totalidad de R2 (media.saladillovivo.com.ar).
   }
 });
 
