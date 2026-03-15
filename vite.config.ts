@@ -579,6 +579,33 @@ const serveVestuarioPlugin = () => ({
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
+            
+            // --- NUEVO: FUNCIONALIDAD CARPETA LOCAL ---
+            // Limpiar la carpeta local primero
+            const localTargetDir = path.resolve(__dirname, targetPrefix.replace('/', ''));
+            if (!fs.existsSync(localTargetDir)) {
+               fs.mkdirSync(localTargetDir, { recursive: true });
+            } else {
+               const files = fs.readdirSync(localTargetDir);
+               for (const f of files) {
+                  fs.unlinkSync(path.join(localTargetDir, f));
+               }
+            }
+            
+            // Descargar la imagen elegida de R2 (es de dominio público)
+            const publicUrl = `https://media.saladillovivo.com.ar/${elegida}`;
+            const imgRes = await fetch(publicUrl);
+            const imgBuffer = await imgRes.arrayBuffer();
+            const nodeBuffer = Buffer.from(imgBuffer);
+            
+            // Guardar en la carpeta local las 30 copias y REFERENCE_IMAGE.PNG
+            fs.writeFileSync(path.join(localTargetDir, 'REFERENCE_IMAGE.PNG'), nodeBuffer);
+            for (let i = 1; i <= 30; i++) {
+               fs.writeFileSync(path.join(localTargetDir, `${String(i).padStart(2, '0')}.png`), nodeBuffer);
+            }
+            console.log(`[Vestuario API Local] Imagen ${elegida} sincronizada en R2 y copiada a local ${localTargetDir}`);
+            // ------------------------------------------
+
             res.end(JSON.stringify({ success: true, elegida }));
           } catch (err: any) {
             console.error("Error al rotar vestuario en R2:", err);
