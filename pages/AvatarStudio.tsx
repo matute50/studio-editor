@@ -160,6 +160,108 @@ export function AvatarStudio() {
     const [imageTimestamp, setImageTimestamp] = useState(Date.now());
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
 
+    // Galería Vestuario - Lasso y Selección
+    const [selectedVestuario, setSelectedVestuario] = useState<Set<string>>(new Set());
+    const [lasso, setLasso] = useState({ x1: 0, y1: 0, x2: 0, y2: 0, isSelecting: false });
+    const galleryRef = useRef<HTMLDivElement>(null);
+    const initialLassoSelection = useRef<Set<string>>(new Set());
+
+    const handleGalleryMouseDown = (e: React.MouseEvent) => {
+        const el = e.target as HTMLElement;
+        if (el.tagName === 'IMG' || el.tagName === 'BUTTON' || el.closest('button')) return;
+        if (e.button !== 0) return; // Sólo botón izquierdo
+        setLasso({ x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY, isSelecting: true });
+        
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+            initialLassoSelection.current = new Set(selectedVestuario);
+        } else {
+            initialLassoSelection.current = new Set();
+            setSelectedVestuario(new Set());
+        }
+    };
+
+    useEffect(() => {
+        if (!lasso.isSelecting) return;
+        const handleMouseMove = (e: MouseEvent) => {
+            setLasso(prev => ({ ...prev, x2: e.clientX, y2: e.clientY }));
+            if (galleryRef.current) {
+                const rectLeft = Math.min(lasso.x1, e.clientX);
+                const rectRight = Math.max(lasso.x1, e.clientX);
+                const rectTop = Math.min(lasso.y1, e.clientY);
+                const rectBottom = Math.max(lasso.y1, e.clientY);
+
+                const newSet = new Set(initialLassoSelection.current);
+                const items = galleryRef.current.querySelectorAll('.vestuario-item');
+                items.forEach(el => {
+                    const box = el.getBoundingClientRect();
+                    const isIntersecting = !(rectRight < box.left || rectLeft > box.right || rectBottom < box.top || rectTop > box.bottom);
+                    const id = el.getAttribute('data-id');
+                    if (id && isIntersecting) {
+                        newSet.add(id);
+                    }
+                });
+                setSelectedVestuario(newSet);
+            }
+        };
+        const handleMouseUp = () => setLasso(prev => ({ ...prev, isSelecting: false }));
+        
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [lasso.isSelecting, lasso.x1, lasso.y1]);
+
+    const handleVestuarioClick = (e: React.MouseEvent, id: string) => {
+        const newSet = new Set(selectedVestuario);
+        if (e.ctrlKey || e.metaKey) {
+            if (newSet.has(id)) newSet.delete(id);
+            else newSet.add(id);
+        } else {
+            newSet.clear();
+            newSet.add(id);
+        }
+        setSelectedVestuario(newSet);
+    };
+
+    const handleVestuarioDragStart = (e: React.DragEvent, id: string) => {
+        let set = selectedVestuario;
+        if (!set.has(id)) {
+            set = new Set([id]);
+            setSelectedVestuario(set);
+        }
+        const urlList = Array.from(set).map(x => `https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${x === 'REF' ? 'REFERENCE_IMAGE.PNG' : `${x}.png`}`);
+        e.dataTransfer.setData('text/plain', urlList.join('\n'));
+        e.dataTransfer.setData('text/uri-list', urlList.join('\r\n'));
+    };
+
+    const downloadSelectedVestuario = async () => {
+        if (selectedVestuario.size === 0) return addToast('warning', '⚠ Selecciona imágenes primero (con click o arrastrando)');
+        addToast('info', `Descargando ${selectedVestuario.size} imágenes...`);
+        const promises = Array.from(selectedVestuario).map(async (id, index) => {
+            try {
+                const name = id === 'REF' ? 'REFERENCE_IMAGE.PNG' : `${id}.png`;
+                const url = `https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${name}?t=${imageTimestamp}`;
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = name;
+                document.body.appendChild(a);
+                setTimeout(() => {
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(blobUrl);
+                }, index * 250); 
+            } catch (err) {
+                console.error("Error downloading", id, err);
+            }
+        });
+        await Promise.all(promises);
+    };
+
     const [isGeneratingScripts, setIsGeneratingScripts] = useState(false);
     const waveformRef = useRef<HTMLDivElement>(null);
     const productionClipsRef = useRef(productionClips);
@@ -1473,49 +1575,113 @@ export function AvatarStudio() {
             {/* VESTUARIO GALLERY MODAL */}
             {isGalleryOpen && (
                 <div className="fixed inset-0 z-[99999] bg-[#0A0A0A]/90 backdrop-blur-md flex items-center justify-center p-4">
-                    <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl">
-                        <div className="p-4 border-b border-[#2A2A2A] flex justify-between items-center bg-[#1A1A1A] rounded-t-2xl">
+                    <div className="bg-[#141414] border border-[#2A2A2A] rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative">
+                        {/* Header */}
+                        <div className="p-4 border-b border-[#2A2A2A] flex justify-between items-center bg-[#1A1A1A]">
                             <h3 className="text-[#00B140] font-medium flex items-center gap-2">
                                 <FolderOpen size={18} />
-                                Galería de Vestuario ({workingMode.toUpperCase()})
+                                Explorador de Vestuario ({workingMode.toUpperCase()})
                             </h3>
-                            <button 
-                                onClick={() => setIsGalleryOpen(false)}
-                                className="text-gray-400 hover:text-white transition-colors p-1"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                            <p className="text-gray-400 text-sm mb-4">
-                                Arrastra y suelta (drag and drop) cualquier imagen directamente hacia Luma, Runway o tu escritorio.
-                            </p>
-                            <div className="grid grid-cols-5 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-12 gap-1 auto-rows-max">
-                                <div className="flex flex-col relative group col-span-2 row-span-2">
-                                    <div className="text-[9px] absolute top-1 left-1 bg-[#00B140] text-black px-1 py-0.5 rounded font-bold z-10 shadow-lg pointer-events-none">REF.</div>
-                                    <img 
-                                        src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/REFERENCE_IMAGE.PNG?t=${imageTimestamp}`}
-                                        className="w-full h-full object-cover rounded-md border border-[#00B140] cursor-grab active:cursor-grabbing hover:brightness-110 transition-all shadow-xl"
-                                        draggable="true"
-                                        alt="Reference"
-                                    />
-                                </div>
-                                {Array.from({ length: 30 }, (_, i) => {
-                                    const numStr = String(i + 1).padStart(2, '0');
-                                    return (
-                                        <div key={numStr} className="flex flex-col relative group">
-                                            <div className="text-[8px] absolute top-0.5 left-0.5 bg-black/80 text-gray-300 px-1 py-0.5 rounded backdrop-blur-md pointer-events-none z-10">{numStr}</div>
-                                            <img 
-                                                src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${numStr}.png?t=${imageTimestamp}`}
-                                                className="w-full aspect-square object-cover rounded-sm border border-[#222] cursor-grab active:cursor-grabbing hover:border-[#00B140] transition-colors"
-                                                draggable="true"
-                                                alt={`Copia ${numStr}`}
-                                            />
-                                        </div>
-                                    );
-                                })}
+                            <div className="flex items-center gap-3">
+                                <button 
+                                    onClick={() => {
+                                        if (selectedVestuario.size === 31) setSelectedVestuario(new Set());
+                                        else setSelectedVestuario(new Set(['REF', ...Array.from({length:30}, (_,i)=>String(i+1).padStart(2,'0'))]));
+                                    }}
+                                    className="text-xs bg-[#2A2A2A] hover:bg-[#333] tracking-wide text-gray-300 px-3 py-1.5 rounded transition"
+                                >
+                                    Sel. Todo
+                                </button>
+                                <button 
+                                    onClick={downloadSelectedVestuario}
+                                    className="text-xs font-bold tracking-wide bg-[#00B140] hover:bg-[#00CC48] text-black px-4 py-1.5 rounded"
+                                >
+                                    Descargar Seleccionadas ({selectedVestuario.size})
+                                </button>
+                                <button onClick={() => setIsGalleryOpen(false)} className="text-gray-400 hover:text-white transition-colors p-1 ml-2">
+                                    <X size={20} />
+                                </button>
                             </div>
                         </div>
+
+                        {/* Body Container (handles lasso mousedown) */}
+                        <div 
+                            className="p-6 overflow-y-auto flex-1 custom-scrollbar select-none relative"
+                            ref={galleryRef}
+                            onMouseDown={handleGalleryMouseDown}
+                        >
+                            <p className="text-gray-400 text-sm mb-6 flex items-center gap-2">
+                                <span className="bg-[#2A2A2A] text-xs px-2 py-0.5 rounded">Click + Arrastrar</span> crea un cuadro de selección (Lazo). <span className="bg-[#2A2A2A] text-xs px-2 py-0.5 rounded">Ctrl + Click</span> selecciona múltiples de a una.
+                            </p>
+
+                            <div className="flex gap-8">
+                                {/* Left Pane: Reference */}
+                                <div className="w-[18%] flex flex-col gap-3">
+                                    <span className="text-xs text-gray-400 font-bold tracking-widest pl-1">REFERENCIA</span>
+                                    <div 
+                                        className={`vestuario-item relative group rounded-lg transition-all duration-75 border-[3px] p-1 
+                                            ${selectedVestuario.has('REF') ? 'border-[#00B140] bg-[#00B140]/10' : 'border-transparent hover:border-[#333]'}`}
+                                        data-id="REF"
+                                        onClick={(e) => handleVestuarioClick(e, 'REF')}
+                                    >
+                                        <div className="text-[10px] absolute top-2 left-2 bg-[#00B140] text-black px-2 py-0.5 rounded font-bold z-10 shadow-lg pointer-events-none">IMAGEN_BASE</div>
+                                        <img 
+                                            src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/REFERENCE_IMAGE.PNG?t=${imageTimestamp}`}
+                                            className="w-full aspect-[9/16] object-cover rounded-md cursor-grab active:cursor-grabbing shadow-lg"
+                                            draggable="true"
+                                            onDragStart={(e) => handleVestuarioDragStart(e, 'REF')}
+                                            alt="Reference"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Right Pane: Grid of 30 copies into 10 cols X 3 rows */}
+                                <div className="w-[82%] flex flex-col gap-3">
+                                    <span className="text-xs text-gray-400 font-bold tracking-widest pl-1">COPIAS NUMERADAS (ALINEADAS)</span>
+                                    <div className="grid grid-cols-10 gap-2">
+                                        {Array.from({ length: 30 }, (_, i) => {
+                                            const numStr = String(i + 1).padStart(2, '0');
+                                            const isSelected = selectedVestuario.has(numStr);
+                                            return (
+                                                <div 
+                                                    key={numStr} 
+                                                    className={`vestuario-item flex flex-col relative group transition-all duration-75 rounded-md border-[3px] p-0.5
+                                                        ${isSelected ? 'border-[#00B140] bg-[#00B140]/20 scale-95' : 'border-transparent hover:border-[#333]'}`}
+                                                    data-id={numStr}
+                                                    onClick={(e) => handleVestuarioClick(e, numStr)}
+                                                >
+                                                    <div className="text-[9px] absolute top-1 left-1 bg-black text-gray-200 px-1 py-0.5 rounded backdrop-blur-md pointer-events-none z-10">{numStr}</div>
+                                                    <img 
+                                                        src={`https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${numStr}.png?t=${imageTimestamp}`}
+                                                        className="w-full aspect-square object-cover rounded shadow-sm cursor-grab active:cursor-grabbing"
+                                                        draggable="true"
+                                                        onDragStart={(e) => handleVestuarioDragStart(e, numStr)}
+                                                        alt={`Copia ${numStr}`}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Lasso Box Drawing */}
+                        {lasso.isSelecting && (
+                            <div 
+                                style={{
+                                    position: 'fixed',
+                                    border: '1px solid rgba(0, 177, 64, 0.8)',
+                                    backgroundColor: 'rgba(0, 177, 64, 0.2)',
+                                    left: Math.min(lasso.x1, lasso.x2),
+                                    top: Math.min(lasso.y1, lasso.y2),
+                                    width: Math.abs(lasso.x2 - lasso.x1),
+                                    height: Math.abs(lasso.y2 - lasso.y1),
+                                    pointerEvents: 'none',
+                                    zIndex: 9999999
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
             )}
