@@ -367,17 +367,17 @@ export function AvatarStudio() {
         // Cargar saludo al azar
         if (saludoTxt) {
             const lines = saludoTxt.split(/\n/).filter(l => l.trim().length > 0);
-            if (lines.length > 0) setSelectedSaludo(lines[Math.floor(Math.random() * lines.length)].trim());
+            if (lines.length > 0) setSelectedSaludo(adaptarTextoArgentino(lines[Math.floor(Math.random() * lines.length)].trim()));
         }
         // Cargar CTA al azar
         if (ctaTxt) {
             const lines = ctaTxt.split(/\n/).filter(l => l.trim().length > 0);
-            if (lines.length > 0) setSelectedCTA(lines[Math.floor(Math.random() * lines.length)].trim());
+            if (lines.length > 0) setSelectedCTA(adaptarTextoArgentino(lines[Math.floor(Math.random() * lines.length)].trim()));
         }
         // Cargar Slogan al azar
         if (slogansTxt) {
             const lines = slogansTxt.split(/\n/).filter(l => l.trim().length > 0);
-            if (lines.length > 0) setSelectedSlogan(lines[Math.floor(Math.random() * lines.length)].trim());
+            if (lines.length > 0) setSelectedSlogan(adaptarTextoArgentino(lines[Math.floor(Math.random() * lines.length)].trim()));
         }
     }, []);
 
@@ -1301,7 +1301,7 @@ export function AvatarStudio() {
                                                 <button 
                                                     onClick={() => {
                                                         const lines = saludoTxt.split(/\n/).filter(l => l.trim().length > 0);
-                                                        if (lines.length > 0) setSelectedSaludo(lines[Math.floor(Math.random() * lines.length)].trim());
+                                                        if (lines.length > 0) setSelectedSaludo(adaptarTextoArgentino(lines[Math.floor(Math.random() * lines.length)].trim()));
                                                     }}
                                                     className="text-[9px] bg-[#1A1A1A] hover:bg-[#333] transition-all border border-[#222] px-2 py-0.5 rounded-md text-[#888] font-black uppercase flex items-center gap-1"
                                                 >
@@ -1330,7 +1330,7 @@ export function AvatarStudio() {
                                                 <button 
                                                     onClick={() => {
                                                         const lines = ctaTxt.split(/\n/).filter(l => l.trim().length > 0);
-                                                        if (lines.length > 0) setSelectedCTA(lines[Math.floor(Math.random() * lines.length)].trim());
+                                                        if (lines.length > 0) setSelectedCTA(adaptarTextoArgentino(lines[Math.floor(Math.random() * lines.length)].trim()));
                                                     }}
                                                     className="text-[9px] bg-[#1A1A1A] hover:bg-[#333] transition-all border border-[#222] px-2 py-0.5 rounded-md text-[#888] font-black uppercase flex items-center gap-1"
                                                 >
@@ -1359,7 +1359,7 @@ export function AvatarStudio() {
                                                 <button 
                                                     onClick={() => {
                                                         const lines = slogansTxt.split(/\n/).filter(l => l.trim().length > 0);
-                                                        if (lines.length > 0) setSelectedSlogan(lines[Math.floor(Math.random() * lines.length)].trim());
+                                                        if (lines.length > 0) setSelectedSlogan(adaptarTextoArgentino(lines[Math.floor(Math.random() * lines.length)].trim()));
                                                     }}
                                                     className="text-[9px] bg-[#1A1A1A] hover:bg-[#333] transition-all border border-[#222] px-2 py-0.5 rounded-md text-[#888] font-black uppercase flex items-center gap-1"
                                                 >
