@@ -117,8 +117,7 @@ Rioplatense nativo (Saladillo/Buenos Aires). Entonación profesional neutra, cal
 
 const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitles, lower thirds, ticker, ui, microphone, headset, cables, earpiece, melting hands, fused fingers, extra fingers, distorted hands, floating head, severed neck, mutating jewelry, green spill, green halo, shadows on background, gradient background, vignette, depth of field on background, unblinking, robot eyes, zombie stare, looking away, morphing, shoulder distortion, radioactive teeth, too many teeth, wrinkles aged, studio background generado, newsroom, 3D environment, bokeh excesivo, wall texture, floor, corners, horizon line, spotlight on background, furniture, decor, realistic room, brackets braces, metal in mouth, unnatural teeth, glowing teeth, exposed teeth at rest, gum distortion, plastic skin, wax skin, porcelain skin, over-smoothed skin, CGI skin, doll skin, synthetic skin, skin without pores, overly perfect skin, camera movement, zoom, push, pull, reframe, dolly, pan, tilt, turtle neck, forward head, hunched posture, visible breathing, chest rise, nostril flare, tongue visible, suggestive mouth, erotic mouth, adult content, seductive expression, shiny skin, glossy skin, specular highlights, oily skin, beauty filter, color shift on clothing, hue drift on blazer, outfit color inconsistency, smile showing teeth, wide smile, toothy grin, performative smile, theatrical happiness, mouth open for smile, lips parted for smile, separate background generation, replacing reference background, inventing background details, mechanical jaw movement, hinge jaw motion, frame by frame lip movement, discrete lip positions, no coarticulation, cheek inflation during nasals, hypernasality visible, dental closure on aspirated s, boca de goma, rubber mouth, synthetic lip movement, robotic mouth movement, lip sync mismatch, mouth ahead of audio, mouth behind audio, ascending final intonation, upward sentence ending, amateur delivery cadence, full bilabial closure on intervocalic b, full dental closure on intervocalic d, music, background music, soundtrack, animations, wipes, transitions, background animation`;
 
-const PROMPT_MAESTRO_SYSTEM = `🎬 Prompt Maestro Antigravity v6.2 (Simplificado Estudio)
-[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level, locked-off medium shot of Ara, the professional news anchor from the provided reference image. Photorealistic facial identity lock, exact attire, and static background identical to the reference. [ANCLA_CONTEXTUAL_RIOPLATENSE] Una periodista argentina de Buenos Aires, con un marcado acento porteño rioplatense, hablando con autoridad profesional. PROHIBIDO el acento de España. [AUDIO_STUDIO_CONTROL] Character says: "¡Hola Saladissho! Estas son, precisamente, las noticias del día." [STRICT_PHONETICS] Read with Argentine Rioplatense intonation. Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" as a standard lateral alveolar. Pronounce every "S" at the end of words clearly but with Argentine cadence. Use "vos" acute stress (á-áh) on verbs. Sound: complete studio silence. The anchor must stop speaking and close her mouth precisely when the audio ends. Negative prompt: Spanish accent, accent from Spain, accent from Madrid, Castilian, ceceo, seseo peninsular, andaluz, gallego, lisp, neutral Spanish, Mexican accent, colombian accent, singing tone, corporate motivational tone, stuttering, mumbling, hesitating, generic face, airbrushed skin, plastic texture, different ethnicity, altered eye color, changing facial identity, morphing, animated background logo, moving logo, logo animation, outdoor lighting, sunlight, rain, wind, wipe transitions, fade out, scene cuts, text overlays, subtitles, captions, title cards, typography, visual filters, post-processing effects, background music, sound effects, SFX, ambient noise, audio artifacts, extra dialogue, off-script talking, lip movement without audio, voice before speech, voice after speech, robotic speech, monotone delivery.`;
+const PROMPT_MAESTRO_SYSTEM = `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level, locked-off medium shot of Ara. Photorealistic facial identity lock, exact attire, and static background identical to the reference. [ANCLA_RIOPLATENSE] Una periodista argentina de Buenos Aires con voz firme y fluida. [AUDIO_STUDIO_CONTROL] Character says: "Saladissho Vivo. La misma información, mejor contada. Visitános." [STRICT_PHONETICS] Read with natural professional fluency. No pauses between syllables. Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" as a standard lateral alveolar. Pronounce all "S" consonants clearly. Use Argentine cadence. Sound: complete studio silence. Negative prompt: stuttering, hesitating, mumbling, pausing between words, double vowels, glitched audio, informassión, visitáanos, Spanish accent, accent from Spain, ceceo, seseo peninsular, corporate motivational tone, generic face, airbrushed skin, plastic texture, morphing.`;
 
 // --- COMPONENTE PRINCIPAL ---
 export function AvatarStudio() {
@@ -214,6 +213,22 @@ export function AvatarStudio() {
         };
     }, [lasso.isSelecting, lasso.x1, lasso.y1]);
 
+    // Listener global para Ctrl+C en la galería
+    useEffect(() => {
+        const handleGlobalCopy = (e: ClipboardEvent) => {
+            // Solo si la galería está abierta y el foco no está en un input
+            if (isGalleryOpen && selectedVestuario.size > 0) {
+                const active = document.activeElement?.tagName;
+                if (active !== 'INPUT' && active !== 'TEXTAREA') {
+                    e.preventDefault();
+                    copySelectedToClipboard();
+                }
+            }
+        };
+        window.addEventListener('copy', handleGlobalCopy);
+        return () => window.removeEventListener('copy', handleGlobalCopy);
+    }, [isGalleryOpen, selectedVestuario, workingMode]);
+
     const handleVestuarioClick = (e: React.MouseEvent, id: string) => {
         const newSet = new Set(selectedVestuario);
         if (e.ctrlKey || e.metaKey) {
@@ -233,8 +248,76 @@ export function AvatarStudio() {
             setSelectedVestuario(set);
         }
         const urlList = Array.from(set).map(x => `https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${x === 'REF' ? 'REFERENCE_IMAGE.PNG' : `${x}.png`}`);
+        
+        // 1. Texto plano
         e.dataTransfer.setData('text/plain', urlList.join('\n'));
+        
+        // 2. URI List (Estándar para múltiples links)
         e.dataTransfer.setData('text/uri-list', urlList.join('\r\n'));
+        
+        // 3. HTML (Ayuda a muchos editores a reconocer múltiples imágenes)
+        const html = urlList.map(url => `<img src="${url}">`).join(' ');
+        e.dataTransfer.setData('text/html', html);
+
+        // 4. Ghost Image (Contador visual)
+        if (set.size > 1) {
+            const dragGhost = document.createElement('div');
+            dragGhost.style.background = '#00B140';
+            dragGhost.style.color = 'black';
+            dragGhost.style.padding = '6px 14px';
+            dragGhost.style.borderRadius = '12px';
+            dragGhost.style.fontWeight = 'black';
+            dragGhost.style.fontSize = '12px';
+            dragGhost.style.position = 'absolute';
+            dragGhost.style.top = '-1000px';
+            dragGhost.style.zIndex = '999999';
+            dragGhost.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+            dragGhost.innerText = `Arrastrando ${set.size} fotos`;
+            document.body.appendChild(dragGhost);
+            e.dataTransfer.setDragImage(dragGhost, 0, 0);
+            setTimeout(() => dragGhost.remove(), 0);
+        }
+
+        e.dataTransfer.effectAllowed = 'copy';
+    };
+
+    const copySelectedToClipboard = async () => {
+        if (selectedVestuario.size === 0) return addToast('warning', '⚠ Selecciona imágenes primero');
+        addToast('info', `✦ Preparando ${selectedVestuario.size} fotos para el portapapeles...`);
+        
+        try {
+            const urls = Array.from(selectedVestuario).map(x => 
+                `https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${x === 'REF' ? 'REFERENCE_IMAGE.PNG' : `${x}.png`}`
+            );
+
+            // Descargar todos los blobs
+            const blobs = await Promise.all(urls.map(async url => {
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error("Error de red");
+                return await resp.blob();
+            }));
+
+            // Intentar copiar como ClipboardItems (archivos reales)
+            // Nota: Algunos navegadores o sistemas pueden limitar el número de archivos
+            const clipboardItems = blobs.map(blob => new ClipboardItem({ [blob.type]: blob }));
+            
+            await navigator.clipboard.write(clipboardItems);
+            addToast('success', `✓ ${selectedVestuario.size} fotos copiadas como ARCHIVOS`);
+        } catch (err) {
+            console.error("Error copying to clipboard:", err);
+            // Fallback: Copiar como texto y HTML básico
+            const urls = Array.from(selectedVestuario).map(x => 
+                `https://media.saladillovivo.com.ar/vestuario_de_hoy_${workingMode === 'estudio' ? 'estudio' : 'exteriores'}/${x === 'REF' ? 'REFERENCE_IMAGE.PNG' : `${x}.png`}`
+            );
+            try {
+                // Clipboard API básica
+                const text = urls.join('\n');
+                await navigator.clipboard.writeText(text);
+                addToast('info', 'ℹ Copiado como enlaces (el sistema no permitió archivos múltiples)');
+            } catch (innerErr) {
+                addToast('error', '✗ Error al intentar copiar');
+            }
+        }
     };
 
     const downloadSelectedVestuario = async () => {
@@ -602,7 +685,7 @@ export function AvatarStudio() {
         }
 
         return PROMPT_MAESTRO_SYSTEM.replace(
-            "¡Hola Saladissho! Estas son, precisamente, las noticias del día.",
+            'Saladissho Vivo. La misma información, mejor contada. Visitános.',
             scriptProcesado
         );
     };
@@ -1597,10 +1680,16 @@ export function AvatarStudio() {
                                     Sel. Todo
                                 </button>
                                 <button 
-                                    onClick={downloadSelectedVestuario}
-                                    className="text-xs font-bold tracking-wide bg-[#00B140] hover:bg-[#00CC48] text-black px-4 py-1.5 rounded"
+                                    onClick={copySelectedToClipboard}
+                                    className="text-xs font-bold tracking-wide bg-[#1A1A1A] border border-[#00B140] text-[#00B140] px-4 py-1.5 rounded hover:bg-[#00B140] hover:text-black transition flex items-center gap-2"
                                 >
-                                    Descargar Seleccionadas ({selectedVestuario.size})
+                                    Copiar Fotos ({selectedVestuario.size})
+                                </button>
+                                <button 
+                                    onClick={downloadSelectedVestuario}
+                                    className="text-xs font-bold tracking-wide bg-[#00B140] hover:bg-[#00CC48] text-black px-4 py-1.5 rounded transition"
+                                >
+                                    Descargar ({selectedVestuario.size})
                                 </button>
                                 <button onClick={() => setIsGalleryOpen(false)} className="text-gray-400 hover:text-white transition-colors p-1 ml-2">
                                     <X size={20} />

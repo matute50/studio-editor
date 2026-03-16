@@ -1,61 +1,14 @@
-"¡Hola! Mirá-áh, esto!, es lo más importante del día."
-
-"¡Hola Saladissho! Estas son las noticias, que vos tenés que saber."
-
-"¡Hola! Te traigo toda la actualidad, de nuestra ciudad."
-
-"¡Hola! Escuchá-áh, acá tenés, las novedades de hoy."
-
-"Buenas noches, Cerramos el día, con lo más importante."
-
-"Buen día, Empezamos fuerte, con la actualidad de Saladissho."
-
-"Buenas tardes. Mirá-áh, esto es, lo que pasó hoy."
-
-"Bienvenidos. Escuchá-áh, estas son, las noticias del momento."
-
-"¡Hola! Te traigo las noticias, más importantes de hoy."
-
-"¡Hola! Escuchá-áh, te cuento, lo que pasó hoy."
-
-"¡Hola! Acá tenés, lo más destacado del día."
-
-"¡Hola Saladissho! Estas son, precisamente, las noticias del día."
-
-"Buen día. Mirá-áh, te presento la actualidad, de Saladissho."
-
-"Buenas tardes. Vamos ahora, con lo más importante de hoy."
-
-"Buenas noches. Este es el resumen de las noticias del día."
-
-"¡Hola! Te comparto, lo más relevante de la jornada."
-
-"Bienvenidos, Vamos, con el resumen informativo de hoy."
-
-"¡Hola Saladissho! Estas son las noticias, más importantes de hoy."
-
-"Buenas tardes. Mirá-áh, te acerco, toda la actualidad local."
-
-"¡Hola! Comenzamos ahora, con las noticias de hoy."
-
-"Buen día. Estas son, las novedades en Saladissho."
-
-"¡Hola Saladissho! Escuchá-áh, te cuento lo que pasó hoy."
-
-"Buenas noches. Repasemos juntos, lo más importante de hoy."
-
-"¡Hola! Acá tenés, el resumen informativo del día."
-
-"Buenas tardes. Vamos ahora, con las noticias destacadas."
-
-"¡Hola! Estas son las noticias, que marcaron la jornada."
-
-"Buenas noches. Cerramos, con lo más relevante del día."
-
-"¡Hola Saladissho! Mirá-áh, te acerco, la información del momento."
-
-"Buen día. Empezamos, con lo más importante de Saladissho."
-
-"Buenas tardes. Estas son las noticias, que vos tenés que conocer."
-
-"¡Hola! Vamos, con toda la actualidad, de nuestra ciudad."
+"Mirá, estas son las noticias."
+"Fijáte, esto fue lo más importante de hoy."
+"Escuchá, te cuento lo que pása hoy."
+"Observá, así está Saladillo hoy."
+"Atendé, estas son las novedades."
+"Informáte, la actualidad nos une."
+"Enteráte, esto pasa en Saladillo."
+"Sumáte, empezamos con las noticias."
+"Acompañános, ya arranca el resumen de noticias."
+"Seguínos, tenemos toda la información."
+"Empezá el día, bien informado."
+"Cerrá la jornada con nosotros."
+"Repasá conmigo lo más destacado."
+"Vos, tenés que sabér esto."

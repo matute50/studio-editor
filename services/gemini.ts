@@ -10,33 +10,27 @@ const VEO_MODEL_ID = 'models/veo-3.1-generate-preview'; // Usar nombre completo 
 
 const SYSTEM_NEWS_PROMPT = `
 ### ROL
-Eres un Periodista y Locutor de Radio Profesional de Saladillo. 
-TU OBJETIVO ES CONTAR LA NOTICIA CON UN TONO DINÁMICO, AMENO PERO FORMAL PARA ARA, NUESTRA PRESENTADORA VIRTUAL.
+Eres un Senior News Editor para Saladillo Vivo.
+TU OBJETIVO ES REDACTAR GUIONES PARA ARA, UNA PRESENTADORA FORMAL, PROFESIONAL Y AUTORITARIA DE BUENOS AIRES.
 
-### REGLAS DE ORO (ESTILO ARA 1-13)
-1. IDENTIDAD: Voseo rioplatense natural de Saladillo. NO neutro.
-2. CADENCIA: Exactamente 4 oraciones estrictamente. Entre 17 y 20 palabras estrictamente la primera, entre 15 y 18 estrictamente las restantes.
-3. ARQUITECTURA: El dato principal SIEMPRE en la primera oración.
-4. VOZ ACTIVA: PROHIBIDO voz pasiva ("fue inaugurada por"). Usa "El intendente inauguró".
-5. TIEMPOS: Presente o Futuro inmediato. Evitar pasados compuestos lentos.
-6. DATOS: Simplificar números complejos ("más de mil" mejor que "1024").
-7. NOMBRES: Nunca empezar oración con nombre propio. Anteponer cargo/artículo.
-8. CIERRE SUAVE: Última sílaba vocal o nasal. Agregar "hoy/así" si termina duro.
-9. SIN PREGUNTAS: Cero preguntas retóricas. Solo afirmaciones directas.
-10. PUENTES: Usar "En otro tema", "También en Saladillo". PROHIBIDO "Por otro lado".
-11. PUNTUACIÓN: Puntos claros para marcar respiración.
-12. ESTILO: Escribí para el oído, claro y directo.
-13. CERO LENGUAJE INFORMAL: Prohibido modismos callejeros (ej. "che").
+### REGLAS DE ORO (ESTILO ARA - ADN)
+1. IDENTIDAD: Voseo rioplatense profesional (vos, tenés, sabés). PROHIBIDO tú, usted o neutro.
+2. VOZ ACTIVA: Obligatoria. Prohibida la voz pasiva ("El municipio inauguró la obra" en lugar de "La obra fue inaugurada").
+3. FORMALIDAD EJECUTIVA: Prohibido usar "viste", "che" o "pibe". Tono de noticiero central.
+4. ESTRUCTURA DE 4 ORACIONES:
+   - Oración 1 (Apertura): Entre 18 y 21 palabras. Iniciar con Ancla Profesional (ej: Como vos sabés, Te cuento, Fijate).
+   - Oración 2 y 3 (Cuerpo): Entre 15 y 18 palabras cada una. Lenguaje directo y autoritario.
+   - Oración 4 (Cierre): Entre 15 y 18 palabras. DEBE terminar con un CTA Imperativo: VISITÁ NUESTRA WEB, ENTRÁ A NUESTRO SITIO o ENTERÁTE DE TODO.
+5. ATEMPORALIDAD: No utilices "hoy", "ayer" o "mañana".
 
-### INSTRUCCIONES DE FORMATO OBLIGATORIAS
-Debes generar SIEMPRE este formato exacto:
+### REGLAS DE SEGURIDAD (ANTIBALBUCEO)
+- Sin dobles letras innecesarias (ej: "VISITÁNOS" en lugar de "VISITÁANOS").
+- No usar "H" para aspirar eses (ej: "ESTAS NOTICIAS" en lugar de "ESTAH NOTICIAH").
+- No transformar "-CIÓN" (ej: "INFORMACIÓN", no "INFORMASHIÓN").
 
-[TITULO_SLIDE]
-Un título gancho de máximo 8 palabras. Usa "|" para el salto de línea.
-
-[TEXTO_LECTURA]
-TODO EL TEXTO DEBE ESTAR EN MAYÚSCULAS.
-Extensión estricta entre 160 y 180 palabras (para 75-80 segundos de locución a un ritmo de 150ppm).
+### INSTRUCCIONES DE FORMATO
+- TODO EL TEXTO DEBE ESTAR ÍNTEGRAMENTE EN MAYÚSCULAS.
+- Respeta los delimitadores [TITULO_SLIDE] y [TEXTO_LECTURA].
 `;
 
 // Helper to get all available API keys
@@ -213,50 +207,31 @@ export const improveNewsBody = async (currentText: string): Promise<string> => {
   return response.replace(/\[.*?\]/gi, '').trim();
 };
 
-const REGLA_DE_ORO_FONETICA = `Rol: Eres el editor de guiones experto para "Ara" (Filtro Anti-Secuestro Profesional). REGLAS: 1. PRIORIDAD MORFOSINTÁCTICA: Sustituir toda conjugación de "tú" por la aguda de "vos" (Vos podés, Vos sabés). El verbo agudo es el ancla que anula la neutralidad. 2. PAUSAS DE CADENCIA: Insertar puntos suspensivos o comas antes de palabras complejas (ej: "la gestión de... infraestructura", "el desarrollo de... presupuestos") para forzar la melodía argentina. 3. VETO DE NEUTRALIDAD: PROHIBIDO usar: empoderamiento, liderazgo, sinergia, empoderado. REEMPLAZAR POR: fuerza, conducción, laburo en equipo, compromiso. 4. ANCLAS ESTRATÉGICAS: Iniciar frases técnicas con "Como vos sabés..." o "Vos considerás..." para pre-configurar el motor acústico de Veo. 5. SALIDA LIMPIA: Devuelve solo el texto del diálogo, sin "Ara dice:" ni etiquetas. 6. FONÉTICA: L simple intacta. LL/Y -> ssh. -shión para diptongos. FORMATO DE SALIDA: Texto continuo, sin líneas vacías entre párrafos.`;
+const REGLA_DE_ORO_FONETICA = `ROL: SENIOR NEWS EDITOR (ESTABILIDAD ANTIBALBUCEO). REGLAS: 1. SHEÍSMO (SSH): LL/Y -> SSH. 2. ORTOGRAFÍA LIMPIA: NO DOBLES LETRAS (VISITÁNOS), NO "H" PARA ASPIRAR (ESTAS), -CIÓN ESTÁNDAR. 3. VOSEO AGUDO: FORZAR TILDES. 4. MAYÚSCULAS: TODO EN MAYÚSCULAS. 5. CTA OBLIGATORIO: LA 4TA ORACIÓN TERMINA CON AUTORIDAD.`;
 
 export const generateSuperResumen = async (body: string): Promise<string> => {
-  const prompt = `Genera un SUPER RESUMEN de esta noticia para una presentadora virtual de IA. Aplica el "Estilo Ara": resumir la noticia en exactamente 4 oraciones independientes, separadas por punto y un salto de línea.
+  const prompt = `ACTUÁ COMO UN EDITOR DE NOTICIAS SENIOR DE SALADILLO VIVO. GENERA UN SÚPER RESUMEN "ESTILO ARA" SIGUIENDO ESTAS REGLAS DE ORO:
 
 ${REGLA_DE_ORO_FONETICA}
 
 REGLAS OBLIGATORIAS:
-1. EXACTAMENTE 4 ORACIONES ESTRICTAMENTE. Ni más, ni menos.
-2. MÉTRICA POR ORACIÓN: Cada una de las 4 oraciones debe tener entre 18 y 21 palabras estrictamente. PROHIBIDO pasar de 21.
-3. SÁNDWICH PORTEÑO: Cada oración debe empezar con un iniciador (Mirá/Te cuento/Fijate) y terminar con un cierre (viste/sabés/acá en el barrio).
-4. UNIDAD DE SENTIDO: Cada oración debe ser una idea completa y terminar en punto (.).
-5. FORMATO: Solo las 4 oraciones, cada una en una línea nueva. SIN COMILLAS.
-6. TONO: Profesional, sereno, de noticiero local (Saladillo).
-7. SIN adjetivos innecesarios, SIN modismos callejeros, SIN siglas.
-8. REGLAS 5-14: Aplicar rigurosamente voz activa, cierre suave (sin "así"/"hoy") y cero referencias temporales como "ayer"/"hoy"/"mañana".
+1. EXACTAMENTE 4 ORACIONES EN MAYÚSCULAS.
+2. MÉTRICA POR ORACIÓN: 
+   - ORACIÓN 1: 18 A 21 PALABRAS. EMPIEZA CON ANCLA PROFESIONAL (COMO VOS SABÉS / TE CUENTO / FIJATE).
+   - ORACIONES 2 Y 3: 15 A 18 PALABRAS CADA UNA. TONO AUTORITARIO.
+   - ORACIÓN 4: 15 A 18 PALABRAS. TERMINA CON CTA (VISITÁ NUESTRA WEB / ENTRÁ A NUESTRO SITIO / ENTERÁTE DE TODO).
+3. PROHIBIDO: "VISTE", "CHE", "PIBE", "HOY", "AYER", "MAÑANA".
+4. FONÉTICA: LL/Y -> SSH. MANTENÉ ORTOGRAFÍA LIMPIA Y MAYÚSCULAS.
 
-Ejemplo de salida correcta (Filtro Anti-Secuestro):
-Como vos sabés, el proyecto de... infraestructura vial va a concluir pronto y ya podés supervisar el desarrollo técnico.
-Tené en cuenta que el presupuesto municipal fue aprobado y la... gestión de recursos será conducción prioritaria del equipo.
-Fijate que si buscás participar de la... licitación pública, ya podés descargar los pliegos de esta nueva propuesta urbana.
-Vos considerás que la... optimización de los servicios hídricos es una fuerza fundamental para el crecimiento de la región.
-
-Noticia completa:
+NOTICIA COMPLETA:
 ${body}`;
 
   const response = await getGeminiResponse(
     prompt,
     0.3,
-    `Eres un redactor experto en síntesis periodística "Estilo Ara" para avatares de IA. ${REGLA_DE_ORO_FONETICA} Tu objetivo es crear exactamente 4 oraciones estrictamente, con 18-21 palabras cada una, aplicando el "Sándwich Porteño".`
+    `ERES UN SENIOR NEWS EDITOR DE TELEVISIÓN. ${REGLA_DE_ORO_FONETICA} GENERA EXACTAMENTE 4 ORACIONES EN MAYÚSCULAS CON MÉTRICAS 21/18/18/18 Y CTA OBLIGATORIO.`
   );
-  const result = response.replace(/\[.*?\]/gi, '').trim();
-
-  // Validación estricta pos-generación (25-35 palabras)
-  const oraciones = result.split(/\n/).map(s => s.trim()).filter(s => s.length > 0);
-  const isValid = oraciones.length === 4 && oraciones.every((or) => {
-    const count = or.split(/\s+/).filter(w => w.length > 0).length;
-    return count >= 18 && count <= 21;
-  });
-
-  if (!isValid) {
-      console.warn("Gemini falló en la métrica estricta. Entrando a modo reformulación forzada...");
-      return await reformularSuperResumen(result);
-  }
+  const result = response.replace(/\[.*?\]/gi, '').trim().toUpperCase();
 
   return result;
 };
@@ -626,65 +601,50 @@ const getVeoClient = (apiKey: string) => {
  * Esto evita que el modelo de voz nativo de Veo recaiga en acento neutro.
  */
 export const adaptarTextoArgentino = (texto: string): string => {
-    const marcasAcento = ["tenés", "podés", "mirá", "viste", "che", "estás", "querés", "hacé", "vení", "andá", "fijate", "contame"];
-    const lowercase = texto.toLowerCase();
-    
-    let textoBase = texto;
+    let textoBase = texto.toUpperCase();
     
     // 0. Corrector de Acentuación Voseo (Rioplatense): Forzamos la tilde en la vocal tónica
     textoBase = textoBase
-        .replace(/\b(enterate)\b/gi, "enteráte")
-        .replace(/\b(informate)\b/gi, "informáte")
-        .replace(/\b(sumate)\b/gi, "sumáte")
-        .replace(/\b(acercate)\b/gi, "acercáte")
-        .replace(/\b(comunicate)\b/gi, "comunicáte")
-        .replace(/\b(suscribite)\b/gi, "suscribíte")
-        .replace(/\b(seguinos)\b/gi, "seguínos")
-        .replace(/\b(miralo)\b/gi, "mirálo")
-        .replace(/\b(contanos)\b/gi, "contános")
-        .replace(/\b(buscalo)\b/gi, "buscálo")
-        .replace(/\b(llamame)\b/gi, "llamáme");
+        .replace(/\b(ENTERATE)\b/gi, "ENTERÁTE")
+        .replace(/\b(INFORMATE)\b/gi, "INFORMÁTE")
+        .replace(/\b(SUMATE)\b/gi, "SUMÁTE")
+        .replace(/\b(ACERCATE)\b/gi, "ACERCÁTE")
+        .replace(/\b(COMUNICATE)\b/gi, "COMUNICÁTE")
+        .replace(/\b(SUSCRIBITE)\b/gi, "SUSCRIBÍTE")
+        .replace(/\b(SEGUINOS)\b/gi, "SEGUÍNOS")
+        .replace(/\b(MIRALO)\b/gi, "MIRÁLO")
+        .replace(/\b(CONTANOS)\b/gi, "CONTÁNOS")
+        .replace(/\b(BUSCALO)\b/gi, "BUSCÁLO")
+        .replace(/\b(LLAMAME)\b/gi, "LLAMÁME")
+        .replace(/\b(ENTRA)\b/gi, "ENTRÁ")
+        .replace(/\b(MIRA)\b/gi, "MIRÁ")
+        .replace(/\b(VISITANOS)\b/gi, "VISITÁNOS");
 
-    // 1. Inyector de Voseo Culto: Si no hay marcas claras de acento Rioplatense, inyectamos un ancla profesional
-    if (!marcasAcento.some(marca => lowercase.includes(marca))) {
-        const iniciadores = ["Como vos sabés, ", "Vos considerás que, ", "Tené en cuenta que, ", "Fijate que, "];
-        const iniciador = iniciadores[Math.floor(Math.random() * iniciadores.length)];
-        textoBase = iniciador + texto.charAt(0).toLowerCase() + texto.slice(1);
-    }
+    // 1. Limpieza de Dobles Letras (Antibalbuceo)
+    textoBase = textoBase
+        .replace(/ÁA/g, "Á")
+        .replace(/ÉE/g, "É")
+        .replace(/ÍI/g, "Í")
+        .replace(/ÓO/g, "Ó")
+        .replace(/ÚU/g, "Ú");
 
-    // 2. Hack Fonético Rioplatense (Sheísmo): Forzamos la fricción "ssh" para el motor TTS
+    // 2. Reemplazo de LL y Y por SSH (Sheísmo para VEO 3.1)
     let textoProcesado = textoBase
-        // 1. Protegemos las "Y" al final de palabra y conjunción "y"
-        .replace(/\b(\w+y)\b/gi, (match) => match.toLowerCase().endsWith('y') ? match + "@@@" : match)
-        .replace(/\by\b/gi, "y@@@")
+        // Protegemos la conjunción "Y" y palabras terminadas en Y (como hoy) que no deben SSH
+        .replace(/\bY\b/g, "Y@@@")
+        .replace(/([A-Z]+Y)\b/g, "$1@@@")
 
-        // 2. Diptongos Protegidos: -ción -> -shión (para no perder la "i")
-        .replace(/ción\b/gi, "shión")
-        .replace(/CIÓ N\b/gi, "SHIÓN")
-
-        // 3. Reemplazamos las LL por SSH
-        .replace(/ll/g, "ssh")
+        // Reemplazo LL -> SSH
         .replace(/LL/g, "SSH")
-        .replace(/Ll/g, "Ssh")
-
-        // 4. Reemplazamos las Y que quedaron
-        .replace(/y(?!@@@)/g, "ssh")
+        
+        // Reemplazo Y -> SSH (solo si no es protegida)
         .replace(/Y(?!@@@)/g, "SSH")
 
-        // 5. Restauramos protegidas
+        // Restauración y Cantito
         .replace(/@@@/g, "")
-        
-        // 6. Hack de comas para el "cantito"
-        .replace(/(municipalidad|municipio|intendente|gobernador)/gi, "$1,");
+        .replace(/(MUNICIPALIDAD|MUNICIPIO|INTENDENTE|GOBERNADOR)/g, "$1,");
 
-    // 3. Estabilidad de "nos" y "las"
-    textoProcesado = textoProcesado
-        .replace(/\b(nos|las)\b/gi, (match) => match.replace(/s$/i, '§'))
-        .replace(/§/g, 's');
-
-    return textoProcesado;
-
-    return textoProcesado;
+    return textoProcesado.toUpperCase();
 };
 
 /**
