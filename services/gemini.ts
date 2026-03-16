@@ -631,6 +631,20 @@ export const adaptarTextoArgentino = (texto: string): string => {
     
     let textoBase = texto;
     
+    // 0. Corrector de Acentuación Voseo (Rioplatense): Forzamos la tilde en la vocal tónica
+    textoBase = textoBase
+        .replace(/\b(enterate)\b/gi, "enteráte")
+        .replace(/\b(informate)\b/gi, "informáte")
+        .replace(/\b(sumate)\b/gi, "sumáte")
+        .replace(/\b(acercate)\b/gi, "acercáte")
+        .replace(/\b(comunicate)\b/gi, "comunicáte")
+        .replace(/\b(suscribite)\b/gi, "suscribíte")
+        .replace(/\b(seguinos)\b/gi, "seguínos")
+        .replace(/\b(miralo)\b/gi, "mirálo")
+        .replace(/\b(contanos)\b/gi, "contános")
+        .replace(/\b(buscalo)\b/gi, "buscálo")
+        .replace(/\b(llamame)\b/gi, "llamáme");
+
     // 1. Inyector de Voseo Culto: Si no hay marcas claras de acento Rioplatense, inyectamos un ancla profesional
     if (!marcasAcento.some(marca => lowercase.includes(marca))) {
         const iniciadores = ["Como vos sabés, ", "Vos considerás que, ", "Tené en cuenta que, ", "Fijate que, "];
