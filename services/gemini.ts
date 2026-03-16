@@ -663,12 +663,9 @@ export const adaptarTextoArgentino = (texto: string): string => {
         // 6. Hack de comas para el "cantito"
         .replace(/(municipalidad|municipio|intendente|gobernador)/gi, "$1,");
 
-    // 3. S-Aspirada (Aspiración de la S final) + Estabilidad de "nos" y "las"
-    // Usamos marcadores que no se confundan con finales de palabra
+    // 3. Estabilidad de "nos" y "las"
     textoProcesado = textoProcesado
         .replace(/\b(nos|las)\b/gi, (match) => match.replace(/s$/i, '§'))
-        // La S-aspirada: usamos una búsqueda que reconozca el final de palabra (espacio, puntuación o fin de string)
-        .replace(/s(?![a-zà-ÿ])/gi, 'h')
         .replace(/§/g, 's');
 
     // 4. Énfasis de Voseo: Alargamos duración de vocales tónicas finales (á-áh, é-éh, í-íh)
