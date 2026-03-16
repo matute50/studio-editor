@@ -682,10 +682,7 @@ export const adaptarTextoArgentino = (texto: string): string => {
         .replace(/\b(nos|las)\b/gi, (match) => match.replace(/s$/i, '§'))
         .replace(/§/g, 's');
 
-    // 4. Énfasis de Voseo: Alargamos duración de vocales tónicas finales (á-áh, é-éh, í-íh)
-    // Usamos el patrón de doble vocal solicitado para la prosodia argentina
-    textoProcesado = textoProcesado
-        .replace(/([áéí])(?![a-zà-ÿ])/gi, (match) => `${match}-${match}h`);
+    return textoProcesado;
 
     return textoProcesado;
 };
