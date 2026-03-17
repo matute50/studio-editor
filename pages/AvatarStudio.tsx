@@ -119,6 +119,22 @@ const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitl
 
 const PROMPT_MAESTRO_SYSTEM = `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level, locked-off medium shot of Ara. Photorealistic facial identity lock, exact attire, and static background identical to the reference. [ANCLA_RIOPLATENSE] Una periodista argentina de Buenos Aires con voz firme y fluida. [AUDIO_STUDIO_CONTROL] Character says: "Saladissho Vivo. La misma información, mejor contada. Visitános." [STRICT_PHONETICS] Read with natural professional fluency. No pauses between syllables. Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" as a standard lateral alveolar. Pronounce all "S" consonants clearly. Use Argentine cadence. Sound: complete studio silence. Negative prompt: stuttering, hesitating, mumbling, pausing between words, double vowels, glitched audio, informassión, visitáanos, Spanish accent, accent from Spain, ceceo, seseo peninsular, corporate motivational tone, generic face, airbrushed skin, plastic texture, morphing.`;
 
+const PROMPT_MAESTRO_GROK = `Hyper-photorealistic 8K portrait, exact identical match to the attached reference image of Ara in every facial detail, bone structure, skin texture, pores, subtle imperfections, makeup, hair strands, eye color and reflections, earrings, clothing creases and fabric texture — zero deviation allowed in face or upper body appearance.
+
+Medium shot from waist up, standing in the exact same professional news studio with the FIXED background from the reference image (background 100% static, no animation, no changes, no movement whatsoever, perfectly frozen studio set).
+
+Ara looking directly into camera with natural, confident eye contact as a seasoned Buenos Aires news anchor, intelligently presenting breaking news in authentic rioplatense Spanish (porteño accent from Buenos Aires).
+
+She is saying right now: "{TEXTO_A_DECIR}"
+
+ABSOLUTE TOP PRIORITY: perfect lip synchronization at millimeter precision, anatomically correct mouth movements for spoken Argentine Spanish rioplatense, flawless phoneme-to-viseme mapping, accurate tongue positioning visible when needed, correct jaw drop and lip rounding for each Argentine phoneme especially ll/y/sh/s/z sounds, natural intra-syllable transitions, realistic cheek and lip tension, micro-movements of mouth corners and philtrum during fluent speech, no uncanny valley, no plastic mouth, no melted lips, no artifacts in oral area.
+
+Subtle natural human gestures: measured head tilts, micro-expressions of emphasis or surprise according to news tone, slight natural blinking, realistic throat movement when swallowing mid-sentence if needed, professional but relaxed presenter posture.
+
+Ultra-detailed cinematic realism: visible skin pores and fine peach fuzz, subsurface scattering on skin, realistic lip moisture and gloss, individual eyelashes and iris micro-details, specular highlights in eyes matching studio lights, broadcast-quality three-point lighting (soft key light from left, fill from right, subtle hair light), shallow depth of field with perfect focus on face and upper chest, shot on Arri Alexa 65 or RED V-Raptor 8K with 85mm prime lens at f/1.4, color science matching real broadcast cameras, no distortions, no symmetry errors, maximum photorealism, raw style.
+
+Aspect ratio 9:16 vertical for social media/reels, 2K resolution base (upscale to max), --ar 9:16 --v 6 --stylize 80 --q 2 --style raw --chaos 5`;
+
 // --- COMPONENTE PRINCIPAL ---
 export function AvatarStudio() {
     // CONTEXTO Y ESTADOS
@@ -671,8 +687,7 @@ export function AvatarStudio() {
     };
 
     const generarPromptParaClip = (clip: any) => {
-        // REGLA 2: Prompt de Producción Veo 3.1 (Lenguaje Natural, Sin Comillas)
-        // El script ya viene pre-procesado con el "Sándwich Porteño" desde NewsEditor
+        // REGLA 2: Prompt de Producción Veo 3.1 / Grok (Lenguaje Natural)
         const scriptProcesado = adaptarTextoArgentino(clip.script);
 
         if (workingMode === 'exterior') {
@@ -682,6 +697,10 @@ export function AvatarStudio() {
             const audioEnv = isIndoor ? '**Apply indoor hall echo and slight voice resonance.**' : 'Include **ambient sounds matched to climate and time (birds/traffic/rain/machinery)**.';
             
             return `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level medium shot of Ara, the professional news anchor from the provided reference image. Photorealistic facial identity lock, skin texture and professional attire/outfit appropriate for the selected environment. 8K cinema style, 85mm. She is standing in front of the **exact ${extLocacion}** of Saladillo, using the **background reference image** for environmental details. Lighting and Color Description from your Matrix based on Time (${extHorario}) + Weather (${extClima}). ${lightingDetails} ${actionDetails} [ANCLA_CONTEXTUAL_RIOPLATENSE] Una periodista de Buenos Aires, hablando con energía profesional y autoridad local sobre el ruido del ambiente, dice: "${scriptProcesado}" [AUDIO_ENV_FX] Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" standard. Prosody: á-áh for emphasis. ${audioEnv} Sound: complete studio silence. Close mouth immediately after the last phoneme. Negative prompt: neutral Spanish, slang, lunfardo, Spanish from Spain, generic background, new location, camera movement, background music, corporate motivational tone.`.replace(/\s+/g, ' ').trim();
+        }
+
+        if (aiEngine === 'GROK') {
+            return PROMPT_MAESTRO_GROK.replace('{TEXTO_A_DECIR}', scriptProcesado);
         }
 
         return PROMPT_MAESTRO_SYSTEM.replace(
@@ -1247,10 +1266,10 @@ export function AvatarStudio() {
                             <h2 className="text-[13px] font-bold uppercase tracking-widest text-[#AAA]">Visual y Animación</h2>
                         </div>
                         <button 
-                            onClick={() => copiarAlPortapapeles(PROMPT_MAESTRO_SYSTEM)}
+                            onClick={() => copiarAlPortapapeles(aiEngine === 'GROK' ? PROMPT_MAESTRO_GROK : PROMPT_MAESTRO_SYSTEM)}
                             className="px-3 py-1.5 bg-[#1A1A1A] border border-[#00B140]/30 text-[#00B140] rounded-md text-[9px] font-black uppercase tracking-tighter hover:bg-[#00B140] hover:text-black transition-all flex items-center gap-2"
                         >
-                            <Sparkles size={12} /> Prompt Maestro (System)
+                            <Sparkles size={12} /> Prompt Maestro ({aiEngine})
                         </button>
                     </div>
 
