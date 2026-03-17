@@ -120,26 +120,18 @@ const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitl
 const PROMPT_MAESTRO_SYSTEM = `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level, locked-off medium shot of Ara. Photorealistic facial identity lock, exact attire, and static background identical to the reference. [ANCLA_RIOPLATENSE] Una periodista argentina de Buenos Aires con voz firme y fluida. [AUDIO_STUDIO_CONTROL] Character says: "Saladissho Vivo. La misma información, mejor contada. Visitános." [STRICT_PHONETICS] Read with natural professional fluency. No pauses between syllables. Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" as a standard lateral alveolar. Pronounce all "S" consonants clearly. Use Argentine cadence. Sound: complete studio silence. Negative prompt: stuttering, hesitating, mumbling, pausing between words, double vowels, glitched audio, informassión, visitáanos, Spanish accent, accent from Spain, ceceo, seseo peninsular, corporate motivational tone, generic face, airbrushed skin, plastic texture, morphing.`;
 
 const PROMPT_MAESTRO_GROK = `Hyper-photorealistic 8K exact portrait match to reference image of Ara: identical facial structure, bone structure, skin pores, fine peach fuzz, makeup, hair strands, eye reflections, clothing texture — absolute zero deviation from reference face and upper body.
-
 Waist-up medium shot, standing in the exact fixed news studio background from reference (background 100% frozen static, no animation, no alteration, no movement at all, perfectly locked).
-
 Ara as professional Buenos Aires news anchor, direct confident eye contact to camera, intelligently delivering news in authentic rioplatense porteño accent from Buenos Aires Argentina.
-
 She is currently saying: "{TEXTO_A_DECIR}"
-
 EXTREME TOP PRIORITY — MILIMETRIC LIP SYNC ENFORCEMENT: perfect lip synchronization, anatomically precise mouth movements exclusively for spoken Argentine rioplatense Spanish (porteño Buenos Aires dialect), flawless phoneme-to-viseme mapping specific to this accent, visible and correct articulatory features including:
-
 - yeísmo rehilado: /ʝ/ (from ll and y) realized as postalveolar fricative [ʃ] (voiceless sh-like) or [ʒ] (voiced), with characteristic lip protrusion, rounding and tension for 'sh' sound (e.g. "calle" → "cashe", "yo" → "sho", "lluvia" → "shuvia"), visible narrowed lip aperture and forward lip positioning,
 - seseo: /s/, /θ/ (from c/z) merged to alveolar [s], sharp sibilant with tongue close to alveolar ridge,
 - aspiration or elision of syllable-final /s/: [h] or zero realization (e.g. "los" → "loh" or "lo"), relaxed lip closure, open jaw transition, reduced tension on lips at word ends,
 - precise tongue positioning: visible retroflex approximant or fricative for rehilado /ʝ/, tongue blade raised for sibilants, correct velarization and aspiration effects,
 - accurate jaw drop, lip rounding, bilabial contacts (p/b/m), labiodental (f/v), dental/alveolar contacts, intra-syllable natural transitions, cheek puffing/tension, philtrum and mouth corner micro-movements authentic to porteño fluent speech,
 - no generic neutral Spanish lip shapes, no American English visemes, no Castilian distinción — strictly Buenos Aires rioplatense phonetics only, zero uncanny valley or plastic mouth artifacts in oral region.
-
 Subtle realistic presenter gestures: minimal head tilts, micro-expressions matching news tone, natural blinks, slight throat movement for emphasis or swallow, professional relaxed posture.
-
 Cinematic ultra-realism: subsurface scattering skin, realistic lip gloss/moisture, individual eyelashes, iris depth, broadcast three-point lighting (soft key + fill + subtle rim), shallow DoF focus on face/upper chest, shot on Arri Alexa 65 or RED V-Raptor 8K with 85mm f/1.4 prime, perfect color science, no distortions, no symmetry issues.
-
 Vertical 9:16 aspect for social media, 2K+ resolution, --ar 9:16 --v 6 --stylize 60 --q 2 --style raw --chaos 3`;
 
 // --- COMPONENTE PRINCIPAL ---
