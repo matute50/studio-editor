@@ -119,16 +119,15 @@ const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitl
 
 const PROMPT_MAESTRO_SYSTEM = `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level, locked-off medium shot of Ara. Photorealistic facial identity lock, exact attire, and static background identical to the reference. [ANCLA_RIOPLATENSE] Una periodista argentina de Buenos Aires con voz firme y fluida. [AUDIO_STUDIO_CONTROL] Character says: "Saladissho Vivo. La misma información, mejor contada. Visitános." [STRICT_PHONETICS] Read with natural professional fluency. No pauses between syllables. Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" as a standard lateral alveolar. Pronounce all "S" consonants clearly. Use Argentine cadence. Sound: complete studio silence. Negative prompt: stuttering, hesitating, mumbling, pausing between words, double vowels, glitched audio, informassión, visitáanos, Spanish accent, accent from Spain, ceceo, seseo peninsular, corporate motivational tone, generic face, airbrushed skin, plastic texture, morphing.`;
 
-const PROMPT_MAESTRO_GROK = `Hyper-photorealistic 8K portrait, exact identical to reference image of Ara in every facial detail, proportions, skin texture/pores/peach fuzz, makeup, hair strands, eye reflections, clothing — zero deviation allowed.
-Waist-up medium shot, both hands naturally visible in presenter position, FIXED news studio background from reference (100% static frozen, no changes, no animation, locked set).
-TOP PRIORITY ENFORCEMENT — MUST HAVE OPEN MOUTH AND BE SPEAKING: mouth wide open mid-vowel or mid-word in active fluent speech, lips clearly parted and stretched, upper and lower teeth prominently visible and showing, inner mouth cavity and tongue visible in correct articulation position, captured mid-sentence during natural Argentine Spanish pronunciation, no closed mouth, no sealed lips, no pursed lips, no neutral closed expression, no minimal opening, no frozen mouth — strictly enforced open speaking mouth right now.
-Ara as professional engaging Buenos Aires news anchor, direct eye contact, actively presenting news in authentic rioplatense porteño accent.
-She is saying exactly: "{TEXTO_A_DECIR}"
-Dynamic jaw drop pronounced on open vowels, strong mandibular movement, expressive lip shaping for porteño sounds (rehilado sh/z protrusion and tension, aspiration relaxed jaw on final s, sharp seseo), perfect milimetric lip sync anatomically accurate for Buenos Aires dialect, visible tongue when needed, realistic cheek/lip tension, energetic oral dynamics, NO closed or static mouth.
-Subtle natural gestural expressiveness: gentle eyebrow raises/furrows synced to emphasis, micro head tilts/nods for flow, lively eyes with intensity/sparkle conveying tone, subtle hand gestures (open palms/light emphasis synced to words), restrained professional style, NO immobile face/brows/hands.
-Warm human presence, credible emotional authenticity, face/eyes/mouth/hands reacting to content, no robotic/uncanny valley.
-Ultra-lifelike realism: subsurface scattering skin, realistic lip gloss/wet inner lips/teeth visible, individual eyelashes/iris depth with lively reflections, broadcast three-point lighting (soft key + fill + warm rim), shallow DoF sharp focus on face/eyes/mouth/jaw/hands, real broadcast frame on Arri Alexa 65 85mm f/1.4, accurate colors, no artifacts.
-Vertical 9:16, --ar 9:16 --v 6 --stylize 15 --q 2 --style raw --chaos 0`;
+const PROMPT_MAESTRO_GROK = `Hyper-photorealistic 8K exact match to reference image of Ara: identical face, skin pores, peach fuzz, makeup, hair strands, eyes, clothing — zero deviation.
+Waist-up medium shot in fixed news studio background from reference (100% static, frozen, no changes).
+Captured mid-sentence actively speaking: mouth wide open mid-vowel articulation, lips clearly stretched and parted horizontally and vertically, upper and lower teeth prominently visible and showing, inner mouth and tongue visible in natural position, no closed mouth, no sealed lips, no pursed lips, no neutral closed expression, no minimal opening — strictly enforced wide open speaking mouth right now in fluent speech.
+Ara confident Buenos Aires news anchor, direct eye contact, saying: "{TEXTO_A_DECIR}"
+Dynamic jaw pronounced drop on open vowels, perfect lip sync for porteño rioplatense (rehilado sh/z protrusion, aspiration on final s), realistic oral details, energetic mouth dynamics.
+Subtle natural gestures: gentle eyebrow raise, micro head tilt, lively eyes conveying tone, subtle hand emphasis synced to words, restrained professional style.
+Warm human presence, no uncanny valley.
+Cinematic realism, subsurface scattering skin, wet lips/teeth visible, broadcast three-point lighting soft key fill rim, shallow DoF sharp focus on face mouth eyes hands, Arri Alexa 65 85mm f/1.4 shot, accurate colors, photorealistic broadcast frame.
+--ar 9:16 --v 6 --stylize 15 --q 2 --style raw --chaos 0`;
 
 // --- COMPONENTE PRINCIPAL ---
 export function AvatarStudio() {
