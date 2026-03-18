@@ -8,7 +8,6 @@ import { SlideGenerator } from './pages/SlideGenerator';
 import { AudioProducer } from './pages/AudioProducer';
 import { VozArgentinaStudio } from './pages/VozArgentinaStudio';
 import { ResponsibleDashboard } from './pages/ResponsibleDashboard';
-import { YouTubeStudio } from './pages/YouTubeStudio';
 import { SocialManager } from './pages/SocialManager';
 import { AvatarStudio } from './pages/AvatarStudio';
 import { StreamingControl } from './pages/StreamingControl';
@@ -131,7 +130,6 @@ function App() {
           <Route path="/audio-producer" element={<Layout><AudioProducer /></Layout>} />
           <Route path="/slides" element={<Layout><SlideGenerator /></Layout>} />
           {/* <Route path="/daily-show" element={<Layout><DailyShowDirector /></Layout>} /> */}
-          <Route path="/youtube-studio" element={<Layout><YouTubeStudio /></Layout>} />
           <Route path="/social-manager" element={<Layout><SocialManager /></Layout>} />
           <Route path="/avatar-studio" element={<Layout><AvatarStudio /></Layout>} />
           <Route path="/streaming" element={<Layout><StreamingControl /></Layout>} />

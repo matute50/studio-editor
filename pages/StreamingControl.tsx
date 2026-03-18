@@ -1,530 +1,316 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    Radio,
-    Play,
-    Square,
-    Clock,
-    Link2,
-    AlertCircle,
-    CheckCircle2,
-    Trash2,
-    RefreshCw,
-    Eye,
-    EyeOff,
-    Copy,
-    Wifi,
-    WifiOff,
-    Globe,
-    Smartphone,
-    Monitor,
-    Info
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
+import { Monitor, Save, Play, Power, AlertCircle, CheckCircle2, History } from 'lucide-react';
+// import ReactPlayer from 'react-player'; // Eliminado por falta de dependencia
 
-interface StreamingConfig {
-    id: string;
-    stream_url: string;
-    is_active: boolean;
-    started_at: string | null;
-    ended_at: string | null;
-    title: string | null;
-    notes: string | null;
-    created_at: string;
-}
-
-const LIVE_THRESHOLD_S = 10; // segundos
-
-function elapsed(from: string | null): string {
-    if (!from) return '—';
-    const diff = Math.floor((Date.now() - new Date(from).getTime()) / 1000);
-    const h = Math.floor(diff / 3600);
-    const m = Math.floor((diff % 3600) / 60);
-    const s = diff % 60;
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
+interface StreamConfig {
+  id: string;
+  stream_url: string;
+  is_active: boolean;
+  title: string;
+  notes: string | null;
+  started_at: string | null;
+  ended_at: string | null;
 }
 
 export const StreamingControl: React.FC = () => {
-    const [configs, setConfigs] = useState<StreamingConfig[]>([]);
-    const [active, setActive] = useState<StreamingConfig | null>(null);
-    const [formUrl, setFormUrl] = useState('');
-    const [formTitle, setFormTitle] = useState('');
-    const [formNotes, setFormNotes] = useState('');
+    const [config, setConfig] = useState<StreamConfig | null>(null);
+    const [url, setUrl] = useState('');
+    const [title, setTitle] = useState('');
+    const [notes, setNotes] = useState('');
+    const [isActive, setIsActive] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [tick, setTick] = useState(0);
-    const [showPreview, setShowPreview] = useState(false);
-    const [trueLiveStatus, setTrueLiveStatus] = useState<string>('checking'); // 'live', 'recording', 'offline', 'checking'
-    const [toasts, setToasts] = useState<{ id: number; type: string; msg: string }[]>([]);
-    const toastId = useRef(0);
-    const isDeactivatingRef = useRef(false);
+    const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-    const addToast = (type: string, msg: string) => {
-        const id = ++toastId.current;
-        setToasts(p => [...p, { id, type, msg }]);
-        setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
-    };
-
-    // Polling del estado real del flujo (cada 15s para no saturar)
-    const pollCheckStream = async (url: string, isActiveSession: boolean) => {
-        if (!url) return;
-        try {
-            const resp = await fetch(`/api/check-stream?url=${encodeURIComponent(url)}&t=${Date.now()}`);
-            const data = await resp.json();
-            
-            const newStatus = data.isLive ? 'live' : (data.status === 404 || data.error) ? 'offline' : 'recording';
-            setTrueLiveStatus(newStatus);
-
-            // CRÍTICO: Auto-Apagado de Seguridad
-            // Si la sesión está ACTIVA pero la señal ya no es VIVO, apagamos el switch de la DB
-            if (isActiveSession && !data.isLive && !isDeactivatingRef.current) {
-                console.log('[StreamingControl] ⚠️ Signal lost or VOD detected. Auto-deactivating switch.');
-                addToast('error', '⚠️ SEÑAL FINALIZADA: Volviendo a modo VIDEOS automáticamente');
-                handleDeactivate();
-            }
-        } catch (err) {
-            setTrueLiveStatus('offline');
-        }
-    };
-
-    // Polling del reloj
     useEffect(() => {
-        const t = setInterval(() => setTick(p => p + 1), 1000);
-        return () => clearInterval(t);
+        fetchStreamConfig();
     }, []);
 
-    // Polling Supabase cada 5 s
-    const fetchData = async () => {
+    const fetchStreamConfig = async () => {
         try {
+            setLoading(true);
             const { data, error } = await supabase
-                .from('streaming_config')
+                .from('streaming')
                 .select('*')
-                .order('created_at', { ascending: false })
-                .limit(10);
-            if (error) throw error;
-            const rows = (data as StreamingConfig[]) || [];
-            setConfigs(rows);
-            const act = rows.find(r => r.is_active) || null;
-            setActive(act);
-            
-            // Si hay un stream activo, chequeamos su salud
-            if (act) {
-                pollCheckStream(act.stream_url, true);
-            } else if (formUrl.trim()) {
-                // Si no hay activo, chequeamos la URL del formulario para habilitar el botón
-                pollCheckStream(formUrl.trim(), false);
+                .eq('id', 25)
+                .single();
+
+            if (data) {
+                setConfig({
+                    id: data.id.toString(),
+                    stream_url: data.url,
+                    is_active: data.isActive,
+                    title: data.nombre,
+                    notes: '',
+                    started_at: null,
+                    ended_at: null
+                } as any);
+                setUrl(data.url);
+                setTitle(data.nombre || '');
+                setIsActive(data.isActive);
             }
         } catch (err) {
-            console.error('[StreamingControl] Error fetch:', err);
+            console.error('Error fetching stream config:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchData();
-        const interval = setInterval(fetchData, 5000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Pre-cargar formulario con URL del stream activo
-    useEffect(() => {
-        if (active) {
-            setFormUrl(active.stream_url);
-            setFormTitle(active.title || '');
-            setFormNotes(active.notes || '');
-        }
-    }, [active?.id]);
-
-    const handleActivate = async () => {
-        if (!formUrl.trim()) return addToast('error', 'Ingresá una URL de stream válida');
-        
-        // Validar que la señal sea REAL antes de permitir el switch (REQUISITO ESTRICTO)
-        if (trueLiveStatus !== 'live') {
-            return addToast('error', '🚫 BLOQUEADO: No puedes activar streaming si la señal es VOD o está OFFLINE');
-        }
-
-        setSaving(true);
-        isDeactivatingRef.current = false;
+    const handleSave = async (activate: boolean = false) => {
         try {
-            // Desactivar cualquier stream anterior
-            await supabase.from('streaming_config')
-                .update({ is_active: false, ended_at: new Date().toISOString() })
-                .eq('is_active', true);
+            setSaving(true);
+            setMessage(null);
 
-            // Insertar nuevo config activo
-            const { error } = await supabase.from('streaming_config').insert({
-                stream_url: formUrl.trim(),
-                title: formTitle.trim() || null,
-                notes: formNotes.trim() || null,
-                is_active: true,
-                started_at: new Date().toISOString(),
-            });
+            const now = new Date().toISOString();
+            
+            // 1. Payload para historial (streaming_config)
+            const historyPayload: any = {
+                stream_url: url,
+                title,
+                notes,
+                is_active: activate,
+            };
+
+            if (activate) {
+                historyPayload.started_at = now;
+                historyPayload.ended_at = null;
+            } else if (config?.is_active && !activate) {
+                historyPayload.ended_at = now;
+            }
+
+            // Guardar en historial
+            await supabase.from('streaming_config').insert([historyPayload]);
+
+            // 2. Actualizar ESTADO MAESTRO (tabla 'streaming', id 25)
+            // Esta es la tabla que leerán los reproductores para evitar confusión de filas
+            const { data, error } = await supabase
+                .from('streaming')
+                .update({
+                    isActive: activate,
+                    url: url,
+                    nombre: title,
+                    updatedAt: now
+                })
+                .eq('id', 25)
+                .select()
+                .single();
+
             if (error) throw error;
-            addToast('success', '✓ Stream activado — los reproductores conmutarán en ~10 s');
-            await fetchData();
+
+            // Actualizar estado local
+            setConfig({
+                ...config,
+                id: data.id.toString(),
+                stream_url: data.url,
+                is_active: data.isActive,
+                title: data.nombre,
+                notes: notes,
+                started_at: activate ? now : (config?.started_at || null),
+                ended_at: !activate ? now : null
+            } as any);
+
+            setIsActive(data.isActive);
+            setMessage({ text: activate ? 'Streaming ACTIVADO con éxito' : 'Configuración guardada correctamente', type: 'success' });
+            
+            setTimeout(() => setMessage(null), 3000);
         } catch (err: any) {
-            addToast('error', `✗ Error: ${err.message}`);
+            setMessage({ text: `Error: ${err.message}`, type: 'error' });
         } finally {
             setSaving(false);
         }
     };
 
-    const handleDeactivate = async () => {
-        if (!active) return;
-        setSaving(true);
-        isDeactivatingRef.current = true; // Prevenimos bucles de re-entrada
-        try {
-            const { error } = await supabase.from('streaming_config')
-                .update({ is_active: false, ended_at: new Date().toISOString() })
-                .eq('id', active.id);
-            if (error) throw error;
-            addToast('success', '✓ Stream desactivado — los reproductores volverán al modo normal');
-            setActive(null);
-            await fetchData();
-        } catch (err: any) {
-            addToast('error', `✗ Error: ${err.message}`);
-        } finally {
-            setSaving(false);
-        }
+    const toggleStatus = () => {
+        handleSave(!isActive);
     };
 
-    const handleDelete = async (id: string) => {
+    const getEmbedUrl = (inputUrl: string) => {
+        if (!inputUrl) return '';
         try {
-            await supabase.from('streaming_config').delete().eq('id', id);
-            await fetchData();
-        } catch (err) {
-            addToast('error', '✗ No se pudo eliminar el registro');
+            const urlObj = new URL(inputUrl);
+            let videoId = '';
+            
+            if (urlObj.hostname.includes('youtube.com')) {
+                if (urlObj.pathname.startsWith('/live/')) {
+                    videoId = urlObj.pathname.split('/')[2];
+                } else {
+                    videoId = urlObj.searchParams.get('v') || '';
+                }
+            } else if (urlObj.hostname.includes('youtu.be')) {
+                videoId = urlObj.pathname.slice(1);
+            }
+
+            if (videoId) {
+                return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
+            }
+        } catch (e) {
+            console.error('URL inválida para el preview');
         }
+        return '';
     };
 
-    // Estado visual del stream activo
-    const isLiveStable = active?.started_at
-        ? (Date.now() - new Date(active.started_at).getTime()) / 1000 > LIVE_THRESHOLD_S
-        : false;
+    if (loading) {
+        return (
+            <div className="p-8 flex items-center justify-center min-h-[400px]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Cargando configuración...</p>
+                </div>
+            </div>
+        );
+    }
 
-    const statusLabel = active
-        ? trueLiveStatus === 'recording' ? 'GRABACIÓN (VOD)' : 
-          trueLiveStatus === 'offline' ? 'SIN SEÑAL' : 
-          isLiveStable ? 'EN VIVO' : 'INICIANDO...'
-        : 'INACTIVO';
-
-    const statusColor = active
-        ? trueLiveStatus === 'recording' ? 'text-blue-400' : 
-          trueLiveStatus === 'offline' ? 'text-gray-500' : 
-          isLiveStable ? 'text-red-400' : 'text-yellow-400'
-        : 'text-slate-500';
-
-    const statusBg = active
-        ? trueLiveStatus === 'recording' ? 'bg-blue-500/10 border-blue-500/30' : 
-          trueLiveStatus === 'offline' ? 'bg-gray-500/10 border-gray-500/30' : 
-          isLiveStable ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'
-        : 'bg-slate-800 border-slate-700';
+    const embedUrl = getEmbedUrl(url);
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white p-8 relative">
-
-            {/* TOASTS */}
-            <div className="fixed top-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none">
-                {toasts.map(t => (
-                    <div key={t.id} className={`px-4 py-3 rounded-xl text-[12px] font-black uppercase tracking-tighter shadow-2xl border backdrop-blur-md pointer-events-auto transition-all animate-fadeIn
-                        ${t.type === 'success' ? 'bg-[#00B140]/90 border-[#00B140] text-black' :
-                          t.type === 'error'   ? 'bg-red-500/90 border-red-400 text-white' :
-                          'bg-slate-800 border-slate-700 text-white'}`}>
-                        {t.msg}
-                    </div>
-                ))}
-            </div>
-
-            {/* HEADER */}
-            <div className="flex items-center justify-between mb-10">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
-                        <Radio size={22} className="text-red-400" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-black uppercase tracking-tighter text-white">Control Streaming</h1>
-                        <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Gestión de transmisiones en vivo</p>
-                    </div>
+        <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fadeIn">
+            <header className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">Control de Streaming</h2>
+                    <p className="text-slate-500 text-sm font-medium">Gestión de transmisiones en vivo vía YouTube</p>
                 </div>
-
-                {/* BADGE ESTADO GLOBAL */}
-                <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border ${statusBg} transition-all duration-500`}>
-                    <div className={`w-2.5 h-2.5 rounded-full ${active ? isLiveStable ? 'bg-red-400 animate-pulse' : 'bg-yellow-400 animate-pulse' : 'bg-slate-600'}`} />
-                    <span className={`text-[13px] font-black uppercase tracking-widest ${statusColor}`}>
-                        {statusLabel}
-                    </span>
-                    {active && (
-                        <span className="text-[11px] text-slate-400 font-mono">
-                            {elapsed(active.started_at)}
-                        </span>
-                    )}
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest ${isActive ? 'bg-red-50 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500'}`}>
+                    <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-slate-400'}`}></div>
+                    {isActive ? 'Transmisión en Vivo' : 'Streaming Inactivo'}
                 </div>
-            </div>
+            </header>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-
-                {/* ── COLUMNA IZQUIERDA: Formulario de configuración ── */}
-                <div className="xl:col-span-2 flex flex-col gap-6">
-
-                    {/* Panel de configuración */}
-                    <div className="bg-[#0D0D0D] rounded-3xl border border-[#1E1E1E] p-6">
-                        <div className="flex items-center gap-3 mb-6">
-                            <Link2 size={16} className="text-[#00B140]" />
-                            <h2 className="text-[13px] font-black uppercase tracking-widest text-[#AAA]">
-                                Configuración del Stream
-                            </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* CONFIGURACIÓN */}
+                <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                        <div className="flex items-center gap-2 text-slate-900 mb-4">
+                            <Monitor className="w-5 h-5 text-blue-500" />
+                            <h3 className="font-black text-sm uppercase tracking-wider">Parámetros del Stream</h3>
                         </div>
 
-                        {/* URL */}
-                        <div className="mb-4">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                                URL de Origen del Stream *
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type="url"
-                                    value={formUrl}
-                                    onChange={e => setFormUrl(e.target.value)}
-                                    placeholder="https://stream.ejemplo.com/live/stream.m3u8"
-                                    className="w-full bg-[#070707] border border-[#222] rounded-xl px-4 py-3 pr-12 text-[13px] text-white font-medium placeholder:text-[#333] focus:border-[#00B140]/60 outline-none transition-all"
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">URL de YouTube Live</label>
+                                <input 
+                                    type="text" 
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    placeholder="https://www.youtube.com/watch?v=..."
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none font-medium text-slate-700"
                                 />
-                                <button
-                                    onClick={() => { navigator.clipboard.writeText(formUrl); addToast('success', '✓ URL copiada'); }}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors"
-                                >
-                                    <Copy size={15} />
-                                </button>
                             </div>
-                            <p className="text-[10px] text-slate-600 mt-1.5">
-                                Compatible con HLS (.m3u8), YouTube Live, Twitch, etc.
-                            </p>
+
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Título de la Transmisión</label>
+                                <input 
+                                    type="text" 
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    placeholder="Ej: Sesión del Concejo Deliberante"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none font-medium text-slate-700"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Notas / Descripción (Interno)</label>
+                                <textarea 
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    rows={3}
+                                    placeholder="Detalles adicionales..."
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none font-medium text-slate-700 resize-none"
+                                />
+                            </div>
                         </div>
 
-                        {/* Título */}
-                        <div className="mb-4">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                                Título del evento
-                            </label>
-                            <input
-                                type="text"
-                                value={formTitle}
-                                onChange={e => setFormTitle(e.target.value)}
-                                placeholder="Ej: Apertura de la Feria Artesanal 2026"
-                                className="w-full bg-[#070707] border border-[#222] rounded-xl px-4 py-3 text-[13px] text-white font-medium placeholder:text-[#333] focus:border-[#00B140]/60 outline-none transition-all"
-                            />
-                        </div>
-
-                        {/* Notas */}
-                        <div className="mb-6">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                                Notas internas
-                            </label>
-                            <textarea
-                                value={formNotes}
-                                onChange={e => setFormNotes(e.target.value)}
-                                placeholder="Observaciones sobre el evento o la transmisión..."
-                                rows={3}
-                                className="w-full bg-[#070707] border border-[#222] rounded-xl px-4 py-3 text-[13px] text-white font-medium placeholder:text-[#333] focus:border-[#00B140]/60 outline-none transition-all resize-none"
-                            />
-                        </div>
-
-                        {/* Botones de acción */}
-                        <div className="flex gap-3">
-                            {!active ? (
-                                <button
-                                    onClick={handleActivate}
-                                    disabled={saving || !formUrl.trim() || trueLiveStatus !== 'live'}
-                                    className="flex-1 flex items-center justify-center gap-3 h-12 bg-red-500 hover:bg-red-400 disabled:bg-[#1A1A1A] disabled:text-[#444] text-white font-black text-[12px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-[0_0_30px_rgba(239,68,68,0.2)]"
-                                >
-                                    {saving
-                                        ? <RefreshCw size={16} className="animate-spin" />
-                                        : <Play size={16} />
-                                    }
-                                    {saving ? 'Activando...' : 'ACTIVAR STREAM'}
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleDeactivate}
-                                    disabled={saving}
-                                    className="flex-1 flex items-center justify-center gap-3 h-12 bg-[#1A1A1A] hover:bg-red-900/40 border border-red-500/40 text-red-400 font-black text-[12px] uppercase tracking-widest rounded-xl transition-all active:scale-95"
-                                >
-                                    {saving
-                                        ? <RefreshCw size={16} className="animate-spin" />
-                                        : <Square size={16} />
-                                    }
-                                    {saving ? 'Deteniendo...' : 'DETENER STREAM'}
-                                </button>
-                            )}
+                        <div className="pt-4 flex gap-3">
                             <button
-                                onClick={() => setShowPreview(p => !p)}
-                                title="Vista previa del stream"
-                                className="w-12 h-12 flex items-center justify-center bg-[#1A1A1A] border border-[#222] rounded-xl text-slate-500 hover:text-white hover:border-[#444] transition-all"
+                                onClick={() => handleSave(isActive)}
+                                disabled={saving}
+                                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
                             >
-                                {showPreview ? <EyeOff size={18} /> : <Eye size={18} />}
+                                <Save size={18} />
+                                {saving ? 'Guardando...' : 'Guardar Cambios'}
+                            </button>
+                            
+                            <button
+                                onClick={toggleStatus}
+                                disabled={saving || !url}
+                                className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg ${isActive ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                            >
+                                <Power size={18} />
+                                {isActive ? 'Finalizar Vivo' : 'Iniciar Vivo'}
                             </button>
                         </div>
 
-                        {/* Vista previa embebida */}
-                        {showPreview && formUrl.trim() && (
-                            <div className="mt-6 rounded-2xl overflow-hidden border border-[#1E1E1E] aspect-video bg-black">
-                                <iframe
-                                    src={formUrl}
-                                    className="w-full h-full"
-                                    allowFullScreen
-                                    title="Stream Preview"
-                                />
-                            </div>
-                        )}
-                        {showPreview && !formUrl.trim() && (
-                            <div className="mt-6 rounded-2xl border border-dashed border-[#222] aspect-video flex items-center justify-center">
-                                <p className="text-[11px] text-slate-600 font-bold uppercase tracking-widest">
-                                    Ingresá una URL para previsualizar
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Historial */}
-                    <div className="bg-[#0D0D0D] rounded-3xl border border-[#1E1E1E] overflow-hidden">
-                        <div className="flex items-center gap-3 p-5 border-b border-[#1E1E1E]">
-                            <Clock size={15} className="text-slate-500" />
-                            <h2 className="text-[12px] font-black uppercase tracking-widest text-[#888]">Historial de Transmisiones</h2>
-                            <button onClick={fetchData} className="ml-auto text-slate-600 hover:text-white transition-colors">
-                                <RefreshCw size={14} />
-                            </button>
-                        </div>
-
-                        {loading ? (
-                            <div className="p-10 flex items-center justify-center">
-                                <div className="w-6 h-6 border-2 border-[#00B140] border-t-transparent rounded-full animate-spin" />
-                            </div>
-                        ) : configs.length === 0 ? (
-                            <div className="p-10 text-center text-slate-600 text-[11px] font-bold uppercase tracking-widest">
-                                Sin transmisiones registradas
-                            </div>
-                        ) : (
-                            <div className="divide-y divide-[#111]">
-                                {configs.map(cfg => (
-                                    <div key={cfg.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[#111] transition-all group">
-                                        <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.is_active ? 'bg-red-400 animate-pulse' : 'bg-slate-700'}`} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[12px] font-bold text-slate-300 truncate">
-                                                {cfg.title || 'Sin título'}
-                                            </p>
-                                            <p className="text-[10px] text-slate-600 font-mono truncate">{cfg.stream_url}</p>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            <p className={`text-[10px] font-black uppercase ${cfg.is_active ? 'text-red-400' : 'text-slate-600'}`}>
-                                                {cfg.is_active ? 'ACTIVO' : 'Finalizado'}
-                                            </p>
-                                            <p className="text-[9px] text-slate-700 font-mono">
-                                                {new Date(cfg.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                            </p>
-                                        </div>
-                                        {!cfg.is_active && (
-                                            <button
-                                                onClick={() => handleDelete(cfg.id)}
-                                                className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-red-500 transition-all"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
+                        {message && (
+                            <div className={`mt-4 p-4 rounded-xl flex items-center gap-3 animate-slideUp ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                                <p className="text-xs font-bold">{message.text}</p>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* ── COLUMNA DERECHA: Estado + Info ── */}
-                <div className="flex flex-col gap-6">
-
-                    {/* Estado actual del stream */}
-                    <div className={`rounded-3xl border p-6 transition-all duration-500 ${active ? 'bg-red-950/20 border-red-500/20' : 'bg-[#0D0D0D] border-[#1E1E1E]'}`}>
-                        <div className="flex items-center gap-2 mb-5">
-                            {active ? <Wifi size={16} className="text-red-400" /> : <WifiOff size={16} className="text-slate-600" />}
-                            <h3 className="text-[12px] font-black uppercase tracking-widest text-[#888]">Estado actual</h3>
+                {/* MONITOR PREVIEW */}
+                <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex flex-col shadow-2xl">
+                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Play className="w-4 h-4 text-blue-400" />
+                            <h3 className="text-white font-black text-[10px] uppercase tracking-[0.2em]">Monitor de Previsualización</h3>
                         </div>
-
-                        {active ? (
-                            <>
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.6)]" />
-                                    <span className="text-red-400 font-black text-[14px] uppercase tracking-widest">
-                                        {isLiveStable ? 'EN VIVO' : 'INICIANDO...'}
-                                    </span>
-                                </div>
-                                <p className="text-[11px] text-slate-400 font-bold truncate mb-1">{active.title || 'Stream activo'}</p>
-                                <p className="text-[10px] text-slate-600 font-mono truncate mb-4">{active.stream_url}</p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-black/30 rounded-xl p-3 text-center">
-                                        <p className="text-[9px] text-slate-600 uppercase tracking-widest font-bold mb-1">Tiempo al aire</p>
-                                        <p className="text-[18px] font-black font-mono text-white">{elapsed(active.started_at)}</p>
-                                    </div>
-                                    <div className={`rounded-xl p-3 text-center ${trueLiveStatus === 'live' ? 'bg-[#00B140]/10 border border-[#00B140]/20' : trueLiveStatus === 'recording' ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
-                                        <p className="text-[9px] text-slate-600 uppercase tracking-widest font-bold mb-1">Reproductores</p>
-                                        <p className={`text-[11px] font-black ${trueLiveStatus === 'live' ? 'text-[#00B140]' : trueLiveStatus === 'recording' ? 'text-blue-400' : 'text-yellow-400'}`}>
-                                            {trueLiveStatus === 'live' ? 'RECIBIENDO' : trueLiveStatus === 'recording' ? 'GRABACIÓN' : 'SIN SEÑAL'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </>
+                        {isActive && <span className="flex items-center gap-1.5 px-2 py-1 bg-red-500/20 text-red-500 rounded text-[9px] font-black uppercase tracking-widest">Live Signal</span>}
+                    </div>
+                    
+                    <div className="flex-1 aspect-video bg-black flex items-center justify-center relative">
+                        {embedUrl ? (
+                            <iframe 
+                                src={embedUrl}
+                                className="w-full h-full border-none"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                title="Stream Preview"
+                            ></iframe>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-8 gap-3">
-                                <WifiOff size={32} className="text-slate-800" />
-                                <p className="text-[11px] text-slate-600 font-bold uppercase tracking-widest text-center">
-                                    Sin stream activo.<br />Los reproductores están en<br />modo automático.
-                                </p>
+                            <div className="flex flex-col items-center gap-4 text-slate-600 p-8 text-center">
+                                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center">
+                                    <Monitor className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-widest mb-1 text-slate-500">Sin Señal</p>
+                                    <p className="text-[10px] opacity-50">Ingrese una URL de YouTube para iniciar el monitor</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {isActive && (
+                            <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg shadow-2xl animate-pulse pointer-events-none">
+                                <div className="w-2 h-2 rounded-full bg-white"></div>
+                                <span className="text-[10px] font-black">EN VIVO</span>
                             </div>
                         )}
                     </div>
 
-                    {/* Versiones de reproductores */}
-                    <div className="bg-[#0D0D0D] rounded-3xl border border-[#1E1E1E] p-6">
-                        <div className="flex items-center gap-2 mb-5">
-                            <Globe size={15} className="text-slate-500" />
-                            <h3 className="text-[12px] font-black uppercase tracking-widest text-[#888]">Reproductores</h3>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            {[
-                                { icon: Globe, label: 'Web', desc: 'saladillovivo.com.ar' },
-                                { icon: Smartphone, label: 'Móvil', desc: 'App Android / iOS' },
-                                { icon: Monitor, label: 'TV', desc: 'App Smart TV' },
-                            ].map(({ icon: Icon, label, desc }) => (
-                                <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-[#0A0A0A] border border-[#1A1A1A]">
-                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active && isLiveStable ? 'bg-red-500/10 border border-red-500/20' : 'bg-[#1A1A1A] border border-[#222]'}`}>
-                                        <Icon size={15} className={active && isLiveStable ? 'text-red-400' : 'text-slate-600'} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[12px] font-black text-slate-300">{label}</p>
-                                        <p className="text-[10px] text-slate-600">{desc}</p>
-                                    </div>
-                                    <div className="ml-auto">
-                                        {active && isLiveStable
-                                            ? <CheckCircle2 size={15} className="text-[#00B140]" />
-                                            : <div className="w-2 h-2 rounded-full bg-slate-700" />
-                                        }
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                    <div className="p-4 bg-slate-800/50 border-t border-white/5 space-y-3">
+                         <div className="flex items-center gap-3">
+                            <div className="p-2 bg-slate-900 rounded-lg border border-white/5">
+                                <Monitor size={16} className="text-blue-400" />
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Estado de Recepción</p>
+                                <p className="text-xs font-bold text-white">{url ? 'Señal recibida correctamente' : 'Esperando fuente...'}</p>
+                            </div>
+                         </div>
                     </div>
+                </div>
+            </div>
 
-                    {/* Info técnica */}
-                    <div className="bg-[#0D0D0D] rounded-3xl border border-[#1E1E1E] p-5">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Info size={14} className="text-slate-600" />
-                            <h3 className="text-[11px] font-black uppercase tracking-widest text-[#555]">Lógica de detección</h3>
-                        </div>
-                        <div className="space-y-2 text-[10px] text-slate-600 leading-relaxed">
-                            <p>• Los reproductores consultan el estado cada <span className="text-slate-400 font-bold">5 segundos</span>.</p>
-                            <p>• El stream debe tener más de <span className="text-slate-400 font-bold">10 segundos</span> activo para conmutar al live.</p>
-                            <p>• Al desactivar, los reproductores vuelven al modo automático en <span className="text-slate-400 font-bold">≤ 10 s</span>.</p>
-                            <p>• El estado se persiste en <span className="text-slate-400 font-bold">Supabase</span> (tabla <code className="bg-[#111] px-1 rounded">streaming_config</code>).</p>
-                        </div>
-                    </div>
+            {/* HISTORIAL RECIENTE */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                    <History size={16} className="text-slate-400" />
+                    <h3 className="font-black text-[10px] text-slate-500 uppercase tracking-widest">Últimas Sesiones</h3>
+                </div>
+                {/* Aquí podríamos listar sesiones pasadas de streaming_config */}
+                <div className="p-6 text-center">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Cargando historial de transmisiones...</p>
                 </div>
             </div>
         </div>
