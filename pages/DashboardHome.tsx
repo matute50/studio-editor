@@ -28,6 +28,7 @@ const POLL_INTERVAL_MS  = 5_000;
 
 const modules = [
   { title: 'Escritorio Responsable', desc: 'Resumen de producción.', icon: UserCheck, path: '/responsable', color: 'bg-blue-900', text: 'text-blue-900', bgLight: 'bg-blue-50' },
+  { title: 'Control Streaming', desc: 'Transmisiones en vivo.', icon: Radio, path: '/streaming', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
   { title: 'VozArgentina Studio', desc: 'Calibración de IA.', icon: AudioWaveform, path: '/voz-argentina-studio', color: 'bg-indigo-600', text: 'text-indigo-600', bgLight: 'bg-indigo-50' },
   { title: 'Editor Noticias', desc: 'Redactar y publicar.', icon: Newspaper, path: '/noticias', color: 'bg-blue-600', text: 'text-blue-600', bgLight: 'bg-blue-50' },
   { title: 'Estudio Locución', desc: 'Generar audio AI.', icon: ImageIcon, path: '/audio-producer', color: 'bg-purple-600', text: 'text-purple-600', bgLight: 'bg-purple-50' },
@@ -35,7 +36,6 @@ const modules = [
   { title: 'YouTube Manager', desc: 'Gestión videoteca.', icon: Video, path: '/youtube-studio', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
   { title: 'Social Manager', desc: 'Publicar redes.', icon: Share2, path: '/social-manager', color: 'bg-pink-600', text: 'text-pink-600', bgLight: 'bg-pink-50' },
   { title: 'Avatar Studio', desc: 'Presentador AI.', icon: UserCheck, path: '/avatar-studio', color: 'bg-violet-600', text: 'text-violet-600', bgLight: 'bg-violet-50' },
-  { title: 'Control Streaming', desc: 'Transmisiones en vivo.', icon: Radio, path: '/streaming', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
   { title: 'Agenda Eventos', desc: 'Calendario local.', icon: CalendarDays, path: '/agenda', color: 'bg-purple-600', text: 'text-purple-600', bgLight: 'bg-purple-50' },
 ];
 
