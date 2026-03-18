@@ -55,6 +55,7 @@ export const StreamingControl: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [tick, setTick] = useState(0);
     const [showPreview, setShowPreview] = useState(false);
+    const [trueLiveStatus, setTrueLiveStatus] = useState<string>('checking'); // 'live', 'recording', 'offline', 'checking'
     const [toasts, setToasts] = useState<{ id: number; type: string; msg: string }[]>([]);
     const toastId = useRef(0);
 
@@ -62,6 +63,23 @@ export const StreamingControl: React.FC = () => {
         const id = ++toastId.current;
         setToasts(p => [...p, { id, type, msg }]);
         setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
+    };
+
+    // Polling del estado real del flujo (cada 15s para no saturar)
+    const pollCheckStream = async (url: string) => {
+        try {
+            const resp = await fetch(`/api/check-stream?url=${encodeURIComponent(url)}`);
+            const data = await resp.json();
+            if (data.isLive) {
+                setTrueLiveStatus('live');
+            } else if (data.status === 404 || data.error) {
+                setTrueLiveStatus('offline');
+            } else {
+                setTrueLiveStatus('recording');
+            }
+        } catch (err) {
+            setTrueLiveStatus('offline');
+        }
     };
 
     // Polling del reloj
@@ -83,6 +101,7 @@ export const StreamingControl: React.FC = () => {
             setConfigs(rows);
             const act = rows.find(r => r.is_active) || null;
             setActive(act);
+            if (act) pollCheckStream(act.stream_url);
         } catch (err) {
             console.error('[StreamingControl] Error fetch:', err);
         } finally {
@@ -165,13 +184,21 @@ export const StreamingControl: React.FC = () => {
         : false;
 
     const statusLabel = active
-        ? isLiveStable ? 'EN VIVO' : 'INICIANDO...'
+        ? trueLiveStatus === 'recording' ? 'GRABACIÓN (VOD)' : 
+          trueLiveStatus === 'offline' ? 'SIN SEÑAL' : 
+          isLiveStable ? 'EN VIVO' : 'INICIANDO...'
         : 'INACTIVO';
+
     const statusColor = active
-        ? isLiveStable ? 'text-red-400' : 'text-yellow-400'
+        ? trueLiveStatus === 'recording' ? 'text-blue-400' : 
+          trueLiveStatus === 'offline' ? 'text-gray-500' : 
+          isLiveStable ? 'text-red-400' : 'text-yellow-400'
         : 'text-slate-500';
+
     const statusBg = active
-        ? isLiveStable ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'
+        ? trueLiveStatus === 'recording' ? 'bg-blue-500/10 border-blue-500/30' : 
+          trueLiveStatus === 'offline' ? 'bg-gray-500/10 border-gray-500/30' : 
+          isLiveStable ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'
         : 'bg-slate-800 border-slate-700';
 
     return (
@@ -415,10 +442,10 @@ export const StreamingControl: React.FC = () => {
                                         <p className="text-[9px] text-slate-600 uppercase tracking-widest font-bold mb-1">Tiempo al aire</p>
                                         <p className="text-[18px] font-black font-mono text-white">{elapsed(active.started_at)}</p>
                                     </div>
-                                    <div className={`rounded-xl p-3 text-center ${isLiveStable ? 'bg-[#00B140]/10 border border-[#00B140]/20' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
+                                    <div className={`rounded-xl p-3 text-center ${trueLiveStatus === 'live' ? 'bg-[#00B140]/10 border border-[#00B140]/20' : trueLiveStatus === 'recording' ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-yellow-500/10 border border-yellow-500/20'}`}>
                                         <p className="text-[9px] text-slate-600 uppercase tracking-widest font-bold mb-1">Reproductores</p>
-                                        <p className={`text-[11px] font-black ${isLiveStable ? 'text-[#00B140]' : 'text-yellow-400'}`}>
-                                            {isLiveStable ? 'RECIBIENDO' : 'ESPERANDO'}
+                                        <p className={`text-[11px] font-black ${trueLiveStatus === 'live' ? 'text-[#00B140]' : trueLiveStatus === 'recording' ? 'text-blue-400' : 'text-yellow-400'}`}>
+                                            {trueLiveStatus === 'live' ? 'RECIBIENDO' : trueLiveStatus === 'recording' ? 'GRABACIÓN' : 'SIN SEÑAL'}
                                         </p>
                                     </div>
                                 </div>
