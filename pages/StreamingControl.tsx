@@ -58,6 +58,7 @@ export const StreamingControl: React.FC = () => {
     const [trueLiveStatus, setTrueLiveStatus] = useState<string>('checking'); // 'live', 'recording', 'offline', 'checking'
     const [toasts, setToasts] = useState<{ id: number; type: string; msg: string }[]>([]);
     const toastId = useRef(0);
+    const isDeactivatingRef = useRef(false);
 
     const addToast = (type: string, msg: string) => {
         const id = ++toastId.current;
@@ -66,16 +67,21 @@ export const StreamingControl: React.FC = () => {
     };
 
     // Polling del estado real del flujo (cada 15s para no saturar)
-    const pollCheckStream = async (url: string) => {
+    const pollCheckStream = async (url: string, isActiveSession: boolean) => {
+        if (!url) return;
         try {
             const resp = await fetch(`/api/check-stream?url=${encodeURIComponent(url)}&t=${Date.now()}`);
             const data = await resp.json();
-            if (data.isLive) {
-                setTrueLiveStatus('live');
-            } else if (data.status === 404 || data.error) {
-                setTrueLiveStatus('offline');
-            } else {
-                setTrueLiveStatus('recording');
+            
+            const newStatus = data.isLive ? 'live' : (data.status === 404 || data.error) ? 'offline' : 'recording';
+            setTrueLiveStatus(newStatus);
+
+            // CRÍTICO: Auto-Apagado de Seguridad
+            // Si la sesión está ACTIVA pero la señal ya no es VIVO, apagamos el switch de la DB
+            if (isActiveSession && !data.isLive && !isDeactivatingRef.current) {
+                console.log('[StreamingControl] ⚠️ Signal lost or VOD detected. Auto-deactivating switch.');
+                addToast('error', '⚠️ SEÑAL FINALIZADA: Volviendo a modo VIDEOS automáticamente');
+                handleDeactivate();
             }
         } catch (err) {
             setTrueLiveStatus('offline');
@@ -101,7 +107,14 @@ export const StreamingControl: React.FC = () => {
             setConfigs(rows);
             const act = rows.find(r => r.is_active) || null;
             setActive(act);
-            if (act) pollCheckStream(act.stream_url);
+            
+            // Si hay un stream activo, chequeamos su salud
+            if (act) {
+                pollCheckStream(act.stream_url, true);
+            } else if (formUrl.trim()) {
+                // Si no hay activo, chequeamos la URL del formulario para habilitar el botón
+                pollCheckStream(formUrl.trim(), false);
+            }
         } catch (err) {
             console.error('[StreamingControl] Error fetch:', err);
         } finally {
@@ -126,7 +139,14 @@ export const StreamingControl: React.FC = () => {
 
     const handleActivate = async () => {
         if (!formUrl.trim()) return addToast('error', 'Ingresá una URL de stream válida');
+        
+        // Validar que la señal sea REAL antes de permitir el switch (REQUISITO ESTRICTO)
+        if (trueLiveStatus !== 'live') {
+            return addToast('error', '🚫 BLOQUEADO: No puedes activar streaming si la señal es VOD o está OFFLINE');
+        }
+
         setSaving(true);
+        isDeactivatingRef.current = false;
         try {
             // Desactivar cualquier stream anterior
             await supabase.from('streaming_config')
@@ -154,6 +174,7 @@ export const StreamingControl: React.FC = () => {
     const handleDeactivate = async () => {
         if (!active) return;
         setSaving(true);
+        isDeactivatingRef.current = true; // Prevenimos bucles de re-entrada
         try {
             const { error } = await supabase.from('streaming_config')
                 .update({ is_active: false, ended_at: new Date().toISOString() })
@@ -314,7 +335,7 @@ export const StreamingControl: React.FC = () => {
                             {!active ? (
                                 <button
                                     onClick={handleActivate}
-                                    disabled={saving || !formUrl.trim()}
+                                    disabled={saving || !formUrl.trim() || trueLiveStatus !== 'live'}
                                     className="flex-1 flex items-center justify-center gap-3 h-12 bg-red-500 hover:bg-red-400 disabled:bg-[#1A1A1A] disabled:text-[#444] text-white font-black text-[12px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-[0_0_30px_rgba(239,68,68,0.2)]"
                                 >
                                     {saving
