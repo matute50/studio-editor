@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Newspaper,
   Presentation,
@@ -16,11 +16,15 @@ import {
   Clapperboard
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../services/supabase';
 
 const LinkTyped = Link as any;
 
 import { Article } from '../types';
 import { newsService } from '../services/newsService';
+
+const LIVE_THRESHOLD_MS = 10_000;
+const POLL_INTERVAL_MS  = 5_000;
 
 const modules = [
   { title: 'Escritorio Responsable', desc: 'Resumen de producción.', icon: UserCheck, path: '/responsable', color: 'bg-blue-900', text: 'text-blue-900', bgLight: 'bg-blue-50' },
@@ -39,6 +43,57 @@ export const DashboardHome: React.FC = () => {
   const [recentArticles, setRecentArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ── STREAMING SWITCH ──────────────────────────────────────────────────────
+  const [mode, setMode] = useState<'VIDEOS' | 'STREAMING'>('VIDEOS');
+  const [isManual, setIsManual] = useState(false);
+  const [streamTitle, setStreamTitle] = useState<string | null>(null);
+  const manualRef = useRef(isManual);
+  manualRef.current = isManual;
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      try {
+        const { data } = await supabase
+          .from('streaming_config')
+          .select('stream_url, started_at, title, is_active')
+          .eq('is_active', true)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data?.started_at && data.is_active) {
+          const age = Date.now() - new Date(data.started_at).getTime();
+          if (age > LIVE_THRESHOLD_MS && !manualRef.current) {
+            setMode('STREAMING');
+            setStreamTitle((data as any).title || null);
+          }
+        } else if (!manualRef.current) {
+          setMode('VIDEOS');
+          setStreamTitle(null);
+        }
+      } catch (_) {
+        if (!manualRef.current) {
+          setMode('VIDEOS');
+          setStreamTitle(null);
+        }
+      }
+      timer = setTimeout(poll, POLL_INTERVAL_MS);
+    };
+
+    poll();
+    return () => { if (timer) clearTimeout(timer); };
+  }, []);
+
+  const handleToggle = () => {
+    setMode(prev => prev === 'VIDEOS' ? 'STREAMING' : 'VIDEOS');
+    setIsManual(true);
+  };
+
+  const handleResetAuto = () => setIsManual(false);
+  // ─────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     const fetchRecent = async () => {
       try {
@@ -50,20 +105,21 @@ export const DashboardHome: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchRecent();
   }, []);
+
+  const isStreaming = mode === 'STREAMING';
 
   return (
     <div className="space-y-10 animate-fadeIn min-h-screen relative">
       {/* Background Gradient Mesh */}
       <div className="fixed inset-0 bg-slate-950 -z-20"></div>
       <div className="fixed inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 -z-10 mix-blend-soft-light"></div>
-      <div className="fixed top-0 -left-1/4 w-full h-full bg-blue-600/20 blur-[120px] rounded-full mix-blend-screen animate-blob"></div>
-      <div className="fixed bottom-0 -right-1/4 w-full h-full bg-violet-600/20 blur-[120px] rounded-full mix-blend-screen animate-blob animation-delay-2000"></div>
+      <div className={`fixed top-0 -left-1/4 w-full h-full blur-[120px] rounded-full mix-blend-screen animate-blob transition-colors duration-1000 ${isStreaming ? 'bg-red-600/20' : 'bg-blue-600/20'}`}></div>
+      <div className={`fixed bottom-0 -right-1/4 w-full h-full blur-[120px] rounded-full mix-blend-screen animate-blob animation-delay-2000 transition-colors duration-1000 ${isStreaming ? 'bg-orange-600/20' : 'bg-violet-600/20'}`}></div>
 
       {/* Hero Section */}
-      <div className="glass-panel rounded-[2.5rem] p-10 relative overflow-hidden group">
+      <div className={`glass-panel rounded-[2.5rem] p-10 relative overflow-hidden group transition-all duration-700 ${isStreaming ? 'border border-red-500/20' : ''}`}>
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-violet-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
         <div className="relative z-10 flex justify-between items-end">
           <div>
@@ -74,14 +130,75 @@ export const DashboardHome: React.FC = () => {
               Centro de control de producción multimedia de alta fidelidad.
             </p>
           </div>
-          <div className="hidden lg:block text-right">
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Sistema Operativo</div>
-            <div className="text-2xl font-bold text-white tracking-widest">SALADILLO<span className="text-blue-500">VIVO</span></div>
+
+          {/* ── BLOQUE DERECHO: SALADILLO VIVO + SWITCH ── */}
+          <div className="hidden lg:flex flex-col items-end gap-4">
+            <div className="text-right">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Sistema Operativo</div>
+              <div className="text-2xl font-bold text-white tracking-widest">SALADILLO<span className="text-blue-500">VIVO</span></div>
+            </div>
+
+            {/* SWITCH VIDEOS / STREAMING */}
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-3">
+                {/* Label VIDEOS */}
+                <span className={`text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${!isStreaming ? 'text-[#00B140]' : 'text-slate-600'}`}>
+                  VIDEOS
+                </span>
+
+                {/* Toggle pill */}
+                <button
+                  onClick={handleToggle}
+                  aria-label="Cambiar modo Videos/Streaming"
+                  className={`relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 shadow-lg
+                    ${isStreaming
+                      ? 'bg-red-500 focus:ring-red-500 shadow-[0_0_16px_rgba(239,68,68,0.4)]'
+                      : 'bg-[#00B140] focus:ring-green-500 shadow-[0_0_16px_rgba(0,177,64,0.35)]'
+                    }`}
+                >
+                  <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300
+                    ${isStreaming ? 'left-8' : 'left-1'}`}
+                  />
+                  {isStreaming && (
+                    <span className="absolute top-1 left-8 w-5 h-5 rounded-full bg-red-300 animate-ping opacity-60 pointer-events-none" />
+                  )}
+                </button>
+
+                {/* Label STREAMING */}
+                <span className={`text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${isStreaming ? 'text-red-400' : 'text-slate-600'}`}>
+                  STREAMING
+                </span>
+              </div>
+
+              {/* Indicadores de estado y modo */}
+              <div className="flex items-center gap-2 justify-end">
+                {isStreaming && streamTitle && (
+                  <span className="text-[9px] text-red-400 font-bold truncate max-w-[160px]">{streamTitle}</span>
+                )}
+                {isManual ? (
+                  <button
+                    onClick={handleResetAuto}
+                    className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded-full transition-all"
+                  >
+                    MANUAL · restablecer AUTO
+                  </button>
+                ) : (
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00B140] animate-pulse inline-block" />
+                    AUTO
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
+        {/* Icono decorativo — cambia según modo */}
         <div className="absolute right-0 top-0 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
-          <Newspaper className="w-96 h-96 -mt-24 -mr-24" />
+          {isStreaming
+            ? <Radio className="w-96 h-96 -mt-24 -mr-24" />
+            : <Newspaper className="w-96 h-96 -mt-24 -mr-24" />
+          }
         </div>
       </div>
 
@@ -153,14 +270,29 @@ export const DashboardHome: React.FC = () => {
             )}
           </div>
 
-          {/* Quick Stats or Promo */}
-          <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
+          {/* Quick Stats */}
+          <div className={`glass-card rounded-3xl p-6 relative overflow-hidden transition-all duration-700 ${isStreaming ? 'border border-red-500/20' : ''}`}>
             <div className="absolute top-0 right-0 p-4 opacity-20">
-              <Video className="w-24 h-24 text-violet-500 rotate-12" />
+              {isStreaming
+                ? <Radio className="w-24 h-24 text-red-500 rotate-12" />
+                : <Video className="w-24 h-24 text-violet-500 rotate-12" />
+              }
             </div>
             <div className="relative z-10">
-              <div className="text-3xl font-black text-white mb-1">24/7</div>
-              <div className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Tiempo al Aire</div>
+              {isStreaming ? (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse" />
+                    <div className="text-2xl font-black text-red-400">EN VIVO</div>
+                  </div>
+                  <div className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Stream Activo</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl font-black text-white mb-1">24/7</div>
+                  <div className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Tiempo al Aire</div>
+                </>
+              )}
             </div>
           </div>
         </div>
