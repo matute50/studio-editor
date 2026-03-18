@@ -9,11 +9,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       },
-    });
+      next: { revalidate: 0 }
+    } as any);
 
     if (!response.ok) {
        return res.status(200).json({ isLive: false, status: response.status });
@@ -24,15 +27,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 1. YouTube Check
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const html = await response.text();
-      // La prueba de oro en YouTube es el campo "isLive":true dentro del JSON ytInitialPlayerResponse
-      // Los VOD (grabaciones) tienen "isLive":false o carecen del campo.
+      // La prueba de oro en YouTube es el campo "isLive":true 
+      // y la presencia de "hlsManifestUrl" (solo presente durante el aire)
       const hasIsLiveTrue = html.includes('"isLive":true'); 
       const hasIsLiveNow = html.includes('"isLiveNow":true');
-      const hasLiveBadge = html.includes('"label":"LIVE"');
+      const hasHlsManifest = html.includes('hlsManifestUrl');
       
-      // IMPORTANTE: NO usamos isLiveBroadcast porque persiste en las grabaciones!
-      const isLive = hasIsLiveTrue || hasIsLiveNow || (hasLiveBadge && !html.includes('"isLive":false'));
-      return res.status(200).json({ isLive, type: 'youtube', isLiveTag: hasIsLiveTrue, isLiveNow: hasIsLiveNow });
+      const isLive = (hasIsLiveTrue || hasIsLiveNow) && hasHlsManifest;
+      return res.status(200).json({ 
+        isLive, 
+        type: 'youtube', 
+        isLiveTag: hasIsLiveTrue, 
+        isLiveNow: hasIsLiveNow,
+        hasManifest: hasHlsManifest 
+      });
     }
 
     // 2. HLS Check (.m3u8)

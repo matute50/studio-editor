@@ -68,7 +68,7 @@ export const StreamingControl: React.FC = () => {
     // Polling del estado real del flujo (cada 15s para no saturar)
     const pollCheckStream = async (url: string) => {
         try {
-            const resp = await fetch(`/api/check-stream?url=${encodeURIComponent(url)}`);
+            const resp = await fetch(`/api/check-stream?url=${encodeURIComponent(url)}&t=${Date.now()}`);
             const data = await resp.json();
             if (data.isLive) {
                 setTrueLiveStatus('live');
