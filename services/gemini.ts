@@ -207,6 +207,18 @@ export const improveNewsBody = async (currentText: string): Promise<string> => {
   return response.replace(/\[.*?\]/gi, '').trim();
 };
 
+export const translateActionToEnglish = async (action: string): Promise<string> => {
+  if (!action) return "";
+  const prompt = `Translate this video scene action from Spanish into professional technical cinematography English for an AI video generator. 
+  Maintain a narrative flow that integrates with the anchor's movements.
+  Example: "Un niño pasa por detrás de Ara y saluda a la cámara" -> "A child enters the frame behind Ara, walks briefly, and waves at the camera before exiting."
+  Example: "Ara camina hacia la cámara" -> "Ara takes a few steps forward towards the camera lens, integrating the movement with her speech."
+  Action to translate: "${action}"
+  Return ONLY the final translated sentence. No context, no quotes.`;
+  const response = await getGeminiResponse(prompt, 0.3, "You are a professional video director and technical translator.");
+  return response.replace(/\[.*?\]/gi, '').trim();
+};
+
 const REGLA_DE_ORO_FONETICA = `ROL: SENIOR NEWS EDITOR (ESTABILIDAD ANTIBALBUCEO). REGLAS: 1. SHEÍSMO (SSH): LL/Y -> SSH. 2. ORTOGRAFÍA LIMPIA: NO DOBLES LETRAS (VISITÁNOS), NO "H" PARA ASPIRAR (ESTAS), -CIÓN ESTÁNDAR. 3. VOSEO AGUDO: FORZAR TILDES. 4. MAYÚSCULAS: TODO EN MAYÚSCULAS. 5. CTA OBLIGATORIO: LA 4TA ORACIÓN TERMINA CON AUTORIDAD.`;
 
 export const generateSuperResumen = async (body: string): Promise<string> => {

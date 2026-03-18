@@ -562,6 +562,107 @@ const serveVestuarioPlugin = () => ({
   }
 });
 
+const listBackgroundsPlugin = () => ({
+  name: 'list-backgrounds',
+  configureServer(server: any) {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      if (req.url?.startsWith('/api/list-backgrounds') && req.method === 'GET') {
+        try {
+          const url = new URL(req.url, `http://${req.headers.host}`);
+          const folder = url.searchParams.get('folder');
+          if (!folder) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'Folder parameter is required' }));
+            return;
+          }
+
+          const listCmd = new ListObjectsV2Command({ 
+            Bucket: R2_BUCKET_NAME, 
+            Prefix: `${folder}/` 
+          });
+
+          const listed = await r2Client.send(listCmd);
+          const backgrounds = (listed.Contents || [])
+            .filter(item => item.Key && !item.Key.endsWith('/'))
+            .map(item => ({
+              key: item.Key,
+              url: `https://media.saladillovivo.com.ar/${item.Key}`,
+              name: item.Key?.split('/').pop()
+            }));
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ backgrounds }));
+        } catch (err: any) {
+          console.error("Error en list-backgrounds:", err);
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      } else {
+        next();
+      }
+    });
+  }
+});
+
+const cambiarVestuarioPlugin = () => ({
+  name: 'cambiar-vestuario',
+  configureServer(server: any) {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      if (req.url === '/api/cambiar-vestuario' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+          try {
+            const { location } = JSON.parse(body) as { location: 'estudio' | 'exteriores' };
+            const sourcePrefix = location === 'estudio' ? 'vestuario_estudio/' : 'vestuario_exteriores/';
+            const targetPrefix = location === 'estudio' ? 'vestuario_de_hoy_estudio/' : 'vestuario_de_hoy_exteriores/';
+            
+            const listCmd = new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: sourcePrefix });
+            const listed = await r2Client.send(listCmd);
+            const imagenes = (listed.Contents || []).filter(item => item.Key && !item.Key.endsWith('/'));
+            if (imagenes.length === 0) throw new Error('No hay imágenes en la carpeta fuente en R2');
+            
+            const elegida = imagenes[Math.floor(Math.random() * imagenes.length)].Key!;
+            
+            const listTarget = await r2Client.send(new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: targetPrefix }));
+            if (listTarget.Contents && listTarget.Contents.length > 0) {
+              await r2Client.send(new DeleteObjectsCommand({
+                Bucket: R2_BUCKET_NAME,
+                Delete: { Objects: listTarget.Contents.map(i => ({ Key: i.Key! })) }
+              }));
+            }
+            
+            await r2Client.send(new CopyObjectCommand({
+                Bucket: R2_BUCKET_NAME,
+                CopySource: `${R2_BUCKET_NAME}/${elegida}`,
+                Key: `${targetPrefix}REFERENCE_IMAGE.PNG`
+            }));
+            
+            for (let i = 1; i <= 30; i++) {
+                await r2Client.send(new CopyObjectCommand({
+                    Bucket: R2_BUCKET_NAME,
+                    CopySource: `${R2_BUCKET_NAME}/${elegida}`,
+                    Key: `${targetPrefix}${String(i).padStart(2, '0')}.png`
+                }));
+            }
+            
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: true, message: "Vestuario actualizado en R2", image: elegida }));
+          } catch (err: any) {
+            console.error("Error en cambiar-vestuario:", err);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        });
+      } else {
+        next();
+      }
+    });
+  }
+});
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
@@ -585,6 +686,8 @@ export default defineConfig(({ mode }) => {
       serveAudiosPlugin(),
       processAudioPlugin(),
       serveVestuarioPlugin(), 
+      listBackgroundsPlugin(),
+      cambiarVestuarioPlugin(),
       geminiProxyPlugin(), 
       claudeProxyPlugin()
     ],

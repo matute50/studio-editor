@@ -53,7 +53,7 @@ interface LocalNews {
 const MOODS = ['SOLEMNE', 'URGENTE', 'ALEGRE', 'TRISTE'] as const;
 type MoodType = (typeof MOODS)[number];
 import { improveScriptWithGemini } from '../services/claude';
-import { generateAvatarVideo, optimizeBodyForAudio, adaptarTextoArgentino } from '../services/gemini';
+import { generateAvatarVideo, optimizeBodyForAudio, adaptarTextoArgentino, translateActionToEnglish } from '../services/gemini';
 import saludoTxt from '../saludo.txt?raw';
 import ctaTxt from '../CTA.txt?raw';
 import slogansTxt from '../slogans.txt?raw';
@@ -157,10 +157,18 @@ export function AvatarStudio() {
 
     const [extHorario, setExtHorario] = useState('MAÑANA');
     const [extClima, setExtClima] = useState('SOLEADO');
-    const [extLocacion, setExtLocacion] = useState('PLAZA PRINCIPAL');
+    const [extLocacion, setExtLocacion] = useState('PLAZA_PRINCIPAL');
+    const [extScript, setExtScript] = useState('');
+    const [extSpeechOption, setExtSpeechOption] = useState('SOLO SPEECH');
     const [extAccion, setExtAccion] = useState('');
+    const [extAccionEN, setExtAccionEN] = useState('');
+    const [isTranslatingAction, setIsTranslatingAction] = useState(false);
     const [imageTimestamp, setImageTimestamp] = useState(Date.now());
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+    const [isBgGalleryOpen, setIsBgGalleryOpen] = useState(false);
+    const [bgList, setBgList] = useState<{key: string, url: string, name: string}[]>([]);
+    const [bgFolderPath, setBgFolderPath] = useState('');
+    const [selectedBg, setSelectedBg] = useState<string | null>(null);
 
     // Galería Vestuario - Lasso y Selección
     const [selectedVestuario, setSelectedVestuario] = useState<Set<string>>(new Set());
@@ -214,6 +222,28 @@ export function AvatarStudio() {
             window.removeEventListener('mouseup', handleMouseUp);
         };
     }, [lasso.isSelecting, lasso.x1, lasso.y1]);
+
+    // Traductor automático de Acción en Cámara (Exterior)
+    useEffect(() => {
+        if (!extAccion.trim()) {
+            setExtAccionEN('');
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            setIsTranslatingAction(true);
+            try {
+                const translated = await translateActionToEnglish(extAccion);
+                setExtAccionEN(translated);
+            } catch (err) {
+                console.error("Error traduciendo acción:", err);
+            } finally {
+                setIsTranslatingAction(false);
+            }
+        }, 1200); // 1.2s debounce
+
+        return () => clearTimeout(timer);
+    }, [extAccion]);
 
     // Listener global para Ctrl+C en la galería
     useEffect(() => {
@@ -279,6 +309,39 @@ export function AvatarStudio() {
             e.dataTransfer.setDragImage(dragGhost, 0, 0);
             setTimeout(() => dragGhost.remove(), 0);
         }
+
+        e.dataTransfer.effectAllowed = 'copy';
+    };
+
+    const handleBgDragStart = (e: React.DragEvent, url: string, name: string) => {
+        setSelectedBg(url);
+        
+        // 1. Texto plano
+        e.dataTransfer.setData('text/plain', url);
+        
+        // 2. URI List
+        e.dataTransfer.setData('text/uri-list', url + '\r\n');
+        
+        // 3. HTML
+        const html = `<img src="${url}">`;
+        e.dataTransfer.setData('text/html', html);
+
+        // Ghost Image para feedback
+        const dragGhost = document.createElement('div');
+        dragGhost.style.background = '#00B140';
+        dragGhost.style.color = 'black';
+        dragGhost.style.padding = '6px 14px';
+        dragGhost.style.borderRadius = '12px';
+        dragGhost.style.fontWeight = 'black';
+        dragGhost.style.fontSize = '12px';
+        dragGhost.style.position = 'absolute';
+        dragGhost.style.top = '-1000px';
+        dragGhost.style.zIndex = '999999';
+        dragGhost.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+        dragGhost.innerText = `Arrastrando: ${name}`;
+        document.body.appendChild(dragGhost);
+        e.dataTransfer.setDragImage(dragGhost, 0, 0);
+        setTimeout(() => dragGhost.remove(), 0);
 
         e.dataTransfer.effectAllowed = 'copy';
     };
@@ -677,12 +740,51 @@ export function AvatarStudio() {
         const scriptProcesado = adaptarTextoArgentino(clip.script);
 
         if (workingMode === 'exterior') {
-            const isIndoor = extLocacion === 'HCD' || extLocacion === 'HALL MUNICIPALIDAD';
-            const lightingDetails = isIndoor ? 'High-ceiling indoor lighting, floor reflections.' : '';
-            const actionDetails = extAccion ? `Background Action: ${extAccion}.` : '';
-            const audioEnv = isIndoor ? '**Apply indoor hall echo and slight voice resonance.**' : 'Include **ambient sounds matched to climate and time (birds/traffic/rain/machinery)**.';
+            // 1. Guion base
+            let scriptRaw = extScript || clip.script;
+
+            // 2. Aplicar agregados según opción seleccionada
+            if (extSpeechOption === 'SALUDO') {
+                const lines = saludoTxt.split(/\n/).filter(l => l.trim().length > 0);
+                if (lines.length > 0) {
+                    const randomSaludo = lines[Math.floor(Math.random() * lines.length)].trim();
+                    scriptRaw = `${randomSaludo} ${scriptRaw}`;
+                }
+            } else if (extSpeechOption === 'CTA') {
+                const lines = ctaTxt.split(/\n/).filter(l => l.trim().length > 0);
+                if (lines.length > 0) {
+                    const randomCTA = lines[Math.floor(Math.random() * lines.length)].trim();
+                    scriptRaw = `${scriptRaw} ${randomCTA}`;
+                }
+            } else if (extSpeechOption === 'SLOGAN') {
+                const lines = slogansTxt.split(/\n/).filter(l => l.trim().length > 0);
+                if (lines.length > 0) {
+                    const randomSlogan = lines[Math.floor(Math.random() * lines.length)].trim();
+                    scriptRaw = `${scriptRaw} ${randomSlogan}`;
+                }
+            }
+
+            const scriptAraStyle = adaptarTextoArgentino(scriptRaw);
+            const guionCaps = scriptAraStyle.toUpperCase();
             
-            return `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level medium shot of Ara, the professional news anchor from the provided reference image. Photorealistic facial identity lock, skin texture and professional attire/outfit appropriate for the selected environment. 8K cinema style, 85mm. She is standing in front of the **exact ${extLocacion}** of Saladillo, using the **background reference image** for environmental details. Lighting and Color Description from your Matrix based on Time (${extHorario}) + Weather (${extClima}). ${lightingDetails} ${actionDetails} [ANCLA_CONTEXTUAL_RIOPLATENSE] Una periodista de Buenos Aires, hablando con energía profesional y autoridad local sobre el ruido del ambiente, dice: "${scriptProcesado}" [AUDIO_ENV_FX] Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" standard. Prosody: á-áh for emphasis. ${audioEnv} Sound: complete studio silence. Close mouth immediately after the last phoneme. Negative prompt: neutral Spanish, slang, lunfardo, Spanish from Spain, generic background, new location, camera movement, background music, corporate motivational tone.`.replace(/\s+/g, ' ').trim();
+            const bgImageName = selectedBg ? selectedBg.split('/').pop() : 'background_reference_image_1.png';
+            // 2. Física ambiental según UI
+            const ambientStr = `Time: ${extHorario}, Weather: ${extClima}`;
+            
+            // 3. Mapeo del Preset de Sonido y Tráfico según locación
+            let presetSonido = 'Plaza';
+            let trafficFlow = 'LEFT to RIGHT'; 
+            if (extLocacion === 'CENTRO') { presetSonido = 'Centro'; trafficFlow = 'RIGHT to LEFT'; }
+            else if (extLocacion === 'COMISARIA_HOSPITAL') presetSonido = 'Comisaría';
+            else if (extLocacion === 'OBRA_PUBLICA') { presetSonido = 'Obra'; trafficFlow = 'RIGHT to LEFT'; }
+            else if (extLocacion === 'HALL_MUNICIPALIDAD' || extLocacion === 'HCD' || extClima === 'INDOOR') presetSonido = 'Indoor Hall';
+            else if (extLocacion === 'MUNICIPALIDAD') presetSonido = 'Municipalidad';
+
+            // 4. Parámetros adicionales (Acción y Profundidad)
+            const accionNarrativa = extAccionEN || "Ara maintains a professional standing posture with no extra gestures.";
+            const depthOfField = "Shallow depth of field, sharp focus on subject";
+
+            return `[PRIORIDAD_SISTEMA:ESCENARIO_RURAL_BONAERENSE] Absolute priority: This is a small, quiet town in the Argentine pampas (Saladillo). There are NO skyscrapers, NO high-rise buildings, and NO heavy traffic. [FIDELIDAD_CONTEXTUAL] Use ${bgImageName} as a rigid plate. [AMBIENT_PHYSICS] ${ambientStr}. [ANIMACIÓN_ESCENARIO_DINÁMICO] The background is dynamic. Depth of Field: ${depthOfField}. Important: vehicles on this Saladillo city street must circulate ONLY in one single direction (Oneway Street). Based on the Project Grid 2 (POV Camarógrafo), Traffic Flow must move strictly ${trafficFlow} across the frame, behind Ara. Ensure consistent speed and no two-way traffic. [ACCIÓN_NARRATIVA] ${accionNarrativa}. [AUDIO_ARA_V2] Character says: "${guionCaps}". [CIERRE] Mouth closes 250ms. Static pose.`.trim();
         }
 
         if (aiEngine === 'GROK') {
@@ -714,6 +816,23 @@ export function AvatarStudio() {
     const abrirCarpetaVestuario = () => {
         setIsGalleryOpen(true);
         addToast('success', '✓ Galería de Vestuario abierta');
+    };
+
+    const fetchBackgrounds = async (folder: string) => {
+        try {
+            setBgFolderPath(folder);
+            const res = await fetch(`/api/list-backgrounds?folder=${encodeURIComponent(folder)}`);
+            if (res.ok) {
+                const data = await res.json();
+                setBgList(data.backgrounds);
+                setIsBgGalleryOpen(true);
+            } else {
+                addToast('error', '✗ Error al cargar fondos');
+            }
+        } catch (err) {
+            console.error("Error fetching backgrounds:", err);
+            addToast('error', '✗ Error de red al cargar fondos');
+        }
     };
 
     const cambiarVestuarioManual = async () => {
@@ -1252,10 +1371,16 @@ export function AvatarStudio() {
                             <h2 className="text-[13px] font-bold uppercase tracking-widest text-[#AAA]">Visual y Animación</h2>
                         </div>
                         <button 
-                            onClick={() => copiarAlPortapapeles(aiEngine === 'GROK' ? PROMPT_MAESTRO_GROK : PROMPT_MAESTRO_SYSTEM)}
+                            onClick={() => {
+                                if (workingMode === 'exterior') {
+                                    copiarAlPortapapeles(generarPromptParaClip({ script: extScript || '' }));
+                                } else {
+                                    copiarAlPortapapeles(aiEngine === 'GROK' ? PROMPT_MAESTRO_GROK : PROMPT_MAESTRO_SYSTEM);
+                                }
+                            }}
                             className="px-3 py-1.5 bg-[#1A1A1A] border border-[#00B140]/30 text-[#00B140] rounded-md text-[9px] font-black uppercase tracking-tighter hover:bg-[#00B140] hover:text-black transition-all flex items-center gap-2"
                         >
-                            <Sparkles size={12} /> Prompt Maestro ({aiEngine})
+                            <Sparkles size={12} /> Prompt Maestro ({workingMode === 'exterior' ? 'VEO 3.1' : aiEngine})
                         </button>
                     </div>
 
@@ -1418,37 +1543,99 @@ export function AvatarStudio() {
                                                 <option value="SOLEADO">SOLEADO</option>
                                                 <option value="NUBLADO">NUBLADO</option>
                                                 <option value="LLUVIA">LLUVIA</option>
+                                                <option value="VIENTO">VIENTO</option>
+                                                <option value="INDOOR">INDOOR</option>
                                             </select>
                                         </div>
                                     </div>
 
-                                    {/* LOCACIÓN */}
+                                    {/* LOCACIÓN Y AGREGADO */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-[#161616] p-2 rounded-xl border border-[#222]">
+                                            <label className="block text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1.5">Locación</label>
+                                            <select 
+                                                value={extLocacion}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setExtLocacion(val);
+                                                    fetchBackgrounds(val);
+                                                }}
+                                                className="w-full bg-[#0D0D0D] border border-[#222] rounded-lg p-1.5 text-[11px] font-black text-[#fff] focus:border-[#00B140] outline-none transition-all cursor-pointer hover:border-[#333]"
+                                            >
+                                                <option value="">Seleccione Locación...</option>
+                                                <option value="CENTRO">CENTRO</option>
+                                                <option value="COMISARIA_HOSPITAL">COMISARIA_HOSPITAL</option>
+                                                <option value="HALL_MUNICIPALIDAD">HALL_MUNICIPALIDAD</option>
+                                                <option value="HCD">HCD</option>
+                                                <option value="MUNICIPALIDAD">MUNICIPALIDAD</option>
+                                                <option value="OBRA_PUBLICA">OBRA_PUBLICA</option>
+                                                <option value="PLAZA_PRINCIPAL">PLAZA_PRINCIPAL</option>
+                                            </select>
+                                        </div>
+                                        <div className="bg-[#161616] p-2 rounded-xl border border-[#222]">
+                                            <label className="block text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1.5">Agregado Ara</label>
+                                            <select 
+                                                value={extSpeechOption}
+                                                onChange={(e) => setExtSpeechOption(e.target.value)}
+                                                className="w-full bg-[#0D0D0D] border border-[#222] rounded-lg p-1.5 text-[11px] font-black text-[#fff] focus:border-[#00B140] outline-none transition-all cursor-pointer hover:border-[#333]"
+                                            >
+                                                <option value="SOLO SPEECH">SOLO SPEECH</option>
+                                                <option value="SALUDO">SALUDO</option>
+                                                <option value="CTA">CTA</option>
+                                                <option value="SLOGAN">SLOGAN</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {/* ARA DICE (GUION EXTERIOR) */}
                                     <div className="bg-[#161616] p-2 rounded-xl border border-[#222]">
-                                        <label className="block text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1.5">Locación</label>
-                                        <select 
-                                            value={extLocacion}
-                                            onChange={(e) => setExtLocacion(e.target.value)}
-                                            className="w-full bg-[#0D0D0D] border border-[#222] rounded-lg p-1.5 text-[11px] font-black text-[#fff] focus:border-[#00B140] outline-none transition-all cursor-pointer hover:border-[#333]"
-                                        >
-                                            <option value="PLAZA PRINCIPAL">PLAZA PRINCIPAL</option>
-                                            <option value="CENTRO">CENTRO</option>
-                                            <option value="MUNICIPALIDAD">MUNICIPALIDAD</option>
-                                            <option value="HALL MUNICIPALIDAD">HALL MUNICIPALIDAD</option>
-                                            <option value="HCD">HCD</option>
-                                            <option value="COMISARIA">COMISARIA</option>
-                                            <option value="OBRA PUBLICA">OBRA PUBLICA</option>
-                                        </select>
+                                        <div className="flex justify-between items-center mb-1.5">
+                                            <label className="text-[9px] font-bold text-[#888] uppercase tracking-widest">ARA DICE:</label>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-bold text-[#333] uppercase tracking-tighter">Max 20 palabras / oración</span>
+                                                {(() => {
+                                                    const sentences = extScript.split(/[.!?]+/).filter(s => s.trim().length > 0);
+                                                    let maxWords = 0;
+                                                    sentences.forEach(s => {
+                                                        const count = s.trim().split(/\s+/).filter(w => w.length > 0).length;
+                                                        if (count > maxWords) maxWords = count;
+                                                    });
+                                                    return (
+                                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${maxWords > 20 ? 'bg-red-500/20 text-red-500' : 'bg-[#00B140]/10 text-[#00B140]'}`}>
+                                                            {maxWords}/20
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                        <textarea 
+                                            value={extScript}
+                                            onChange={(e) => setExtScript(e.target.value)}
+                                            placeholder="Escribe lo que Ara dirá en exteriores..."
+                                            className="w-full h-24 bg-[#0D0D0D] border border-[#222] rounded-lg p-3 text-[12px] text-[#fff] font-medium focus:border-[#00B140] outline-none transition-all resize-none placeholder:text-[#333]"
+                                        />
                                     </div>
 
                                     {/* ACCIÓN */}
                                     <div className="bg-[#161616] p-2 rounded-xl border border-[#222]">
-                                        <label className="block text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1.5">Acción en cámara (Opcional)</label>
+                                        <div className="flex justify-between items-center mb-1.5">
+                                            <label className="text-[9px] font-bold text-[#888] uppercase tracking-widest">Acción en cámara (Opcional)</label>
+                                            {isTranslatingAction && (
+                                                <span className="text-[8px] font-black text-[#00B140] animate-pulse">TRADUCIENDO...</span>
+                                            )}
+                                        </div>
                                         <textarea 
                                             value={extAccion}
                                             onChange={(e) => setExtAccion(e.target.value)}
-                                            placeholder="Ej: Gente caminando de fondo..."
+                                            placeholder="Ej: Ara saluda con su mano libre..."
                                             className="w-full bg-[#0D0D0D] p-2 rounded-lg border border-[#222] text-[11px] text-[#fff] font-medium resize-none outline-none focus:border-[#00B140]/50 transition-all h-16"
                                         />
+                                        {extAccionEN && !isTranslatingAction && (
+                                            <div className="mt-2 p-1.5 bg-black/30 rounded border border-white/5">
+                                                <p className="text-[9px] text-[#444] leading-tight italic">
+                                                    <span className="font-bold text-[#666]">VEO-SYNC:</span> {extAccionEN}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -1783,7 +1970,78 @@ export function AvatarStudio() {
                     </div>
                 </div>
             )}
+            {/* BACKGROUND GALLERY MODAL */}
+            {isBgGalleryOpen && (
+                <div className="fixed inset-0 z-[99999] bg-[#000]/95 backdrop-blur-xl flex items-center justify-center p-6">
+                    <div className="bg-[#0A0A0A] border border-[#222] rounded-3xl w-full max-w-7xl max-h-[90vh] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden relative">
+                        {/* Header */}
+                        <div className="p-6 border-b border-[#1A1A1A] flex justify-between items-center bg-gradient-to-r from-[#0D0D0D] to-[#111]">
+                            <div className="flex flex-col">
+                                <h3 className="text-[#00B140] text-lg font-black uppercase tracking-[0.3em] flex items-center gap-3">
+                                    <Camera size={22} />
+                                    Locación: {bgFolderPath.replace('_', ' ')}
+                                </h3>
+                                <span className="text-[10px] text-[#444] font-bold uppercase tracking-widest mt-1">Explorando saladillovivo-media/{bgFolderPath}</span>
+                            </div>
+                            <button 
+                                onClick={() => setIsBgGalleryOpen(false)} 
+                                className="w-10 h-10 rounded-full bg-[#1A1A1A] text-[#444] hover:text-white hover:bg-red-500/20 hover:border-red-500/50 border border-[#222] transition-all flex items-center justify-center"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
 
+                        {/* Grid */}
+                        <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                                {bgList.map((bg) => (
+                                        <div 
+                                            key={bg.key} 
+                                            className={`flex flex-col relative group transition-all duration-75 rounded-md border-[3px] p-0.5
+                                                ${selectedBg === bg.url ? 'border-[#00B140] bg-[#00B140]/20 scale-95' : 'border-transparent hover:border-[#333]'}`}
+                                            data-id={bg.key}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedBg(bg.url);
+                                            }}
+                                        >
+                                            <div className="text-[9px] absolute top-1 left-1 bg-black text-gray-200 px-1 py-0.5 rounded backdrop-blur-md pointer-events-none z-10">
+                                                {bg.name}
+                                            </div>
+                                            <img 
+                                                src={bg.url}
+                                                className="w-full aspect-video object-cover rounded shadow-sm cursor-grab active:cursor-grabbing"
+                                                draggable="true"
+                                                onDragStart={(e) => handleBgDragStart(e, bg.url, bg.name)}
+                                                alt={`Fondo ${bg.name}`}
+                                            />
+                                        </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Footer info */}
+                        <div className="p-4 bg-[#0D0D0D] border-t border-[#1A1A1A] flex justify-between items-center px-8">
+                            <p className="text-[10px] text-[#444] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#00B140] animate-pulse"></div>
+                                Un clic selecciona • Doble clic confirma • Arrastra a otra ventana
+                            </p>
+                            <button 
+                                onClick={() => {
+                                    if (selectedBg) {
+                                        setIsBgGalleryOpen(false);
+                                        addToast('success', `✓ Selección confirmada`);
+                                    }
+                                }}
+                                disabled={!selectedBg}
+                                className={`px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest transition-all ${selectedBg ? 'bg-[#00B140] text-black hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(0,177,64,0.2)]' : 'bg-[#1A1A1A] text-[#333] cursor-not-allowed'}`}
+                            >
+                                Seleccionar Fondo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
