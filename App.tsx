@@ -11,6 +11,7 @@ import { ResponsibleDashboard } from './pages/ResponsibleDashboard';
 import { YouTubeStudio } from './pages/YouTubeStudio';
 import { SocialManager } from './pages/SocialManager';
 import { AvatarStudio } from './pages/AvatarStudio';
+import { StreamingControl } from './pages/StreamingControl';
 // import { DailyShowDirector } from './pages/DailyShowDirector';
 import { PublicHome } from './pages/PublicHome';
 import { AIAssistant } from './components/AIAssistant';
@@ -133,6 +134,7 @@ function App() {
           <Route path="/youtube-studio" element={<Layout><YouTubeStudio /></Layout>} />
           <Route path="/social-manager" element={<Layout><SocialManager /></Layout>} />
           <Route path="/avatar-studio" element={<Layout><AvatarStudio /></Layout>} />
+          <Route path="/streaming" element={<Layout><StreamingControl /></Layout>} />
           <Route path="/portal" element={<PublicHome />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

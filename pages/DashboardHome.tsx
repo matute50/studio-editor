@@ -31,6 +31,7 @@ const modules = [
   { title: 'YouTube Manager', desc: 'Gestión videoteca.', icon: Video, path: '/youtube-studio', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
   { title: 'Social Manager', desc: 'Publicar redes.', icon: Share2, path: '/social-manager', color: 'bg-pink-600', text: 'text-pink-600', bgLight: 'bg-pink-50' },
   { title: 'Avatar Studio', desc: 'Presentador AI.', icon: UserCheck, path: '/avatar-studio', color: 'bg-violet-600', text: 'text-violet-600', bgLight: 'bg-violet-50' },
+  { title: 'Control Streaming', desc: 'Transmisiones en vivo.', icon: Radio, path: '/streaming', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
   { title: 'Agenda Eventos', desc: 'Calendario local.', icon: CalendarDays, path: '/agenda', color: 'bg-purple-600', text: 'text-purple-600', bgLight: 'bg-purple-50' },
 ];
 

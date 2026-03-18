@@ -28,6 +28,7 @@ const navItems = [
   { title: 'YouTube Studio', path: '/youtube-studio', icon: Video },
   { title: 'Social Manager', path: '/social-manager', icon: Megaphone },
   { title: 'Avatar Studio', path: '/avatar-studio', icon: UserCheck },
+  { title: 'Control Streaming', path: '/streaming', icon: Radio },
   { title: 'Agenda Eventos', path: '/agenda', icon: CalendarDays },
   { title: 'Vista Previa Portal', path: '/portal', icon: Globe },
 ];
