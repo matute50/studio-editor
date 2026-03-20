@@ -13,7 +13,8 @@ import {
   AudioWaveform,
   UserCheck,
   Share2,
-  Clapperboard
+  Clapperboard,
+  Youtube
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../services/supabase';
@@ -34,6 +35,7 @@ const modules = [
   { title: 'Social Manager', desc: 'Publicar redes.', icon: Share2, path: '/social-manager', color: 'bg-pink-600', text: 'text-pink-600', bgLight: 'bg-pink-50' },
   { title: 'Avatar Studio', desc: 'Presentador AI.', icon: UserCheck, path: '/avatar-studio', color: 'bg-violet-600', text: 'text-violet-600', bgLight: 'bg-violet-50' },
   { title: 'Control Streaming', desc: 'YouTube Live Manager.', icon: Video, path: '/streaming', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
+  { title: 'YouTube Manager', desc: 'Videoteca TV.', icon: Youtube, path: '/youtube-manager', color: 'bg-rose-600', text: 'text-rose-600', bgLight: 'bg-rose-50' },
   { title: 'Agenda Eventos', desc: 'Calendario local.', icon: CalendarDays, path: '/agenda', color: 'bg-purple-600', text: 'text-purple-600', bgLight: 'bg-purple-50' },
 ];
 

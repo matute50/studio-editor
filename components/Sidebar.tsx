@@ -14,7 +14,8 @@ import {
   AudioWaveform,
   UserCheck,
   Globe,
-  Clapperboard
+  Clapperboard,
+  Youtube
 } from 'lucide-react';
 
 
@@ -28,6 +29,7 @@ const navItems = [
   { title: 'Social Manager', path: '/social-manager', icon: Megaphone },
   { title: 'Avatar Studio', path: '/avatar-studio', icon: UserCheck },
   { title: 'Control Streaming', path: '/streaming', icon: Video },
+  { title: 'YouTube Manager', path: '/youtube-manager', icon: Youtube },
   { title: 'Agenda Eventos', path: '/agenda', icon: CalendarDays },
   { title: 'Vista Previa Portal', path: '/portal', icon: Globe },
 ];
