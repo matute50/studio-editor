@@ -157,7 +157,7 @@ export function AvatarStudio() {
 
     const [extHorario, setExtHorario] = useState('MAÑANA');
     const [extClima, setExtClima] = useState('SOLEADO');
-    const [extLocacion, setExtLocacion] = useState('PLAZA_PRINCIPAL');
+    const [extPosicionSol, setExtPosicionSol] = useState('Luz Frontal (Front Lighting)');
     const [extScript, setExtScript] = useState('');
     const [extSpeechOption, setExtSpeechOption] = useState('SOLO SPEECH');
     const [extAccion, setExtAccion] = useState('');
@@ -769,22 +769,26 @@ export function AvatarStudio() {
             
             const bgImageName = selectedBg ? selectedBg.split('/').pop() : 'background_reference_image_1.png';
             // 2. Física ambiental según UI
-            const ambientStr = `Time: ${extHorario}, Weather: ${extClima}`;
+            let lightingDetails = "";
+            if (extClima === 'SOLEADO' && (extHorario === 'MAÑANA' || extHorario === 'TARDE')) {
+                const tone = extHorario === 'MAÑANA' 
+                    ? 'Bright and clear morning sunlight with natural color temperature' 
+                    : 'Warm golden hour sunlight with deep oranges and cinematic long shadows';
+                lightingDetails = `, Lighting Position: ${extPosicionSol}, Lighting Tone: ${tone}`;
+            } else if (extClima === 'NUBLADO' && (extHorario === 'MAÑANA' || extHorario === 'TARDE')) {
+                lightingDetails = `, Lighting Condition: Luz Suave (Soft Light), Diffused lighting with no harsh shadows`;
+            } else if (extClima === 'INDOOR') {
+                lightingDetails = `, Lighting Condition: Luz de Relleno (Fill Light), Professional indoor lighting for balanced exposure and soft features`;
+            } else if (extHorario === 'NOCHE') {
+                lightingDetails = `, Lighting Condition: Luz de Compensación (Fill Light/Compensation), Professional video lighting for night scenes, balanced ambient illumination`;
+            }
+            const ambientStr = `Time: ${extHorario}, Weather: ${extClima}${lightingDetails}`;
             
-            // 3. Mapeo del Preset de Sonido y Tráfico según locación
-            let presetSonido = 'Plaza';
-            let trafficFlow = 'LEFT to RIGHT'; 
-            if (extLocacion === 'CENTRO') { presetSonido = 'Centro'; trafficFlow = 'RIGHT to LEFT'; }
-            else if (extLocacion === 'COMISARIA_HOSPITAL') presetSonido = 'Comisaría';
-            else if (extLocacion === 'OBRA_PUBLICA') { presetSonido = 'Obra'; trafficFlow = 'RIGHT to LEFT'; }
-            else if (extLocacion === 'HALL_MUNICIPALIDAD' || extLocacion === 'HCD' || extClima === 'INDOOR') presetSonido = 'Indoor Hall';
-            else if (extLocacion === 'MUNICIPALIDAD') presetSonido = 'Municipalidad';
-
-            // 4. Parámetros adicionales (Acción y Profundidad)
+            // 3. Parámetros adicionales (Acción y Profundidad)
             const accionNarrativa = extAccionEN || "Ara maintains a professional standing posture with no extra gestures.";
             const depthOfField = "Shallow depth of field, sharp focus on subject";
 
-            return `[PRIORIDAD_SISTEMA:ESCENARIO_RURAL_BONAERENSE] Absolute priority: This is a small, quiet town in the Argentine pampas (Saladillo). There are NO skyscrapers, NO high-rise buildings, and NO heavy traffic. [FIDELIDAD_CONTEXTUAL] Use ${bgImageName} as a rigid plate. [AMBIENT_PHYSICS] ${ambientStr}. [ANIMACIÓN_ESCENARIO_DINÁMICO] The background is dynamic. Depth of Field: ${depthOfField}. Important: vehicles on this Saladillo city street must circulate ONLY in one single direction (Oneway Street). Based on the Project Grid 2 (POV Camarógrafo), Traffic Flow must move strictly ${trafficFlow} across the frame, behind Ara. Ensure consistent speed and no two-way traffic. [ACCIÓN_NARRATIVA] ${accionNarrativa}. [AUDIO_ARA_V2] Character says: "${guionCaps}". [CIERRE] Mouth closes 250ms. Static pose.`.trim();
+            return `[PRIORIDAD_SISTEMA:ESCENARIO_RURAL_BONAERENSE] Absolute priority: This is a small, quiet town in the Argentine pampas (Saladillo). There are NO skyscrapers, NO high-rise buildings. [FIDELIDAD_CONTEXTUAL] Use ${bgImageName} as a rigid plate. [AMBIENT_PHYSICS] ${ambientStr}. [ANIMACIÓN_ESCENARIO_DINÁMICO] The background is dynamic with subtle ambient movement. Depth of Field: ${depthOfField}. [ACCIÓN_NARRATIVA] ${accionNarrativa}. [AUDIO_ARA_V2] Character says: "${guionCaps}". [CIERRE] Mouth closes 250ms. Static pose.`.trim();
         }
 
         if (aiEngine === 'GROK') {
@@ -1551,25 +1555,21 @@ export function AvatarStudio() {
 
                                     {/* LOCACIÓN Y AGREGADO */}
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="bg-[#161616] p-2 rounded-xl border border-[#222]">
-                                            <label className="block text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1.5">Locación</label>
+                                        <div className={`bg-[#161616] p-2 rounded-xl border border-[#222] transition-opacity ${ (extClima !== 'SOLEADO' || extHorario === 'NOCHE') ? 'opacity-30' : 'opacity-100'}`}>
+                                            <label className="block text-[9px] font-bold text-[#888] uppercase tracking-widest mb-1.5">Posición del Sol</label>
                                             <select 
-                                                value={extLocacion}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setExtLocacion(val);
-                                                    fetchBackgrounds(val);
-                                                }}
-                                                className="w-full bg-[#0D0D0D] border border-[#222] rounded-lg p-1.5 text-[11px] font-black text-[#fff] focus:border-[#00B140] outline-none transition-all cursor-pointer hover:border-[#333]"
+                                                value={extPosicionSol}
+                                                onChange={(e) => setExtPosicionSol(e.target.value)}
+                                                disabled={extClima !== 'SOLEADO' || extHorario === 'NOCHE'}
+                                                className="w-full bg-[#0D0D0D] border border-[#222] rounded-lg p-1.5 text-[11px] font-black text-[#fff] focus:border-[#00B140] outline-none transition-all cursor-pointer hover:border-[#333] disabled:cursor-not-allowed"
                                             >
-                                                <option value="">Seleccione Locación...</option>
-                                                <option value="CENTRO">CENTRO</option>
-                                                <option value="COMISARIA_HOSPITAL">COMISARIA_HOSPITAL</option>
-                                                <option value="HALL_MUNICIPALIDAD">HALL_MUNICIPALIDAD</option>
-                                                <option value="HCD">HCD</option>
-                                                <option value="MUNICIPALIDAD">MUNICIPALIDAD</option>
-                                                <option value="OBRA_PUBLICA">OBRA_PUBLICA</option>
-                                                <option value="PLAZA_PRINCIPAL">PLAZA_PRINCIPAL</option>
+                                                <option value="Luz Frontal (Front Lighting)">Luz Frontal (Front Lighting)</option>
+                                                <option value="Luz Lateral izquierda (left Side Lighting)">Luz Lateral izquierda (left Side Lighting)</option>
+                                                <option value="Luz Lateral derecha (rigth Side Lighting)">Luz Lateral derecha (rigth Side Lighting)</option>
+                                                <option value="Contraluz (Backlighting)">Contraluz (Backlighting)</option>
+                                                <option value="Luz de Tres Cuartos izq. (left Rembrandt Lighting)">Luz de Tres Cuartos izq. (left Rembrandt Lighting)</option>
+                                                <option value="Luz de Tres Cuartos der. (rigth Rembrandt Lighting)">Luz de Tres Cuartos der. (rigth Rembrandt Lighting)</option>
+                                                <option value="Luz Cenital (Top Lighting)">Luz Cenital (Top Lighting)</option>
                                             </select>
                                         </div>
                                         <div className="bg-[#161616] p-2 rounded-xl border border-[#222]">
