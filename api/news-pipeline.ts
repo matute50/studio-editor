@@ -199,6 +199,8 @@ async function runTransformation(ids?: number[]) {
     if (error || !raws) return { count: 0, error: error?.message };
 
     let processed = 0;
+    let errorMsg: string | undefined;
+
     for (const raw of raws) {
         const cleanTitle = htmlToCleanText(raw.title);
         const slug = cleanTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 80);
@@ -214,12 +216,15 @@ async function runTransformation(ids?: number[]) {
             status: 'draft'
         }]);
 
-        if (!insErr) {
+        if (insErr) {
+            console.error(`[F2] Error inserting article from raw ${raw.id}:`, insErr.message);
+            if (!errorMsg) errorMsg = insErr.message;
+        } else {
             await supabase.from('articles_crudos').update({ status: 'procesado' }).eq('id', raw.id);
             processed++;
         }
     }
-    return { count: processed };
+    return { count: processed, error: errorMsg };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

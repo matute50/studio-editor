@@ -733,11 +733,11 @@ export const NewsEditor: React.FC = () => {
             {pipelineResult && (
               <div className="space-y-2">
                 {[
-                  { label: '🔍 Scraping', key: 'scrape', count: (r: any) => r?.count ?? r?.scraped ?? r?.inserted ?? '—' },
-                  { label: '⚙️ Transformados', key: 'transform', count: (r: any) => r?.count ?? r?.transformed ?? '—' },
-                  { label: '🧠 Resúmenes', key: 'resumen', count: (r: any) => r?.count ?? r?.generated ?? '—' },
-                  { label: '🎙️ Audios', key: 'audio', count: (r: any) => r?.count ?? r?.generated ?? '—' },
-                  { label: '🎬 Slides', key: 'slide', count: (r: any) => r?.count ?? r?.generated ?? '—' },
+                  { label: '🔍 Scraping', key: 'scrape', count: (r: any) => r?.error ? `❌ ${r.error.substring(0, 15)}...` : (r?.count ?? r?.scraped ?? r?.inserted ?? '—') },
+                  { label: '⚙️ Transformados', key: 'transform', count: (r: any) => r?.error ? `❌ ${r.error.substring(0, 15)}...` : (r?.count ?? r?.transformed ?? '—') },
+                  { label: '🧠 Resúmenes', key: 'resumen', count: (r: any) => r?.error ? `❌ ${r.error.substring(0, 15)}...` : (r?.count ?? r?.generated ?? '—') },
+                  { label: '🎙️ Audios', key: 'audio', count: (r: any) => r?.error ? `❌ ${r.error.substring(0, 15)}...` : (r?.count ?? r?.generated ?? '—') },
+                  { label: '🎬 Slides', key: 'slide', count: (r: any) => r?.error ? `❌ ${r.error.substring(0, 15)}...` : (r?.count ?? r?.generated ?? '—') },
                 ].map(({ label, key, count }) => (
                   <div key={key} className="flex justify-between items-center px-4 py-2 bg-slate-50 rounded-xl">
                     <span className="text-[11px] font-black text-slate-600 uppercase tracking-wide">{label}</span>
