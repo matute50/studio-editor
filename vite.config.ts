@@ -663,6 +663,209 @@ const cambiarVestuarioPlugin = () => ({
   }
 });
 
+const scrapeNewsPlugin = () => ({
+  name: 'scrape-news',
+  configureServer(server: any) {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      if (req.url === '/api/scrape-news' && req.method === 'POST') {
+        try {
+          // Reutilizamos la lógica del scraper (versión simplificada para el plugin)
+          const FEEDS = [
+            { name: 'Ahora Saladillo', url: 'https://ahorasaladillo-diariodigital.com.ar/feed/' },
+            { name: 'ABC Saladillo', url: 'https://www.abcsaladillo.com.ar/feed/' },
+            { name: 'Info Saladillo', url: 'https://infosaladillo.com.ar/feed/' }
+          ];
+
+          const extractTag = (xml: string, tag: string) => {
+            const regex = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i');
+            const match = xml.match(regex);
+            if (!match) return '';
+            let content = match[1];
+            content = content.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+            return content.trim();
+          };
+
+
+          const toAbsoluteUrl = (url: string, baseUrl: string) => {
+            try {
+              if (!url) return '';
+              if (url.startsWith('http')) return url;
+              return new URL(url, baseUrl).href;
+            } catch (e) { return url; }
+          };
+
+          const extractAllImages = (html: string, baseUrl: string): string[] => {
+            const found = new Set<string>();
+            const imgTagRegex = /<img\s+([^>]+)>/gi;
+            let m;
+            while ((m = imgTagRegex.exec(html)) !== null) {
+              const attrs = m[1];
+              const srcAttrRegex = /(?:src|data-src|data-lazy-src|data-original|srcset)\s*=\s*(?:["']([^"'>]+)["']|([^ >]+))/gi;
+              let attrMatch;
+              while ((attrMatch = srcAttrRegex.exec(attrs)) !== null) {
+                const val = attrMatch[1] || attrMatch[2];
+                if (!val) continue;
+                const attrName = attrMatch[0].split('=')[0].toLowerCase().trim();
+                if (attrName.includes('srcset')) {
+                  const parts = val.split(',').map(p => p.trim().split(' ')[0]);
+                  parts.forEach(p => { if (p) { const abs = toAbsoluteUrl(p, baseUrl); if (abs) found.add(abs); } });
+                } else {
+                  const abs = toAbsoluteUrl(val, baseUrl);
+                  if (abs) found.add(abs);
+                }
+              }
+            }
+            const junk = ['avatar', 'logo', 'favicon', 'smiley', 'emoji', 'icon', 's.w.org', 'banner', 'ads', 'publi', 'fb-share', 'wp-content/themes', 'wp-content/plugins', 'gravatar', 'pixel', 'loading', 'placeholder', 'blank', 'transparent', 'sidebar', 'footer', 'widget', 'social'];
+            const isTinyThumbnail = /-(80x80|150x150|32x32|16x16)\.(?:webp|jpg|png|jpeg|avif|gif)$/i;
+            return Array.from(found).filter(absUrl => {
+              const lower = absUrl.toLowerCase();
+              if (!/\.(jpg|jpeg|png|webp|avif|gif)(?:\?.*)?$/i.test(absUrl)) return false;
+              if (junk.some(j => lower.includes(j)) && !lower.includes('post')) return false;
+              if (isTinyThumbnail.test(absUrl)) return false;
+              return true;
+            });
+          };
+
+          const fetchWithTimeout = async (url: string, options = {}) => {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 15000);
+            try {
+              const response = await fetch(url, {
+                ...options,
+                signal: controller.signal,
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                  'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+                  'Cache-Control': 'no-cache',
+                  ...((options as any).headers || {})
+                }
+              });
+              clearTimeout(id);
+              return response;
+            } catch (e) { clearTimeout(id); throw e; }
+          };
+
+          const fetchAllPageImages = async (url: string) => {
+            try {
+              const resp = await fetchWithTimeout(url);
+              if (!resp.ok) return [];
+              const html = await resp.text();
+              const found = new Set<string>();
+
+              const metaRegex = /<(?:meta\s+[^>]*property=["']og:image["']\s+content=["']([^"'>]+)["']|meta\s+[^>]*name=["']twitter:image["']\s+content=["']([^"'>]+)["'])>/gi;
+              let m;
+              while ((m = metaRegex.exec(html)) !== null) { 
+                const urlMatch = m[1] || m[2];
+                if (urlMatch) found.add(toAbsoluteUrl(urlMatch.trim(), url)); 
+              }
+
+              const articleStart = html.match(/<(article|main)|class=['"][^"']*(?:entry-content|post-content|article-content|content)[^"']*["']/i);
+              let searchBody = html;
+              if (articleStart && articleStart.index !== undefined) {
+                 searchBody = html.substring(articleStart.index);
+              }
+              const truncated = searchBody.split(/id=['"](?:related|comments|footer|sidebar)['"]|class=['"](?:td-post-sharing|related|comments|footer|sidebar|shared-blocks|tags-links)['"]|Related Tags:|Relacionados:/i)[0];
+
+              extractAllImages(truncated, url).forEach(img => found.add(img));
+              return Array.from(found);
+            } catch (e) { return []; }
+          };
+
+          console.log("[Vite Scraper] Iniciando escaneo...");
+          const results = [];
+
+          for (const feed of FEEDS) {
+            try {
+              const response = await fetchWithTimeout(feed.url);
+              if (!response.ok) continue;
+              const xml = await response.text();
+              const items = xml.split(/<item[\s>]/i).slice(1);
+              console.log(`[Vite Scraper] ${feed.name}: ${items.length} items encontrados.`);
+              
+              for (const itemXml of items) {
+                const title = extractTag(itemXml, 'title');
+                const link = extractTag(itemXml, 'link');
+                const description = extractTag(itemXml, 'description');
+                const contentEncoded = extractTag(itemXml, 'content:encoded') || description;
+                if (title && link) {
+                  const pageImages = await fetchAllPageImages(link);
+                  const allCombined = Array.from(new Set([
+                    ...extractAllImages(itemXml, link),
+                    ...extractAllImages(contentEncoded, link),
+                    ...pageImages
+                  ]));
+                  if (allCombined.length > 0) {
+                    results.push({
+                      title: title.slice(0, 255),
+                      text: description.replace(/<[^>]*>?/gm, '').substring(0, 2000),
+                      source_url: link,
+                      image_url: allCombined[0],
+                      images_url: allCombined.slice(0, 8),
+                      status: 'nuevo'
+                    });
+                  }
+                }
+              }
+            } catch (err: any) {
+              console.error(`[Vite Scraper] Error en ${feed.name}:`, err.message);
+            }
+          }
+
+          const SUPABASE_URL = 'https://otwvfihzaznyjvjtkvvd.supabase.co';
+          const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90d3ZmaWh6YXpueWp2anRrdnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUxMDQ3OTAsImV4cCI6MjA2MDY4MDc5MH0.YbKdivZM6gJCdXAf51Xctn8IpKhQCrMch89NoHwP0Z4';
+          
+          if (results.length > 0) {
+            await fetch(`${SUPABASE_URL}/rest/v1/articles_crudos`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Prefer': 'resolution=ignore-duplicates'
+              },
+              body: JSON.stringify(results)
+            });
+
+            const missingResp = await fetch(`${SUPABASE_URL}/rest/v1/articles_crudos?status=eq.nuevo`, {
+              headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            const allNew = await missingResp.json();
+
+            if (Array.isArray(allNew) && allNew.length > 0) {
+              console.log(`[Vite Scraper] Re-analizando ${allNew.length} noticias para limpieza.`);
+              for (const item of allNew) {
+                const imgs = await fetchAllPageImages(item.source_url);
+                if (imgs.length > 0) {
+                  await fetch(`${SUPABASE_URL}/rest/v1/articles_crudos?id=eq.${item.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'apikey': SUPABASE_ANON_KEY,
+                      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ image_url: imgs[0], images_url: imgs.slice(0, 8) })
+                  });
+                }
+              }
+            }
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ success: true, count: results.length }));
+        } catch (err: any) {
+          console.error("Error en local scraper:", err);
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      } else {
+        next();
+      }
+    });
+  }
+});
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
@@ -689,7 +892,8 @@ export default defineConfig(({ mode }) => {
       listBackgroundsPlugin(),
       cambiarVestuarioPlugin(),
       geminiProxyPlugin(), 
-      claudeProxyPlugin()
+      claudeProxyPlugin(),
+      scrapeNewsPlugin()
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

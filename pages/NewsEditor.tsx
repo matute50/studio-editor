@@ -4,8 +4,10 @@ import { supabase } from '../services/supabase';
 import { uploadImageToR2 } from '../services/r2';
 import { generateSuperResumen } from '../services/gemini';
 import { NewsImageEditor } from '../components/NewsImageEditor';
-import { Article } from '../types';
+import { Article, ArticleCrudo } from '../types';
 import { useNewsAI } from '../hooks/useNewsAI';
+import { newsService } from '../services/newsService';
+import { sanitizationService } from '../services/sanitizationService';
 import { FeatureStatusSelector, FeatureStatus } from '../components/FeatureStatusSelector';
 import { ImageManager, ImageSlot } from '../components/ImageManager';
 import {
@@ -22,7 +24,11 @@ import {
   ChevronRight,
   Upload,
   Link as LinkIcon,
-  DownloadCloud
+  DownloadCloud,
+  Zap,
+  Rocket,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 export const NewsEditor: React.FC = () => {
@@ -30,6 +36,18 @@ export const NewsEditor: React.FC = () => {
   const [loadingList, setLoading_list] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
+
+  // Raw News Management
+  const [activeTab, setActiveTab] = useState<'archivo' | 'crudas'>('archivo');
+  const [rawArticles, setRawArticles] = useState<ArticleCrudo[]>([]);
+  const [loadingRaw, setLoadingRaw] = useState(false);
+  const [isScraping, setIsScraping] = useState(false);
+
+  // Pipeline completo
+  const [isPipelining, setIsPipelining] = useState(false);
+  const [pipelinePhase, setPipelinePhase] = useState<string>('');
+  const [pipelineResult, setPipelineResult] = useState<Record<string, any> | null>(null);
+  const [showPipelineModal, setShowPipelineModal] = useState(false);
 
   // Campos de texto
   const [title, setTitle] = useState('');
@@ -62,6 +80,12 @@ export const NewsEditor: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (activeTab === 'crudas') {
+      fetchRawArticles();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     if (aiError) setError(aiError);
   }, [aiError]);
 
@@ -79,6 +103,97 @@ export const NewsEditor: React.FC = () => {
       if (err) throw err;
       setArticles(data || []);
     } catch (err: any) { setError(`Error: ${err.message}`); } finally { setLoading_list(false); }
+  };
+
+  const fetchRawArticles = async () => {
+    setLoadingRaw(true);
+    try {
+      const data = await newsService.getRawArticles();
+      setRawArticles(data);
+    } catch (err: any) {
+      setError(`Error fetching raw news: ${err.message}`);
+    } finally {
+      setLoadingRaw(false);
+    }
+  };
+
+  const handleManualScraping = async () => {
+    setIsScraping(true);
+    try {
+      await newsService.runManualScraping();
+      await fetchRawArticles();
+      setSuccessMsg("Scraping manual finalizado con éxito.");
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err: any) {
+        setError("Error al ejecutar el scraping manual.");
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  const handleFullPipeline = async () => {
+    setIsPipelining(true);
+    setShowPipelineModal(true);
+    setPipelineResult(null);
+    setError(null);
+    try {
+      setPipelinePhase('🔍 Fase 1 — Scraping de fuentes...');
+      const scrape = await newsService.runManualScraping();
+
+      setPipelinePhase('⚙️ Fase 2 — Transformando artículos...');
+      const transform = await newsService.transformAllRawArticles();
+
+      setPipelinePhase('🧠 Fase 3 — Generando resúmenes con IA...');
+      const resumen = await newsService.generateAllResumenes();
+
+      setPipelinePhase('🎙️ Fase 4 — Sintetizando audio TTS...');
+      const audio = await newsService.generateAllAudios();
+
+      setPipelinePhase('🎬 Fase 5 — Compilando slides visuales...');
+      const slide = await newsService.generateAllSlides();
+
+      setPipelineResult({ scrape, transform, resumen, audio, slide });
+      setPipelinePhase('✅ Pipeline finalizado con éxito.');
+      fetchArticles();
+      fetchRawArticles();
+    } catch (err: any) {
+      setPipelinePhase('');
+      setError(`Error en pipeline: ${err.message}`);
+      setShowPipelineModal(false);
+    } finally {
+      setIsPipelining(false);
+    }
+  };
+
+  const handleProcessRaw = async (raw: ArticleCrudo) => {
+    // Aplicar Sanatización Ara DNA (Limpieza de palabras prohibidas y fechas relativas)
+    const cleanTitle = sanitizationService.sanitizeTitle(raw.title);
+    const cleanText = sanitizationService.sanitize(raw.text, raw.created_at);
+
+    // Fill form with sanaticed data
+    setTitle(cleanTitle);
+    setText(cleanText);
+    setFeaturedImage({ id: 'featured', url: raw.image_url, isProcessed: true });
+    setGalleryImages(raw.images_url ? raw.images_url.map((url, i) => ({ id: `raw-${i}`, url, isProcessed: true })) : []);
+    
+    // Mark as processed in DB immediately
+    await newsService.updateRawArticleStatus(raw.id, 'procesado');
+    
+    // Switch to form and refresh
+    setEditingId(null);
+    fetchRawArticles();
+    setSuccessMsg("Noticia cruda cargada para procesamiento.");
+    setTimeout(() => setSuccessMsg(null), 3000);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteRaw = async (id: string) => {
+    const ok = await newsService.updateRawArticleStatus(id, 'eliminado');
+    if (ok) {
+      fetchRawArticles();
+      setSuccessMsg("Noticia descartada.");
+      setTimeout(() => setSuccessMsg(null), 3000);
+    }
   };
 
   const handleProfessionalRewrite = async () => {
@@ -387,39 +502,204 @@ export const NewsEditor: React.FC = () => {
         </div>
 
         <div className="lg:col-span-7 flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-8 py-5 border-b bg-slate-50 flex justify-between items-center shrink-0">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2"><LayoutList size={16} className="text-blue-500" /> Archivo de Redacción</h3>
-            <button onClick={fetchArticles} className="p-2 hover:bg-slate-200 rounded-xl transition-colors"><RefreshCw size={16} className={`${loadingList ? 'animate-spin' : ''} text-slate-400`} /></button>
+          <div className="px-8 py-2 border-b bg-slate-50 flex justify-between items-center shrink-0">
+            <div className="flex gap-6">
+              <button 
+                onClick={() => setActiveTab('archivo')}
+                className={`py-3 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 border-b-2 transition-all ${activeTab === 'archivo' ? 'border-blue-500 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              >
+                <LayoutList size={14} /> Archivo
+              </button>
+              <button 
+                onClick={() => setActiveTab('crudas')}
+                className={`py-3 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 border-b-2 transition-all ${activeTab === 'crudas' ? 'border-amber-500 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              >
+                <DownloadCloud size={14} /> Noticias Crudas
+                {rawArticles.length > 0 && <span className="bg-amber-500 text-white text-[8px] px-1.5 py-0.5 rounded-full ml-1">{rawArticles.length}</span>}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Botón: Pipeline Completo (5 fases) */}
+              <button
+                onClick={handleFullPipeline}
+                disabled={isPipelining || isScraping}
+                title="Ejecutar pipeline automático completo: Scraping → Transform → Resumen → Audio → Slide"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all font-black text-[9px] uppercase tracking-widest border ${
+                  isPipelining
+                    ? 'bg-slate-100 text-slate-400 border-slate-200'
+                    : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200'
+                }`}
+              >
+                {isPipelining ? <Loader2 size={12} className="animate-spin" /> : <Rocket size={12} />}
+                {isPipelining ? 'Ejecutando...' : 'Pipeline'}
+              </button>
+
+              {/* Botón: Solo Scraping */}
+              <button 
+                onClick={handleManualScraping} 
+                disabled={isScraping || isPipelining}
+                title="Ejecutar scraping manual y recuperar imágenes"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all font-black text-[9px] uppercase tracking-widest border ${isScraping ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'}`}
+              >
+                {isScraping ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                Scraping
+              </button>
+              <button onClick={activeTab === 'archivo' ? fetchArticles : fetchRawArticles} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
+                <RefreshCw size={16} className={`${(loadingList || loadingRaw) ? 'animate-spin' : ''} text-slate-400`} />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-            {articles.map((article) => (
-              <div key={article.id} className="group relative bg-white border border-slate-100 rounded-2xl p-4 flex gap-4 hover:border-blue-200 transition-all">
-                <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 border border-slate-100"><img src={article.image_url} className="w-full h-full object-cover" alt="Thumb" /></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {article.featureStatus && <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase bg-amber-100 text-amber-600">{article.featureStatus}</span>}
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(article.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-tight mb-2">{article.title.replace(/\|/g, ' ')}</h4>
-                  <div className="flex gap-2">
-                    <button onClick={() => {
-                      setEditingId(article.id);
-                      setTitle(sanitizeTitle(article.title));
-                      setText(article.text);
-                      setSuperResumen(article.super_resumen || '');
-                      setFeaturedImage({ id: 'featured', url: article.image_url, isProcessed: true });
-                      setGalleryImages(article.images_urls ? article.images_urls.map((url, i) => ({ id: `old-${i}`, url, isProcessed: true })) : []);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }} className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Edit size={14} /></button>
-                    <button onClick={() => setShowDeleteConfirm(article.id)} className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition-all"><Trash2 size={14} /></button>
+            {activeTab === 'archivo' ? (
+              articles.map((article) => (
+                <div key={article.id} className="group relative bg-white border border-slate-100 rounded-2xl p-4 flex gap-4 hover:border-blue-200 transition-all">
+                  <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 border border-slate-100"><img src={article.image_url} className="w-full h-full object-cover" alt="Thumb" /></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {article.featureStatus && <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase bg-amber-100 text-amber-600">{article.featureStatus}</span>}
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(article.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-tight mb-2">{article.title.replace(/\|/g, ' ')}</h4>
+                    <div className="flex gap-2">
+                      <button onClick={() => {
+                        setEditingId(article.id);
+                        setTitle(sanitizeTitle(article.title));
+                        setText(article.text);
+                        setSuperResumen(article.super_resumen || '');
+                        setFeaturedImage({ id: 'featured', url: article.image_url, isProcessed: true });
+                        setGalleryImages(article.images_urls ? article.images_urls.map((url, i) => ({ id: `old-${i}`, url, isProcessed: true })) : []);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }} className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Edit size={14} /></button>
+                      <button onClick={() => setShowDeleteConfirm(article.id)} className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-red-600 hover:text-white transition-all"><Trash2 size={14} /></button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              rawArticles.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4 opacity-50">
+                  <DownloadCloud size={48} />
+                  <p className="text-[10px] font-black uppercase tracking-widest">No hay noticias crudas pendientes</p>
+                </div>
+              ) : (
+                rawArticles.map((raw) => (
+                  <div key={raw.id} className="group relative bg-white border border-slate-100 rounded-2xl p-4 flex gap-4 hover:border-amber-200 transition-all border-l-4 border-l-amber-400">
+                    <div className="w-24 h-24 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white shadow-lg shrink-0 transition-transform group-hover:scale-110">
+                      {raw.image_url ? (
+                        <img src={raw.image_url} className="w-full h-full object-cover" alt="Thumb" />
+                      ) : (
+                        <Globe size={24} className="text-slate-200" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        {/* Tags: Hostname y Fecha */}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase bg-slate-100 text-slate-500">{new URL(raw.source_url).hostname}</span>
+                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(raw.created_at).toLocaleDateString()}</span>
+                        </div>
+                        
+                        {/* Título de la noticia */}
+                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-tight mb-3">{raw.title}</h4>
+
+                        {/* GALERÍA HORIZONTAL DEBAJO DEL TÍTULO */}
+                        {raw.images_url && raw.images_url.length > 0 && (
+                          <div className="flex gap-2.5 overflow-x-auto pb-4 scrollbar-hide">
+                            {raw.images_url.map((img: string, idx: number) => (
+                              <img 
+                                key={idx} 
+                                src={img} 
+                                alt={`Gallery ${idx}`} 
+                                className="w-12 h-12 shrink-0 rounded-lg border-2 border-white object-cover shadow-sm transition-all hover:scale-110 hover:shadow-md cursor-zoom-in"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleProcessRaw(raw)}
+                            className="px-4 py-2 bg-amber-500 text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-amber-600 shadow-sm transition-all"
+                          >
+                            Procesar
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteRaw(raw.id)}
+                            className="px-4 py-2 bg-slate-100 text-slate-400 rounded-lg font-black text-[9px] uppercase tracking-widest hover:text-red-500 transition-all"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )
+            )}
           </div>
         </div>
       </div>
+
+      {/* ──────── MODAL: PIPELINE COMPLETO ──────── */}
+      {showPipelineModal && (
+        <div className="fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full p-8 space-y-6 animate-scaleIn">
+            {/* Header */}
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-2xl ${ isPipelining ? 'bg-blue-600 animate-pulse' : pipelineResult ? 'bg-green-500' : 'bg-slate-200' }`}>
+                <Rocket size={24} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-800 uppercase tracking-tighter">Pipeline Automático</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">5 Fases de Producción</p>
+              </div>
+            </div>
+
+            {/* Fase actual */}
+            <div className="bg-slate-50 rounded-2xl p-4 min-h-[3rem] flex items-center gap-3">
+              {isPipelining && <Loader2 size={16} className="text-blue-500 animate-spin shrink-0" />}
+              {!isPipelining && pipelineResult && <CheckCircle2 size={16} className="text-green-500 shrink-0" />}
+              <p className="text-sm font-bold text-slate-700">
+                {pipelinePhase || 'Iniciando...'}
+              </p>
+            </div>
+
+            {/* Resumen de resultados (cuando termina) */}
+            {pipelineResult && (
+              <div className="space-y-2">
+                {[
+                  { label: '🔍 Scraping', key: 'scrape', count: (r: any) => r?.scraped ?? r?.inserted ?? '—' },
+                  { label: '⚙️ Transformados', key: 'transform', count: (r: any) => r?.transformed ?? r?.count ?? '—' },
+                  { label: '🧠 Resúmenes', key: 'resumen', count: (r: any) => r?.generated ?? '—' },
+                  { label: '🎙️ Audios', key: 'audio', count: (r: any) => r?.generated ?? '—' },
+                  { label: '🎬 Slides', key: 'slide', count: (r: any) => r?.generated ?? '—' },
+                ].map(({ label, key, count }) => (
+                  <div key={key} className="flex justify-between items-center px-4 py-2 bg-slate-50 rounded-xl">
+                    <span className="text-[11px] font-black text-slate-600 uppercase tracking-wide">{label}</span>
+                    <span className="text-[11px] font-black text-blue-700 tabular-nums">
+                      {count(pipelineResult[key === 'scrape' ? 'scrape' : key === 'transform' ? 'transform' : key === 'resumen' ? 'resumen' : key === 'audio' ? 'audio' : 'slide'])}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botón cerrar (solo visible cuando termina) */}
+            {!isPipelining && (
+              <button
+                onClick={() => { setShowPipelineModal(false); setPipelineResult(null); setPipelinePhase(''); }}
+                className="w-full py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all"
+              >
+                {pipelineResult ? '✅ Cerrar Resumen' : 'Cerrar'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">

@@ -1,8 +1,34 @@
 {
     "rewrites": [
         {
+            "source": "/(.*/api/.*)",
+            "destination": "/api/$1"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }
+    ],
+    "functions": {
+        "api/cron-pipeline.ts": { "maxDuration": 300 },
+        "api/scrape-news.ts": { "maxDuration": 60 },
+        "api/transform-articles.ts": { "maxDuration": 60 },
+        "api/generate-resumen.ts": { "maxDuration": 120 },
+        "api/generate-audio.ts": { "maxDuration": 120 },
+        "api/generate-slide.ts": { "maxDuration": 120 }
+    },
+    "crons": [
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 10 * * *" },
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "30 11 * * *" },
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 13 * * *" },
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 14 * * *" },
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "30 15 * * *" },
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 19 * * *" },
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 22 * * *" },
+        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 1 * * *" },
+        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 12 * * *" },
+        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 16 * * *" },
+        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 20 * * *" },
+        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 23 * * *" }
     ]
 }

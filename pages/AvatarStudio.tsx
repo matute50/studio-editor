@@ -768,27 +768,47 @@ export function AvatarStudio() {
             const guionCaps = scriptAraStyle.toUpperCase();
             
             const bgImageName = selectedBg ? selectedBg.split('/').pop() : 'background_reference_image_1.png';
-            // 2. Física ambiental según UI
-            let lightingDetails = "";
-            if (extClima === 'SOLEADO' && (extHorario === 'MAÑANA' || extHorario === 'TARDE')) {
-                const tone = extHorario === 'MAÑANA' 
-                    ? 'Bright and clear morning sunlight with natural color temperature' 
-                    : 'Warm golden hour sunlight with deep oranges and cinematic long shadows';
-                lightingDetails = `, Lighting Position: ${extPosicionSol}, Lighting Tone: ${tone}`;
-            } else if (extClima === 'NUBLADO' && (extHorario === 'MAÑANA' || extHorario === 'TARDE')) {
-                lightingDetails = `, Lighting Condition: Luz Suave (Soft Light), Diffused lighting with no harsh shadows`;
-            } else if (extClima === 'INDOOR') {
-                lightingDetails = `, Lighting Condition: Luz de Relleno (Fill Light), Professional indoor lighting for balanced exposure and soft features`;
-            } else if (extHorario === 'NOCHE') {
-                lightingDetails = `, Lighting Condition: Luz de Compensación (Fill Light/Compensation), Professional video lighting for night scenes, balanced ambient illumination`;
+
+            // 2. Ingeniería de Prompts para AMBIENT_PHYSICS (Reglas Google Veo 3.1)
+            const horarioPrompt = extHorario.toLowerCase();
+            const weatherClause = (extClima === 'INDOOR' || extHorario === 'NOCHE') ? "" : `Weather: ${extClima.toLowerCase()}, `;
+            
+            let technicalLight = "";
+            const h = extHorario;
+            const c = extClima;
+
+            if (c === 'SOLEADO') {
+                if (h === 'MAÑANA') technicalLight = "5500K direct sunlight, 90,000 lux, high contrast, sharp defined shadows, clear sky";
+                else if (h === 'TARDE') technicalLight = "4500K golden hour sun, 45,000 lux, low-angle light, long cinematic soft shadows, warm amber tones";
+                else technicalLight = "5500K clear daylight, bright illumination";
+            } else if (c === 'NUBLADO') {
+                if (h === 'MAÑANA') technicalLight = "6500K overcast daylight, 20,000 lux, soft diffused light, shadowless, neutral cool palette";
+                else if (h === 'TARDE') technicalLight = "7000K heavy clouds, 12,000 lux, moody flat lighting, high color saturation, cool blue tint";
+                else technicalLight = "6500K neutral overcast light";
+            } else if (c === 'LLUVIA') {
+                if (h === 'MAÑANA') technicalLight = "7500K rainy morning, 8,000 lux, desaturated, misty, wet pavement reflections, cold light";
+                else if (h === 'TARDE') technicalLight = "8000K stormy dusk, 4,000 lux, deep blue hour tones, dark moody, cinematic rain streaks";
+                else technicalLight = "7500K rainy ambient light";
+            } else if (h === 'NOCHE') {
+                technicalLight = "Night exterior, 5600K HMI key light on subject, high contrast, deep black background";
+            } else if (c === 'INDOOR') {
+                technicalLight = "Interior 3200K tungsten soft fill, 800 lux, low contrast, professional broadcast look";
+            } else {
+                technicalLight = "Balanced cinematic lighting, high fidelity";
             }
-            const ambientStr = `Time: ${extHorario}, Weather: ${extClima}${lightingDetails}`;
+
+            // Integración de la posición del sol con la iluminación técnica
+            const positionPrefix = (c === 'SOLEADO' && h !== 'NOCHE') ? `${extPosicionSol.toLowerCase()} with ` : "";
+            const tipoDeLuz = `${positionPrefix}${technicalLight}`;
+
+            const ambientPhysicsTag = `[AMBIENT_PHYSICS] Time: ${horarioPrompt}, ${weatherClause}Lighting Position: ${tipoDeLuz} on the subject, combined with flat, shadowless lighting exclusively on the green screen background.`.trim();
             
             // 3. Parámetros adicionales (Acción y Profundidad)
-            const accionNarrativa = extAccionEN || "Ara maintains a professional standing posture with no extra gestures.";
-            const depthOfField = "Shallow depth of field, sharp focus on subject";
+            const accionNarrativa = extAccionEN || "The anime-style avatar Ara maintains a professional standing posture with no extra gestures.";
+            const depthOfField = "Shallow depth of field, sharp focus on subject.";
+            const negativePrompt = "\nPrompt Negativo (Negative Prompt):\nbackground details, gradients, shadows on background, uneven lighting, camera movement, camera drift, text overlays, subtitles";
 
-            return `[PRIORIDAD_SISTEMA:ESCENARIO_RURAL_BONAERENSE] Absolute priority: This is a small, quiet town in the Argentine pampas (Saladillo). There are NO skyscrapers, NO high-rise buildings. [FIDELIDAD_CONTEXTUAL] Use ${bgImageName} as a rigid plate. [AMBIENT_PHYSICS] ${ambientStr}. [ANIMACIÓN_ESCENARIO_DINÁMICO] The background is dynamic with subtle ambient movement. Depth of Field: ${depthOfField}. [ACCIÓN_NARRATIVA] ${accionNarrativa}. [AUDIO_ARA_V2] Character says: "${guionCaps}". [CIERRE] Mouth closes 250ms. Static pose.`.trim();
+            return `[PRIORIDAD_SISTEMA:CHROMA_KEY] Absolute priority: The background is a solid green screen. [FIDELIDAD_CONTEXTUAL] Use ${bgImageName} as a rigid plate. ${ambientPhysicsTag} [ESCENARIO_ESTÁTICO] The background is completely static. Depth of Field: ${depthOfField} [ACCIÓN_NARRATIVA] ${accionNarrativa} [AUDIO_ARA_V2] Character says: "${guionCaps}" speaking with a clear Argentine Rioplatense accent (no subtitles). [CIERRE] Mouth closes 250ms. Static pose.${negativePrompt}`.trim();
         }
 
         if (aiEngine === 'GROK') {

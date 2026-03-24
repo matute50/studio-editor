@@ -44,6 +44,19 @@ export interface Article {
   body_voice_tuning?: string | null;
 }
 
+export interface ArticleCrudo {
+  id: string;
+  created_at: string;
+  title: string;
+  text: string;
+  image_url: string;
+  images_url: string[];
+  source_url: string;
+  source_name?: string;        // Nombre del medio de origen
+  scrape_errors?: string | null; // Errores de scraping (para debugging)
+  status: 'nuevo' | 'procesado' | 'eliminado';
+}
+
 export interface VideoAsset {
   id?: string;
   youtube_id: string;
