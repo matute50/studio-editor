@@ -25,7 +25,6 @@ const r2 = new S3Client({
     forcePathStyle: true
 });
 
-const APP_URL = 'https://saladillovivo-editor.vercel.app'; // URL para llamadas internas via HTTP
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UTILIDADES COMPARTIDAS
@@ -54,6 +53,13 @@ function htmlToCleanText(html: string): string {
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
         .replace(/<[^>]+>/g, '')
+        .replace(/&#8211;/g, '–')
+        .replace(/&#8212;/g, '—')
+        .replace(/&#8220;/g, '“')
+        .replace(/&#8221;/g, '”')
+        .replace(/&#8216;/g, '‘')
+        .replace(/&#8217;/g, '’')
+        .replace(/&#124;/g, '|')
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
@@ -68,11 +74,17 @@ function extractImagesFromHtml(html: string): string[] {
     const imgRegex = /<img[^>]+src=["']([^"'>\s]+)["']/gi;
     let m;
     while ((m = imgRegex.exec(html)) !== null) {
-        if (m[1] && !m[1].includes('avatar') && !m[1].includes('logo') && !m[1].includes('s.w.org')) {
+        if (m[1] && !m[1].includes('avatar') && !m[1].includes('logo') && !m[1].includes('s.w.org') && !m[1].includes('pixel')) {
             found.add(m[1]);
         }
     }
     return Array.from(found);
+}
+
+function extractMediaImage(itemXml: string): string {
+    // Buscar media:content url="..." o enclosure url="..."
+    const m = itemXml.match(/<(?:media:content|enclosure)[^>]+url=["']([^"'>\s]+)["']/i);
+    return m ? m[1].trim() : '';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,15 +125,17 @@ async function runScraping() {
 
                 if (!text || text.length < 50) { stats.skipped++; continue; }
 
-                const images = extractImagesFromHtml(content);
+                const mediaImg = extractMediaImage(itemXml);
+                const htmlImages = extractImagesFromHtml(content);
+                const allImages = Array.from(new Set([mediaImg, ...htmlImages].filter(Boolean)));
                 
                 results.push({
                     title: title.substring(0, 255),
                     text: text.substring(0, 5000),
                     source_url: link,
                     source_name: feed.name,
-                    image_url: images[0] || '',
-                    images_url: images.slice(0, 10),
+                    image_url: allImages[0] || '',
+                    images_url: allImages.slice(0, 10),
                     status: 'nuevo'
                 });
             }
@@ -145,15 +159,16 @@ async function runTransformation(ids?: number[]) {
     const query = supabase.from('articles_crudos').select('*').eq('status', 'nuevo');
     if (ids && ids.length > 0) query.in('id', ids);
     
-    const { data: raws, error } = await query;
+    const { data: raws, error } = await query.limit(10);
     if (error || !raws) return { count: 0, error: error?.message };
 
     let processed = 0;
     for (const raw of raws) {
-        const slug = raw.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 80);
+        const cleanTitle = htmlToCleanText(raw.title);
+        const slug = cleanTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 80);
         
         const { error: insErr } = await supabase.from('articles').insert([{
-            title: raw.title,
+            title: cleanTitle,
             text: raw.text,
             image_url: raw.image_url,
             images_urls: raw.images_url,
@@ -177,7 +192,7 @@ async function runTransformation(ids?: number[]) {
 // FASE 3: RESUMEN IA
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runResumen(ids?: number[]) {
+async function runResumen(baseUrl: string, ids?: number[]) {
     console.log('[Pipeline] F3: Resumen IA...');
     const query = supabase.from('articles').select('id, title, text').is('super_resumen', null);
     if (ids && ids.length > 0) query.in('id', ids);
@@ -189,7 +204,7 @@ async function runResumen(ids?: number[]) {
     for (const art of articles) {
         try {
             const prompt = `Sos Ara, presentadora de noticias. Resumí esto en 4 oraciones cortas e impactantes. Usá voseo rioplatense profesional. Noticia: ${art.title}. ${art.text.substring(0, 2000)}`;
-            const aiRes = await fetch(`${APP_URL}/api/ai-proxy?provider=gemini`, {
+            const aiRes = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -294,22 +309,33 @@ async function runSlide(ids?: number[]) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     const action = (req.query.action || req.body?.action || 'full').toString();
+    const secret = req.query.secret || req.body?.secret;
     const ids = req.body?.ids || [];
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers.host;
+    const currentUrl = `${protocol}://${host}`;
+
+    // Validación de seguridad básica
+    if (secret !== 'sv-cron-2024' && process.env.NODE_ENV === 'production') {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     try {
         if (action === 'scrape') return res.status(200).json(await runScraping());
         if (action === 'transform') return res.status(200).json(await runTransformation(ids));
-        if (action === 'resumen') return res.status(200).json(await runResumen(ids));
+        if (action === 'resumen') return res.status(200).json(await runResumen(currentUrl, ids));
         if (action === 'audio') return res.status(200).json(await runAudio(ids));
         if (action === 'slide') return res.status(200).json(await runSlide(ids));
         
         if (action === 'full') {
             const scrape = await runScraping();
             const transform = await runTransformation();
-            const resumen = await runResumen();
-            const audio = await runAudio();
-            const slide = await runSlide();
-            return res.status(200).json({ success: true, steps: { scrape, transform, resumen, audio, slide } });
+            const resumen = await runResumen(currentUrl);
+            
+            return res.status(200).json({ 
+                success: true, 
+                steps: { scrape, transform, resumen } 
+            });
         }
 
         return res.status(400).json({ error: 'Invalid action' });
