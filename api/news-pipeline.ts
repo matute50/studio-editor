@@ -204,14 +204,23 @@ async function runTransformation(ids?: number[]) {
     for (const raw of raws) {
         const cleanTitle = htmlToCleanText(raw.title);
         const slug = cleanTitle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').substring(0, 80);
-        
+        const finalSlug = `${slug}-${Date.now().toString().slice(-4)}`;
+
+        // Evitar duplicados: verificar si ya existe un artículo con título idéntico
+        const { data: existing } = await supabase.from('articles').select('id').eq('title', cleanTitle).maybeSingle();
+        if (existing) {
+            console.log(`[F2] Skipping duplicate: ${cleanTitle.substring(0, 40)}`);
+            await supabase.from('articles_crudos').update({ status: 'procesado' }).eq('id', raw.id);
+            continue;
+        }
+
         const { error: insErr } = await supabase.from('articles').insert([{
             title: cleanTitle,
             text: raw.text,
             image_url: raw.image_url,
             images_urls: raw.images_url,
             published_at: new Date().toISOString(),
-            slug: `${slug}-${Date.now().toString().slice(-4)}`,
+            slug: finalSlug,
             status: 'draft'
         }]);
 
@@ -387,15 +396,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const scrape = await runScraping();
             const transform = await runTransformation();
             const resumen = await runResumen(currentUrl);
+            const audio = await runAudio();
+            const slide = await runSlide();
             
             return res.status(200).json({ 
                 success: true, 
-                steps: { scrape, transform, resumen } 
+                steps: { scrape, transform, resumen, audio, slide } 
             });
         }
 
-        return res.status(400).json({ error: 'Invalid action' });
-    } catch (err: any) {
-        return res.status(500).json({ error: err.message });
+        return res.status(400).json({ error: 'Unknown action' });
+    } catch (e: any) {
+        console.error('[Pipeline] Fatal error:', e.message);
+        return res.status(500).json({ error: e.message });
     }
 }
