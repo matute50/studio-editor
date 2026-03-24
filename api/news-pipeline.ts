@@ -240,7 +240,7 @@ async function runTransformation(ids?: number[]) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runResumen(baseUrl: string, ids?: number[]) {
-    console.log('[Pipeline] F3: Resumen IA...');
+    console.log('[Pipeline] F3: IA (Redacción, Resumen Ara, Optimización Guion)...');
     const query = supabase.from('articles').select('id, title, text').is('super_resumen', null);
     if (ids && ids.length > 0) query.in('id', ids);
     
@@ -250,22 +250,64 @@ async function runResumen(baseUrl: string, ids?: number[]) {
     let processed = 0;
     for (const art of articles) {
         try {
-            const prompt = `Sos Ara, presentadora de noticias. Resumí esto en 4 oraciones cortas e impactantes. Usá voseo rioplatense profesional. Noticia: ${art.title}. ${art.text.substring(0, 2000)}`;
-            const aiRes = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt,
-                    system: "Sos Ara, la IA de Saladillo Vivo."
-                })
-            });
+            console.log(`[F3] Procesando artículo ${art.id}...`);
 
-            const data = await aiRes.json();
-            if (data?.text) {
-                await supabase.from('articles').update({ super_resumen: data.text }).eq('id', art.id);
-                processed++;
+            // 1) REDACCIÓN PROFESIONAL
+            const promptProf = `Reescribe de forma profesional esta información: ${art.title} ${art.text.substring(0, 3000)}.\n\nREGLA ESTRICTA DE FORMATO:\nEmpieza tu respuesta con [TITULO_SLIDE], luego el título. Después [TEXTO_LECTURA] y luego el texto. NO uses [TÍTULO_SLIDE] con tilde.`;
+            const resProf = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: promptProf })
+            }).then(r => r.json());
+
+            let finalTitle = art.title;
+            let finalBody = art.text;
+            if (resProf?.text) {
+                const cleanResponse = resProf.text.replace(/\*\*/g, '').replace(/\[TÍTULO_SLIDE\]/gi, '[TITULO_SLIDE]').replace(/\[TEXTO LECTURA\]/gi, '[TEXTO_LECTURA]');
+                const titleMatch = cleanResponse.match(/\[TITULO_SLIDE\]\s*([\s\S]*?)\s*\[TEXTO_LECTURA\]/i);
+                const bodyMatch = cleanResponse.match(/\[TEXTO_LECTURA\]\s*([\s\S]*)/i);
+                if (titleMatch) finalTitle = titleMatch[1].trim().replace(/^#+\s*/, '');
+                if (bodyMatch) finalBody = bodyMatch[1].trim();
             }
-        } catch (e:any) { console.error(`Error resumen ${art.id}:`, e.message); }
+
+            // 2) SÚPER RESUMEN ESTILO ARA
+            const REGLA_DE_ORO = `ROL: SENIOR NEWS EDITOR (ESTABILIDAD ANTIBALBUCEO). REGLAS: 1. SHEÍSMO (SSH): LL/Y -> SSH. 2. ORTOGRAFÍA LIMPIA: NO DOBLES LETRAS (VISITÁNOS), NO "H" PARA ASPIRAR (ESTAS), -CIÓN ESTÁNDAR. 3. VOSEO AGUDO: FORZAR TILDES. 4. MAYÚSCULAS: TODO EN MAYÚSCULAS. 5. CTA OBLIGATORIO: LA 4TA ORACIÓN TERMINA CON AUTORIDAD.`;
+            const promptResumen = `ACTUÁ COMO UN EDITOR DE NOTICIAS SENIOR DE SALADILLO VIVO. GENERA UN SÚPER RESUMEN "ESTILO ARA" SIGUIENDO ESTAS REGLAS DE ORO:\n\n${REGLA_DE_ORO}\n\nREGLAS OBLIGATORIAS:\n1. EXACTAMENTE 4 ORACIONES EN MAYÚSCULAS.\n2. MÉTRICA POR ORACIÓN: \n   - ORACIÓN 1: 18 A 21 PALABRAS. EMPIEZA CON ANCLA PROFESIONAL (COMO VOS SABÉS / TE CUENTO / FIJATE).\n   - ORACIONES 2 Y 3: 15 A 18 PALABRAS CADA UNA. TONO AUTORITARIO.\n   - ORACIÓN 4: 15 A 18 PALABRAS. TERMINA CON CTA (VISITÁ NUESTRA WEB / ENTRÁ A NUESTRO SITIO / ENTERÁTE DE TODO).\n3. PROHIBIDO: "VISTE", "CHE", "PIBE", "HOY", "AYER", "MAÑANA".\n4. FONÉTICA: LL/Y -> SSH. MANTENÉ ORTOGRAFÍA LIMPIA Y MAYÚSCULAS.\n\nNOTICIA COMPLETA:\n${finalBody.substring(0, 3000)}`;
+            const systemResumen = `ERES UN SENIOR NEWS EDITOR DE TELEVISIÓN. ${REGLA_DE_ORO} GENERA EXACTAMENTE 4 ORACIONES EN MAYÚSCULAS CON MÉTRICAS 21/18/18/18 Y CTA OBLIGATORIO.`;
+
+            const resAra = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: promptResumen, system: systemResumen, temperature: 0.3 })
+            }).then(r => r.json());
+
+            let superResumen = resAra?.text ? resAra.text.replace(/\[.*?\]/gi, '').trim().toUpperCase() : '';
+
+            // 3) OPTIMIZAR GUION (para Audio)
+            if (superResumen) {
+                const systemOpt = "Eres un experto guionista de radio y locución periodística. Tu tarea es adaptar el texto para ser leído en voz alta en un noticiero. DEBES MANTENER LA FORMALIDAD PERIODÍSTICA. PROHIBIDO usar modismos informales (ej. 'che'). NO agregues títulos ni metadatos. Solo devuelve el texto optimizado para lectura.";
+                const promptOpt = `Optimiza la puntuación y redacción de este texto para una lectura periodística fluida en Google TTS Argentina.\n  Mantenelo estrictamente formal, serio y neutro.\nCreatividad: 10/10. \n  Instrucción adicional del director: ERES UN EXPERTO GUIONISTA DE TV RIO PLATENSE. \n  Texto original: "${superResumen}"`;
+
+                const resOpt = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: promptOpt, system: systemOpt, temperature: 0.3 })
+                }).then(r => r.json());
+
+                if (resOpt?.text) {
+                    superResumen = resOpt.text.trim();
+                }
+            } else {
+                superResumen = "Error al generar el resumen de Ara.";
+            }
+
+            // 4) ACTUALIZACIÓN FINAL EN DB
+            await supabase.from('articles').update({
+                title: finalTitle.substring(0, 255),
+                text: finalBody,
+                super_resumen: superResumen,
+                body_voice_tuning: superResumen
+            }).eq('id', art.id);
+
+            processed++;
+        } catch (e:any) { console.error(`[F3] Error resumen IA ${art.id}:`, e.message); }
     }
     return { count: processed };
 }
