@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import axios from 'axios';
 import crypto from 'crypto';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +92,10 @@ async function runScraping() {
 
     for (const feed of FEEDS) {
         try {
-            const { data: xml } = await axios.get(feed.url, { timeout: 15000 });
+            const xmlRes = await fetch(feed.url);
+            if (!xmlRes.ok) throw new Error(`HTTP ${xmlRes.status}`);
+            const xml = await xmlRes.text();
+
             const itemRegex = /<item[\s>][\s\S]*?<\/item>/gi;
             const items = xml.match(itemRegex) || [];
 
@@ -187,13 +189,18 @@ async function runResumen(ids?: number[]) {
     for (const art of articles) {
         try {
             const prompt = `Sos Ara, presentadora de noticias. Resumí esto en 4 oraciones cortas e impactantes. Usá voseo rioplatense profesional. Noticia: ${art.title}. ${art.text.substring(0, 2000)}`;
-            const aiRes = await axios.post(`${APP_URL}/api/ai-proxy?provider=gemini`, {
-                prompt,
-                system: "Sos Ara, la IA de Saladillo Vivo."
+            const aiRes = await fetch(`${APP_URL}/api/ai-proxy?provider=gemini`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt,
+                    system: "Sos Ara, la IA de Saladillo Vivo."
+                })
             });
 
-            if (aiRes.data?.text) {
-                await supabase.from('articles').update({ super_resumen: aiRes.data.text }).eq('id', art.id);
+            const data = await aiRes.json();
+            if (data?.text) {
+                await supabase.from('articles').update({ super_resumen: data.text }).eq('id', art.id);
                 processed++;
             }
         } catch (e:any) { console.error(`Error resumen ${art.id}:`, e.message); }
@@ -219,16 +226,21 @@ async function runAudio(ids?: number[]) {
     for (const art of articles) {
         try {
             const ssml = `<speak xml:lang='es-US'><prosody rate='1.05'>${art.super_resumen}</prosody></speak>`;
-            const ttsRes = await axios.post(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${ttsKey}`, {
-                input: { ssml },
-                voice: { languageCode: 'es-US', name: 'es-US-Chirp3-HD-Aoede' },
-                audioConfig: { audioEncoding: 'MP3' }
+            const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${ttsKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: { ssml },
+                    voice: { languageCode: 'es-US', name: 'es-US-Chirp3-HD-Aoede' },
+                    audioConfig: { audioEncoding: 'MP3' }
+                })
             });
 
-            if (ttsRes.data.audioContent) {
+            const data = await ttsRes.json();
+            if (data.audioContent) {
                 const fileName = `tts_cache_${crypto.createHash('sha256').update(ssml).digest('hex')}.mp3`;
                 await r2.send(new PutObjectCommand({
-                    Bucket: R2_BUCKET_NAME, Key: `audios_Ara/${fileName}`, Body: Buffer.from(ttsRes.data.audioContent, 'base64'), ContentType: 'audio/mpeg'
+                    Bucket: R2_BUCKET_NAME, Key: `audios_Ara/${fileName}`, Body: Buffer.from(data.audioContent, 'base64'), ContentType: 'audio/mpeg'
                 }));
                 const audioUrl = `${R2_PUBLIC_BASE}/audios_Ara/${fileName}`;
                 await supabase.from('articles').update({ audio_url: audioUrl, audio_status: 'ready' }).eq('id', art.id);
