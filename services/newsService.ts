@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import { Article } from '../types';
 
+const API_SECRET = 'sv-cron-2024';
+
 export const newsService = {
     /**
      * Obtiene todos los artículos optimizados para el Dashboard.
@@ -109,11 +111,33 @@ export const newsService = {
      */
     async runManualScraping() {
         try {
-            const response = await fetch('/api/scrape-news', { method: 'POST' });
+            const response = await fetch('/api/scrape-news', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: API_SECRET })
+            });
             if (!response.ok) throw new Error('Falló el scraper');
             return await response.json();
         } catch (err) {
             console.error("Error in manual scraping:", err);
+            throw err;
+        }
+    },
+
+    /**
+     * Limpia la tabla de artículos crudos.
+     */
+    async clearRawArticles() {
+        try {
+            const response = await fetch('/api/news-pipeline?action=truncate', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: API_SECRET })
+            });
+            if (!response.ok) throw new Error('Falló el truncado');
+            return await response.json();
+        } catch (err) {
+            console.error("Error truncating raw articles:", err);
             throw err;
         }
     },
@@ -127,7 +151,7 @@ export const newsService = {
             const response = await fetch('/api/transform-articles', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [id] })
+                body: JSON.stringify({ ids: [id], secret: API_SECRET })
             });
             if (!response.ok) throw new Error('Falló la transformación');
             return await response.json();
@@ -143,7 +167,11 @@ export const newsService = {
      */
     async transformAllRawArticles() {
         try {
-            const response = await fetch('/api/transform-articles', { method: 'GET' });
+            const response = await fetch('/api/transform-articles', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: API_SECRET })
+            });
             if (!response.ok) throw new Error('Falló la transformación masiva');
             return await response.json();
         } catch (err) {
@@ -176,7 +204,7 @@ export const newsService = {
             const response = await fetch('/api/generate-resumen', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [id] })
+                body: JSON.stringify({ ids: [id], secret: API_SECRET })
             });
             if (!response.ok) throw new Error('Falló la generación de resumen');
             return await response.json();
@@ -191,7 +219,11 @@ export const newsService = {
      */
     async generateAllResumenes() {
         try {
-            const response = await fetch('/api/generate-resumen', { method: 'GET' });
+            const response = await fetch('/api/generate-resumen', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: API_SECRET })
+            });
             if (!response.ok) throw new Error('Falló la generación masiva de resúmenes');
             return await response.json();
         } catch (err) {
@@ -209,7 +241,7 @@ export const newsService = {
             const response = await fetch('/api/generate-audio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [id] })
+                body: JSON.stringify({ ids: [id], secret: API_SECRET })
             });
             if (!response.ok) throw new Error('Falló la generación de audio');
             return await response.json();
@@ -224,7 +256,11 @@ export const newsService = {
      */
     async generateAllAudios() {
         try {
-            const response = await fetch('/api/generate-audio', { method: 'GET' });
+            const response = await fetch('/api/generate-audio', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: API_SECRET })
+            });
             if (!response.ok) throw new Error('Falló la generación masiva de audios');
             return await response.json();
         } catch (err) {
@@ -241,7 +277,7 @@ export const newsService = {
             const response = await fetch('/api/generate-slide', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [id] })
+                body: JSON.stringify({ ids: [id], secret: API_SECRET })
             });
             if (!response.ok) throw new Error('Falló la generación del slide');
             return await response.json();
@@ -256,7 +292,11 @@ export const newsService = {
      */
     async generateAllSlides() {
         try {
-            const response = await fetch('/api/generate-slide', { method: 'GET' });
+            const response = await fetch('/api/generate-slide', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: API_SECRET })
+            });
             if (!response.ok) throw new Error('Falló la generación masiva de slides');
             return await response.json();
         } catch (err) {
