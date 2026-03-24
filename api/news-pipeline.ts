@@ -196,7 +196,8 @@ async function runTransformation(ids?: number[]) {
     const query = supabase.from('articles_crudos').select('*').eq('status', 'nuevo');
     if (ids && ids.length > 0) query.in('id', ids);
     
-    const { data: raws, error } = await query.limit(10);
+    // sharp resizing puede tomar 1-2s por foto, procesar 4 a la vez
+    const { data: raws, error } = await query.limit(4);
     if (error || !raws) return { count: 0, error: error?.message };
 
     let processed = 0;
@@ -281,7 +282,8 @@ async function runResumen(baseUrl: string, ids?: number[]) {
     const query = supabase.from('articles').select('id, title, text').is('super_resumen', null);
     if (ids && ids.length > 0) query.in('id', ids);
     
-    const { data: articles, error } = await query.order('created_at', { ascending: false }).limit(5);
+    // 3 llamadas a Gemini por artículo = ~9 segundos. Límite: 2 artículos (18s).
+    const { data: articles, error } = await query.order('created_at', { ascending: false }).limit(2);
     if (error || !articles) return { count: 0, error: error?.message };
 
     let processed = 0;
@@ -358,7 +360,8 @@ async function runAudio(ids?: number[]) {
     const query = supabase.from('articles').select('id, super_resumen').is('audio_url', null).not('super_resumen', 'is', null);
     if (ids && ids.length > 0) query.in('id', ids);
 
-    const { data: articles, error } = await query.limit(5);
+    // TTS HD toma unos 3-5 secs. Límite: 3 artículos.
+    const { data: articles, error } = await query.limit(3);
     if (error || !articles) return { count: 0, error: error?.message };
 
     let processed = 0;
