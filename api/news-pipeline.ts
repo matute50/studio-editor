@@ -107,9 +107,11 @@ async function runScraping() {
             const xmlRes = await fetch(feed.url);
             if (!xmlRes.ok) throw new Error(`HTTP ${xmlRes.status}`);
             const xml = await xmlRes.text();
+            console.log(`[RSS] Feed ${feed.name}: received ${xml.length} bytes`);
 
             const itemRegex = /<item[\s>][\s\S]*?<\/item>/gi;
             const items = xml.match(itemRegex) || [];
+            console.log(`[RSS] Feed ${feed.name}: found ${items.length} items`);
 
             for (const itemXml of items) {
                 const title = htmlToCleanText(extractTag(itemXml, 'title'));
