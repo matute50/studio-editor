@@ -1,34 +1,31 @@
 {
-    "rewrites": [
-        {
-            "source": "/(.*/api/.*)",
-            "destination": "/api/$1"
-        },
-        {
-            "source": "/(.*)",
-            "destination": "/index.html"
-        }
-    ],
-    "functions": {
-        "api/cron-pipeline.ts": { "maxDuration": 300 },
-        "api/scrape-news.ts": { "maxDuration": 60 },
-        "api/transform-articles.ts": { "maxDuration": 60 },
-        "api/generate-resumen.ts": { "maxDuration": 120 },
-        "api/generate-audio.ts": { "maxDuration": 120 },
-        "api/generate-slide.ts": { "maxDuration": 120 }
-    },
-    "crons": [
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 10 * * *" },
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "30 11 * * *" },
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 13 * * *" },
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 14 * * *" },
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "30 15 * * *" },
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 19 * * *" },
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 22 * * *" },
-        { "path": "/api/scrape-news?secret=sv-cron-2024", "schedule": "0 1 * * *" },
-        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 12 * * *" },
-        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 16 * * *" },
-        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 20 * * *" },
-        { "path": "/api/cron-pipeline?secret=sv-cron-2024", "schedule": "0 23 * * *" }
-    ]
+  "version": 2,
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/gemini-proxy", "destination": "/api/ai-proxy?provider=gemini" },
+    { "source": "/api/claude-proxy", "destination": "/api/ai-proxy?provider=claude" },
+    { "source": "/api/list-audios", "destination": "/api/audio-management" },
+    { "source": "/api/save-audio", "destination": "/api/audio-management" },
+    { "source": "/api/delete-audio", "destination": "/api/audio-management" },
+    { "source": "/api/list-backgrounds", "destination": "/api/admin-utils?action=list-backgrounds" },
+    { "source": "/api/vestuario-paths", "destination": "/api/admin-utils?action=vestuario-paths" },
+    { "source": "/api/cambiar-vestuario", "destination": "/api/admin-utils?action=cambiar-vestuario" },
+    { "source": "/api/save-noticias", "destination": "/api/admin-utils?action=save-noticias" },
+    { "source": "/api/abrir-carpeta", "destination": "/api/admin-utils?action=abrir-carpeta" },
+    { "source": "/api/scrape-news", "destination": "/api/news-pipeline?action=scrape" },
+    { "source": "/api/transform-articles", "destination": "/api/news-pipeline?action=transform" },
+    { "source": "/api/generate-resumen", "destination": "/api/news-pipeline?action=resumen" },
+    { "source": "/api/generate-audio", "destination": "/api/news-pipeline?action=audio" },
+    { "source": "/api/generate-slide", "destination": "/api/news-pipeline?action=slide" }
+  ],
+  "crons": [
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 10 * * *" },
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 13 * * *" },
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 16 * * *" },
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 18 * * *" },
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 21 * * *" },
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 23 * * *" },
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 1 * * *" },
+    { "path": "/api/news-pipeline?action=full", "schedule": "0 3 * * *" }
+  ]
 }

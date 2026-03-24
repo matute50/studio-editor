@@ -43,7 +43,7 @@ Ejemplo: OPCIÓN 1 ||| OPCIÓN 2 ||| OPCIÓN 3`;
 
 export async function improveScriptWithGemini(rawNews: string, mood: string, instructions?: string): Promise<string[]> {
     try {
-        const response = await fetch('/api/gemini-proxy', {
+        const response = await fetch('/api/ai-proxy?provider=gemini', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -135,7 +135,7 @@ export interface SocialContent {
 
 export async function generateSocialContentWithGemini(script: string, mood: string): Promise<SocialContent> {
     try {
-        const response = await fetch('/api/gemini-proxy', {
+        const response = await fetch('/api/ai-proxy?provider=gemini', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

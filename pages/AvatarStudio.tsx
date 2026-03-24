@@ -625,7 +625,7 @@ export function AvatarStudio() {
             if (lastUpdate !== today) {
                 console.log(`[Vestuario] Iniciando rotación diaria para: ${workingMode}`);
                 try {
-                    const res = await fetch('/api/cambiar-vestuario', {
+                    const res = await fetch('/api/admin-utils?action=cambiar-vestuario', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ location: workingMode === 'estudio' ? 'estudio' : 'exteriores' })
@@ -686,7 +686,7 @@ export function AvatarStudio() {
 
     const fetchAudios = async () => {
         try {
-            const res = await fetch('/api/list-audios');
+            const res = await fetch('/api/audio-management');
             if (res.ok) {
                 const data = await res.json();
                 if (data.audios) {
@@ -845,7 +845,7 @@ export function AvatarStudio() {
     const fetchBackgrounds = async (folder: string) => {
         try {
             setBgFolderPath(folder);
-            const res = await fetch(`/api/list-backgrounds?folder=${encodeURIComponent(folder)}`);
+            const res = await fetch(`/api/admin-utils?action=list-backgrounds&folder=${encodeURIComponent(folder)}`);
             if (res.ok) {
                 const data = await res.json();
                 setBgList(data.backgrounds);
@@ -1063,7 +1063,7 @@ export function AvatarStudio() {
 
     const eliminarAudio = async (fileName: string) => {
         try {
-            const res = await fetch(`/api/delete-audio?fileName=${encodeURIComponent(fileName)}`, {
+            const res = await fetch(`/api/audio-management?fileName=${encodeURIComponent(fileName)}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
