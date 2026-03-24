@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Article } from '../types';
+import { Article, ArticleCrudo } from '../types';
 
 const API_SECRET = 'sv-cron-2024';
 
@@ -102,6 +102,24 @@ export const newsService = {
             return true;
         } catch (err) {
             console.error("Error updating raw article status:", err);
+            return false;
+        }
+    },
+
+    /**
+     * Actualiza cualquier campo de una noticia cruda.
+     */
+    async updateRawArticle(id: string, updates: Partial<ArticleCrudo>) {
+        try {
+            const { error } = await supabase
+                .from('articles_crudos')
+                .update(updates)
+                .eq('id', id);
+
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error(`Error updating raw article ${id}:`, err);
             return false;
         }
     },

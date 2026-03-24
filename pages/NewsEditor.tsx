@@ -28,7 +28,8 @@ import {
   Zap,
   Rocket,
   CheckCircle2,
-  XCircle
+  XCircle,
+  X
 } from 'lucide-react';
 
 export const NewsEditor: React.FC = () => {
@@ -194,6 +195,37 @@ export const NewsEditor: React.FC = () => {
       setSuccessMsg("Noticia descartada.");
       setTimeout(() => setSuccessMsg(null), 3000);
     }
+  };
+ 
+  const handleSwapRawImage = async (raw: ArticleCrudo, newUrl: string) => {
+    const oldPrimary = raw.image_url;
+    const newGallery = raw.images_url.map(url => url === newUrl ? oldPrimary : url);
+    
+    await newsService.updateRawArticle(raw.id, {
+        image_url: newUrl,
+        images_url: newGallery
+    });
+    fetchRawArticles();
+  };
+
+  const handleRemoveRawImage = async (raw: ArticleCrudo, urlToRemove: string, isPrimary: boolean) => {
+    let updates: Partial<ArticleCrudo> = {};
+    
+    if (isPrimary) {
+        // Si hay mas imagenes en galeria, la primera pasa a ser principal
+        if (raw.images_url.length > 0) {
+            const newPrimary = raw.images_url[0];
+            const newGallery = raw.images_url.slice(1);
+            updates = { image_url: newPrimary, images_url: newGallery };
+        } else {
+            updates = { image_url: '' };
+        }
+    } else {
+        updates = { images_url: raw.images_url.filter(u => u !== urlToRemove) };
+    }
+
+    await newsService.updateRawArticle(raw.id, updates);
+    fetchRawArticles();
   };
 
   const handleProfessionalRewrite = async () => {
@@ -585,9 +617,18 @@ export const NewsEditor: React.FC = () => {
               ) : (
                 rawArticles.map((raw) => (
                   <div key={raw.id} className="group relative bg-white border border-slate-100 rounded-2xl p-4 flex gap-4 hover:border-amber-200 transition-all border-l-4 border-l-amber-400">
-                    <div className="w-24 h-24 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white shadow-lg shrink-0 transition-transform group-hover:scale-110">
+                    <div className="w-24 h-24 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white shadow-lg shrink-0 transition-transform group-hover:scale-110 relative">
                       {raw.image_url ? (
-                        <img src={raw.image_url} className="w-full h-full object-cover" alt="Thumb" />
+                        <>
+                          <img src={raw.image_url} className="w-full h-full object-cover" alt="Thumb" />
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleRemoveRawImage(raw, raw.image_url, true); }}
+                            className="absolute top-1 right-1 w-5 h-5 bg-black/80 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                            title="Eliminar imagen principal"
+                          >
+                            <X size={12} />
+                          </button>
+                        </>
                       ) : (
                         <Globe size={24} className="text-slate-200" />
                       )}
@@ -608,12 +649,21 @@ export const NewsEditor: React.FC = () => {
                         {raw.images_url && raw.images_url.length > 0 && (
                           <div className="flex gap-2.5 overflow-x-auto pb-4 scrollbar-hide">
                             {raw.images_url.map((img: string, idx: number) => (
-                              <img 
-                                key={idx} 
-                                src={img} 
-                                alt={`Gallery ${idx}`} 
-                                className="w-12 h-12 shrink-0 rounded-lg border-2 border-white object-cover shadow-sm transition-all hover:scale-110 hover:shadow-md cursor-zoom-in"
-                              />
+                              <div key={idx} className="relative group/img shrink-0">
+                                <img 
+                                  src={img} 
+                                  alt={`Gallery ${idx}`} 
+                                  onClick={() => handleSwapRawImage(raw, img)}
+                                  className="w-12 h-12 rounded-lg border-2 border-white object-cover shadow-sm transition-all hover:scale-110 hover:shadow-md cursor-pointer"
+                                  title="Click para usar como imagen principal"
+                                />
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleRemoveRawImage(raw, img, false); }}
+                                  className="absolute -top-1 -right-1 w-4 h-4 bg-black text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-10 sm:opacity-0 group-hover/img:opacity-100"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </div>
                             ))}
                           </div>
                         )}
