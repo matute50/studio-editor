@@ -284,7 +284,7 @@ async function runAudio(ids?: number[]) {
 
     let processed = 0;
     let errorMsg: string | undefined;
-    const ttsKey = process.env.GOOGLE_TTS_API_KEY;
+    const ttsKey = process.env.GOOGLE_TTS_API_KEY || process.env.VITE_GOOGLE_TTS_API_KEY;
 
     if (!ttsKey) return { count: 0, error: 'Google TTS Key missing' };
 
