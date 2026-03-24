@@ -211,7 +211,6 @@ async function runTransformation(ids?: number[]) {
             image_url: raw.image_url,
             images_urls: raw.images_url,
             published_at: new Date().toISOString(),
-            source_url: raw.source_url,
             slug: `${slug}-${Date.now().toString().slice(-4)}`,
             status: 'draft'
         }]);
