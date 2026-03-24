@@ -201,18 +201,23 @@ export const NewsEditor: React.FC = () => {
     const oldPrimary = raw.image_url;
     const newGallery = raw.images_url.map(url => url === newUrl ? oldPrimary : url);
     
+    // Actualización optimista para evitar saltos/re-renders del servidor
+    setRawArticles(prev => prev.map(item => 
+      item.id === raw.id 
+        ? { ...item, image_url: newUrl, images_url: newGallery } 
+        : item
+    ));
+
     await newsService.updateRawArticle(raw.id, {
         image_url: newUrl,
         images_url: newGallery
     });
-    fetchRawArticles();
   };
 
   const handleRemoveRawImage = async (raw: ArticleCrudo, urlToRemove: string, isPrimary: boolean) => {
     let updates: Partial<ArticleCrudo> = {};
     
     if (isPrimary) {
-        // Si hay mas imagenes en galeria, la primera pasa a ser principal
         if (raw.images_url.length > 0) {
             const newPrimary = raw.images_url[0];
             const newGallery = raw.images_url.slice(1);
@@ -224,8 +229,14 @@ export const NewsEditor: React.FC = () => {
         updates = { images_url: raw.images_url.filter(u => u !== urlToRemove) };
     }
 
+    // Actualización optimista
+    setRawArticles(prev => prev.map(item => 
+      item.id === raw.id 
+        ? { ...item, ...updates } 
+        : item
+    ));
+
     await newsService.updateRawArticle(raw.id, updates);
-    fetchRawArticles();
   };
 
   const handleProfessionalRewrite = async () => {
@@ -653,7 +664,7 @@ export const NewsEditor: React.FC = () => {
                                 <img 
                                   src={img} 
                                   alt={`Gallery ${idx}`} 
-                                  onClick={() => handleSwapRawImage(raw, img)}
+                                  onClick={(e) => { e.stopPropagation(); handleSwapRawImage(raw, img); }}
                                   className="w-12 h-12 rounded-lg border-2 border-white object-cover shadow-sm transition-all hover:scale-110 hover:shadow-md cursor-pointer"
                                   title="Click para usar como imagen principal"
                                 />
