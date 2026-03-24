@@ -27,5 +27,13 @@
     { "path": "/api/news-pipeline?action=full", "schedule": "0 23 * * *" },
     { "path": "/api/news-pipeline?action=full", "schedule": "0 1 * * *" },
     { "path": "/api/news-pipeline?action=full", "schedule": "0 3 * * *" }
-  ]
+  ],
+  "functions": {
+    "api/news-pipeline.ts": {
+      "maxDuration": 30
+    },
+    "api/ai-proxy.ts": {
+      "maxDuration": 30
+    }
+  }
 }

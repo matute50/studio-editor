@@ -97,6 +97,22 @@ const FEEDS = [
     { name: 'Info Saladillo', url: 'https://infosaladillo.com.ar/feed/' }
 ];
 
+async function fetchWithUA(url: string, timeout = 10000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (e) {
+        clearTimeout(id);
+        throw e;
+    }
+}
+
 async function runScraping() {
     console.log('[Pipeline] F1: Scraping RSS...');
     const results: any[] = [];
@@ -104,7 +120,8 @@ async function runScraping() {
 
     for (const feed of FEEDS) {
         try {
-            const xmlRes = await fetch(feed.url);
+            console.log(`[RSS] Fetching feed: ${feed.name}...`);
+            const xmlRes = await fetchWithUA(feed.url, feed.name.includes('Ahora') ? 20000 : 10000);
             if (!xmlRes.ok) throw new Error(`HTTP ${xmlRes.status}`);
             const xml = await xmlRes.text();
             console.log(`[RSS] Feed ${feed.name}: received ${xml.length} bytes`);
@@ -127,8 +144,25 @@ async function runScraping() {
 
                 if (!text || text.length < 50) { stats.skipped++; continue; }
 
-                const mediaImg = extractMediaImage(itemXml);
-                const htmlImages = extractImagesFromHtml(content);
+                let mediaImg = extractMediaImage(itemXml);
+                let htmlImages = extractImagesFromHtml(content);
+                
+                // Fallback: Si no hay imágenes en el RSS, intentamos scrapear la página
+                if (!mediaImg && htmlImages.length === 0) {
+                    try {
+                        console.log(`[RSS] No images for ${title}. Scraping page: ${link}...`);
+                        const pageRes = await fetchWithUA(link, 10000);
+                        if (pageRes.ok) {
+                            const html = await pageRes.text();
+                            const pageImages = extractImagesFromHtml(html);
+                            // Filtramos logos o iconos sospechosos (links cortos o con palabras clave)
+                            htmlImages = pageImages.filter(img => !img.includes('logo') && !img.includes('icon') && img.length > 30);
+                        }
+                    } catch (e) {
+                        console.error(`[Scraper] Error scraping page ${link}:`, e);
+                    }
+                }
+
                 const allImages = Array.from(new Set([mediaImg, ...htmlImages].filter(Boolean)));
                 
                 results.push({
