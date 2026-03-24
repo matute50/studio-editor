@@ -358,7 +358,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         if (action === 'truncate') {
-            const { error } = await supabase.from('articles_crudos').delete().neq('id', 0);
+            const { error } = await supabase.from('articles_crudos').delete().not('id', 'is', null);
             return res.status(200).json({ success: !error, error: error?.message });
         }
         if (action === 'scrape') return res.status(200).json(await runScraping());
