@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'crypto';
+import sharp from 'sharp';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURACIÓN GLOBAL
@@ -214,11 +215,47 @@ async function runTransformation(ids?: number[]) {
             continue;
         }
 
+        // Subir imágenes a 1080p y aplicar filtros profesionales (Brillo, Contraste, Saturación)
+        const processImageForVideo = async (url: string, index: number) => {
+            if (!url) return url;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return url;
+                const arrayBuffer = await res.arrayBuffer();
+                
+                // Brillo +5%, Saturación +10%
+                // Contraste +5%: linear(1.05, -(128 * 0.05)) -> linear(1.05, -6.4)
+                const processedBuffer = await sharp(Buffer.from(arrayBuffer))
+                    .resize(1920, 1080, { fit: 'cover', withoutEnlargement: false })
+                    .modulate({ brightness: 1.05, saturation: 1.1 })
+                    .linear(1.05, -6.4)
+                    .jpeg({ quality: 90 })
+                    .toBuffer();
+
+                const fileName = `hd_${raw.id}_${Date.now()}_${index}.jpg`;
+                await r2.send(new PutObjectCommand({ 
+                    Bucket: R2_BUCKET_NAME, 
+                    Key: `articles_hd/${fileName}`, 
+                    Body: processedBuffer, 
+                    ContentType: 'image/jpeg' 
+                }));
+                return `${CDN_URL}/articles_hd/${fileName}`;
+            } catch (e: any) {
+                console.error(`[F2] Error enhancing image:`, url, e.message);
+                return url; // fallback a la original si falla el procesamiento
+            }
+        };
+
+        const hdImageUrl = raw.image_url ? await processImageForVideo(raw.image_url, 0) : '';
+        const hdImagesUrls = raw.images_url && raw.images_url.length > 0 
+            ? await Promise.all(raw.images_url.map((img: string, i: number) => processImageForVideo(img, i + 1))) 
+            : [];
+
         const { error: insErr } = await supabase.from('articles').insert([{
             title: cleanTitle,
             text: raw.text,
-            image_url: raw.image_url,
-            images_urls: raw.images_url,
+            image_url: hdImageUrl,
+            images_urls: hdImagesUrls,
             published_at: new Date().toISOString(),
             slug: finalSlug,
             status: 'draft'
