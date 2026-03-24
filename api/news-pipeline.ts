@@ -284,13 +284,13 @@ async function runAudio(ids?: number[]) {
 
     let processed = 0;
     let errorMsg: string | undefined;
-    const ttsKey = process.env.GOOGLE_TTS_API_KEY || process.env.VITE_GOOGLE_TTS_API_KEY;
+    const ttsKey = (process.env.GOOGLE_TTS_API_KEY || process.env.VITE_GOOGLE_TTS_API_KEY || '').trim();
 
     if (!ttsKey) return { count: 0, error: 'Google TTS Key missing' };
 
     for (const art of articles) {
         try {
-            const ssml = `<speak xml:lang='es-US'><prosody rate='1.05'>${art.super_resumen}</prosody></speak>`;
+            const ssml = `<speak xml:lang='es-AR'><prosody rate='1.05' pitch='0.0st'>${art.super_resumen}</prosody></speak>`;
             const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${ttsKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
