@@ -274,7 +274,10 @@ async function runAudio(ids?: number[]) {
     if (error || !articles) return { count: 0, error: error?.message };
 
     let processed = 0;
+    let errorMsg: string | undefined;
     const ttsKey = process.env.GOOGLE_TTS_API_KEY;
+
+    if (!ttsKey) return { count: 0, error: 'Google TTS Key missing' };
 
     for (const art of articles) {
         try {
@@ -290,18 +293,23 @@ async function runAudio(ids?: number[]) {
             });
 
             const data = await ttsRes.json();
+            if (data.error) throw new Error(data.error.message || 'TTS Error');
             if (data.audioContent) {
                 const fileName = `tts_cache_${crypto.createHash('sha256').update(ssml).digest('hex')}.mp3`;
                 await r2.send(new PutObjectCommand({
                     Bucket: R2_BUCKET_NAME, Key: `audios_Ara/${fileName}`, Body: Buffer.from(data.audioContent, 'base64'), ContentType: 'audio/mpeg'
                 }));
                 const audioUrl = `${R2_PUBLIC_BASE}/audios_Ara/${fileName}`;
-                await supabase.from('articles').update({ audio_url: audioUrl, audio_status: 'ready' }).eq('id', art.id);
+                const { error: updErr } = await supabase.from('articles').update({ audio_url: audioUrl, audio_status: 'ready' }).eq('id', art.id);
+                if (updErr) throw updErr;
                 processed++;
             }
-        } catch (e:any) { console.error(`Error audio ${art.id}:`, e.message); }
+        } catch (e:any) { 
+            console.error(`Error audio ${art.id}:`, e.message);
+            if (!errorMsg) errorMsg = e.message;
+        }
     }
-    return { count: processed };
+    return { count: processed, error: errorMsg };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,6 +325,8 @@ async function runSlide(ids?: number[]) {
     if (error || !articles) return { count: 0, error: error?.message };
 
     let processed = 0;
+    let errorMsg: string | undefined;
+
     for (const art of articles) {
         try {
             const words = (art.super_resumen || '').split(/\s+/).length;
@@ -334,11 +344,15 @@ async function runSlide(ids?: number[]) {
             }));
             const slideUrl = `${CDN_URL}/slides/${fileName}`;
 
-            await supabase.from('articles').update({ url_slide: slideUrl, animation_duration: duration }).eq('id', art.id);
+            const { error: updErr } = await supabase.from('articles').update({ url_slide: slideUrl, animation_duration: duration }).eq('id', art.id);
+            if (updErr) throw updErr;
             processed++;
-        } catch (e:any) { console.error(`Error slide ${art.id}:`, e.message); }
+        } catch (e:any) { 
+            console.error(`Error slide ${art.id}:`, e.message); 
+            if (!errorMsg) errorMsg = e.message;
+        }
     }
-    return { count: processed };
+    return { count: processed, error: errorMsg };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
