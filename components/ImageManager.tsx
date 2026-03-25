@@ -13,6 +13,8 @@ interface ImageManagerProps {
     galleryImages: ImageSlot[];
     onAddFeatured: () => void;
     onAddGallery: () => void;
+    onEditFeatured: () => void;
+    onMakeFeatured: (index: number) => void;
     onEditGallery: (index: number) => void;
     onRemoveGallery: (id: string) => void;
 }
@@ -22,6 +24,8 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
     galleryImages,
     onAddFeatured,
     onAddGallery,
+    onEditFeatured,
+    onMakeFeatured,
     onEditGallery,
     onRemoveGallery
 }) => {
@@ -39,10 +43,23 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
                     {featuredImage ? (
                         <>
                             <img src={featuredImage.url} className="w-full h-full object-cover" alt="Preview" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-                                <span className="text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                                    <Edit size={14} /> Cambiar
-                                </span>
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-6 transition-all">
+                                <button 
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onEditFeatured(); }}
+                                    className="p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-500 hover:scale-110 flex flex-col items-center gap-2 transition-all shadow-xl"
+                                >
+                                    <Edit size={24} /> 
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Editar Filtros</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onAddFeatured(); }}
+                                    className="p-4 bg-slate-800 text-white rounded-xl hover:bg-slate-700 hover:scale-110 flex flex-col items-center gap-2 transition-all shadow-xl border border-slate-600"
+                                >
+                                    <ImageIconLucide size={24} /> 
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Cambiar Foto</span>
+                                </button>
                             </div>
                         </>
                     ) : (
@@ -74,21 +91,30 @@ export const ImageManager: React.FC<ImageManagerProps> = ({
                     {galleryImages.map((img, idx) => (
                         <div key={img.id} className="aspect-square bg-slate-100 rounded-xl overflow-hidden relative group border border-slate-200">
                             <img src={img.url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-all">
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-3 transition-all p-2">
                                 <button
                                     type="button"
-                                    onClick={() => onEditGallery(idx)}
-                                    className="p-1.5 bg-blue-600 text-white rounded-lg"
+                                    onClick={() => onMakeFeatured(idx)}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg flex gap-1.5 items-center text-[9px] font-black uppercase tracking-wider w-full justify-center hover:bg-green-500 shadow-md"
                                 >
-                                    <Edit size={12} />
+                                    <ImageIcon size={12} /> Destacar
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onRemoveGallery(img.id)}
-                                    className="p-1.5 bg-red-600 text-white rounded-lg"
-                                >
-                                    <X size={12} />
-                                </button>
+                                <div className="flex gap-2 w-full">
+                                    <button
+                                        type="button"
+                                        onClick={() => onEditGallery(idx)}
+                                        className="flex-1 py-1.5 bg-blue-600 text-white rounded-lg flex justify-center hover:bg-blue-500 shadow-md"
+                                    >
+                                        <Edit size={14} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => onRemoveGallery(img.id)}
+                                        className="flex-1 py-1.5 bg-red-600 text-white rounded-lg flex justify-center hover:bg-red-500 shadow-md"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))}

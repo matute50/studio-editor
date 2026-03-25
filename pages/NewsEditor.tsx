@@ -504,6 +504,21 @@ export const NewsEditor: React.FC = () => {
                 galleryImages={galleryImages}
                 onAddFeatured={() => setSourceSelector({ type: 'featured' })}
                 onAddGallery={() => setSourceSelector({ type: 'gallery' })}
+                onEditFeatured={() => {
+                  if (featuredImage?.url) setActiveEditor({ src: featuredImage.url, type: 'featured' });
+                }}
+                onMakeFeatured={(idx) => {
+                  const targetGallery = galleryImages[idx];
+                  if (featuredImage) {
+                    const newGallery = [...galleryImages];
+                    newGallery[idx] = featuredImage;
+                    setFeaturedImage(targetGallery);
+                    setGalleryImages(newGallery);
+                  } else {
+                    setFeaturedImage(targetGallery);
+                    setGalleryImages(prev => prev.filter((_, i) => i !== idx));
+                  }
+                }}
                 onEditGallery={(idx) => setActiveEditor({ src: galleryImages[idx].url, type: 'gallery', index: idx })}
                 onRemoveGallery={(id) => setGalleryImages(prev => prev.filter(item => item.id !== id))}
               />
