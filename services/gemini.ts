@@ -3,8 +3,8 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { pcmToWav } from './audioProcessor';
 
-const MODEL_ID = 'gemini-1.5-flash';
-const FAST_MODEL_ID = 'gemini-1.5-flash'; // El modelo 2.0-flash está danto 404 para nuevos usuarios. Volvemos al estable 1.5-flash.
+const MODEL_ID = 'gemini-2.5-flash';
+const FAST_MODEL_ID = 'gemini-2.5-flash'; // gemini-1.5-flash y 2.0-flash están dando 404 con las llaves actuales. Usamos 2.5 directo.
 const TTS_MODEL_ID = 'gemini-2.5-flash-preview-tts';
 const VEO_MODEL_ID = 'models/veo-3.1-generate-preview'; // Usar nombre completo con prefijo
 
@@ -150,8 +150,8 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5, syst
   }
 
   if (lastError?.message?.includes("429") || lastError?.message?.includes("RESOURCE_EXHAUSTED")) {
-    if (modelId === 'gemini-1.5-flash') {
-      console.log("⚠️ Todas las claves fallaron en 1.5-flash por cuota. Rescatando operación automáticamente con gemini-2.0-flash-exp...");
+    if (modelId === 'gemini-2.5-flash') {
+      console.log("⚠️ Todas las claves fallaron en 2.5-flash por cuota. Rescatando operación automáticamente con gemini-2.0-flash-exp...");
       try {
         const fallbackAi = new GoogleGenAI({ apiKey: keysToTry[0] });
         const fallbackResponse = await fallbackAi.models.generateContent({
@@ -166,22 +166,22 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5, syst
         return fallbackResponse.text || "";
       } catch (fallbackError: any) {
         console.log("⚠️ Fallback a 2.0-flash-exp también falló:", fallbackError.message);
-        console.log("⚠️ Intentando fallback último recurso a gemini-1.5-pro...");
+        console.log("⚠️ Intentando fallback último recurso a gemini-2.5-pro...");
         try {
           const fallbackAiPro = new GoogleGenAI({ apiKey: keysToTry[0] });
           const fallbackResponsePro = await fallbackAiPro.models.generateContent({
-            model: 'gemini-1.5-pro',
+            model: 'gemini-2.5-pro',
             contents: prompt,
             config: {
               temperature: temp,
               systemInstruction: systemInstruction
             }
           });
-          console.log("✅ Fallback a 1.5-pro exitoso");
+          console.log("✅ Fallback a 2.5-pro exitoso");
           return fallbackResponsePro.text || "";
         } catch (fallbackErrorPro: any) {
-          console.error("❌ Fallback a 1.5-pro también falló:", fallbackErrorPro.message);
-          throw new Error("Cuota de IA excedida en todos los modelos (1.5 y 2.0-exp). Por favor espera 1 minuto o considera habilitar facturación en Google AI Studio.");
+          console.error("❌ Fallback a 2.5-pro también falló:", fallbackErrorPro.message);
+          throw new Error("Cuota de IA excedida en todos los modelos (2.5-flash, 2.0-exp, 2.5-pro). Por favor espera 1 minuto o considera habilitar facturación en Google AI Studio.");
         }
       }
     }
@@ -505,7 +505,7 @@ export const generateSpeech = async (
 }
 
 // === CONSTANTS FOR CLONING ===
-const ANALYSIS_MODEL_ID = 'gemini-1.5-flash';
+const ANALYSIS_MODEL_ID = 'gemini-2.5-flash';
 
 // Helper to fetch audio and convert to base64
 const fetchAudioAsBase64 = async (url: string): Promise<string> => {
