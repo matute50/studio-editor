@@ -133,7 +133,7 @@ export const SlideGenerator: React.FC = () => {
   };
 
   const generateStandaloneHtml = (article: Article, duration: number): string => {
-    const rawTitle = article.title.toUpperCase();
+    const rawTitle = article.title.toUpperCase().replace(/["“”«»¨]/g, '');
     const body = article.text.toUpperCase();
 
     // Lógica para dividir el título respetando el pipe |

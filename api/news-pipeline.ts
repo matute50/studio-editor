@@ -422,9 +422,10 @@ async function runSlide(ids?: number[]) {
         try {
             const words = (art.super_resumen || '').split(/\s+/).length;
             const duration = Math.max(12, Math.round((words / 200) * 60) + 5);
+            const cleanTitle = art.title.toUpperCase().replace(/["“”«»¨]/g, '');
             
             const html = `<!DOCTYPE html><html><body style="background:black;color:white;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;font-family:sans-serif;padding:5%;text-align:center;">
-                <h1 style="font-size:8vw;margin-bottom:2vh;">${art.title}</h1>
+                <h1 style="font-size:8vw;margin-bottom:2vh;">${cleanTitle}</h1>
                 <p style="font-size:4vw;line-height:1.2;">${art.super_resumen}</p>
                 <script>setTimeout(() => window.parent.postMessage({type:'SLIDE_ENDED'}, '*'), ${duration * 1000});</script>
             </body></html>`;
