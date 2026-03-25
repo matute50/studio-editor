@@ -33,6 +33,26 @@ TU OBJETIVO ES REDACTAR GUIONES PARA ARA, UNA PRESENTADORA FORMAL, PROFESIONAL Y
 - Respeta los delimitadores [TITULO_SLIDE] y [TEXTO_LECTURA].
 `;
 
+const SYSTEM_CHIEF_EDITOR_PROMPT = `
+### ROL: EDITOR JEFE DE REDACCIÓN PROFESIONAL (SALADILLO VIVO)
+Actúa como un Editor Jefe de Redacción Profesional especializado en medios digitales. Tu objetivo es transformar noticias en títulos de alto impacto que se ajusten estrictamente a un diseño de interfaz con espacio limitado.
+
+### REGLA DE ORO (RESTRICCIÓN TÉCNICA)
+- LONGITUD MÁXIMA TÍTULO: El título NUNCA debe superar los 48 caracteres (incluyendo espacios y signos de puntuación).
+- CONTEO: Al finalizar el título, indica entre paréntesis el número de caracteres utilizados (ej: "Título aquí (42)").
+
+### MANUAL DE ESTILO
+1. PALABRAS PROHIBIDAS: viste, che, pibe, hoy, ayer, mañana.
+2. VOZ DIRECTA: Usa Sujeto + Verbo + Predicado. Elimina artículos innecesarios (el, la, los, un) para ganar espacio.
+3. PUNTUACIÓN: Emplea los "dos puntos" (:) para separar el contexto del hecho y ahorrar preposiciones.
+4. CIFRAS: Escribe siempre los números en formato digital (ej: "5").
+5. TIEMPO VERBAL: Prefiere el Presente.
+
+### FORMATO DE SALIDA REQUERIDIO
+[TITULO_SLIDE] Título aquí (conteo)
+[TEXTO_LECTURA] Cuerpo de la noticia profesional aquí
+`;
+
 // Helper to get all available API keys
 const getApiKeys = (silent: boolean = false): string[] => {
   const keys: string[] = [];
@@ -172,8 +192,8 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5, syst
 };
 
 export const generateProfessionalNews = async (rawInput: string): Promise<{ title: string, body: string }> => {
-  const prompt = `Reescribe de forma profesional esta información: ${rawInput}.\n\nREGLA ESTRICTA DE FORMATO:\nEmpieza tu respuesta con [TITULO_SLIDE], luego el título. Después [TEXTO_LECTURA] y luego el texto. NO uses [TÍTULO_SLIDE] con tilde.`;
-  const response = await getGeminiResponse(prompt);
+  const prompt = `Analiza y reescribe de forma profesional esta información siguiendo las reglas del Editor Jefe: ${rawInput}.`;
+  const response = await getGeminiResponse(prompt, 0.4, SYSTEM_CHIEF_EDITOR_PROMPT);
 
   const cleanResponse = response.replace(/\*\*/g, '').replace(/\[TÍTULO_SLIDE\]/gi, '[TITULO_SLIDE]').replace(/\[TEXTO LECTURA\]/gi, '[TEXTO_LECTURA]');
 
@@ -191,6 +211,18 @@ export const generateProfessionalNews = async (rawInput: string): Promise<{ titl
   // Limpiar marcas markdown si quedaron
   finalTitle = finalTitle.replace(/^#+\s*/, '').trim();
 
+  // Gestión de longitud y conteo para la UI
+  const countMatch = finalTitle.match(/\s*\((\d+)\)$/);
+  if (countMatch) {
+    console.log(`[CHIEF_EDITOR] Caracteres detectados por IA: ${countMatch[1]}`);
+    finalTitle = finalTitle.replace(/\s*\(\d+\)$/, '').trim();
+  }
+
+  if (finalTitle.length > 48) {
+    console.warn(`[CHIEF_EDITOR] Recortando título que excedió 48: ${finalTitle.length}`);
+    finalTitle = finalTitle.substring(0, 48).trim();
+  }
+
   return {
     title: finalTitle,
     body: finalBody
@@ -198,9 +230,12 @@ export const generateProfessionalNews = async (rawInput: string): Promise<{ titl
 };
 
 export const improveNewsTitle = async (currentTitle: string): Promise<string> => {
-  const prompt = `Generar un título gancho de máximo 8 palabras con salto de línea "|" para: "${currentTitle}".`;
-  const response = await getGeminiResponse(prompt, 0.7);
-  return response.replace(/\[.*?\]/gi, '').trim();
+  const prompt = `Generar un título gancho siguiendo las reglas del EDITOR JEFE (máx 48 caracteres) para: "${currentTitle}".`;
+  const response = await getGeminiResponse(prompt, 0.7, SYSTEM_CHIEF_EDITOR_PROMPT);
+  let finalTitle = response.replace(/\[.*?\]/gi, '').trim();
+  finalTitle = finalTitle.replace(/\s*\(\d+\)$/, '').trim();
+  if (finalTitle.length > 48) finalTitle = finalTitle.substring(0, 48).trim();
+  return finalTitle;
 };
 
 export const improveNewsBody = async (currentText: string): Promise<string> => {
