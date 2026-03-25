@@ -492,22 +492,22 @@ async function runSlide(ids?: number[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FASE 0: LIMPIEZA AUTOMÁTICA (> 2 DÍAS)
+// FASE 0: LIMPIEZA AUTOMÁTICA (> 3 DÍAS / 72H)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runCleanup() {
-    console.log('[Pipeline] F0: Cleanup > 2 days...');
-    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    console.log('[Pipeline] F0: Cleanup > 3 days (72h)...');
+    const threeDaysAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
     
     // Cleanup de crudos
     const { count: countCrudos, error: errCrudos } = await supabase.from('articles_crudos')
         .delete({ count: 'exact' })
-        .lt('created_at', twoDaysAgo);
+        .lt('created_at', threeDaysAgo);
 
     // Cleanup de publicados
     const { count: countArticles, error: errArticles } = await supabase.from('articles')
         .delete({ count: 'exact' })
-        .lt('created_at', twoDaysAgo);
+        .lt('created_at', threeDaysAgo);
 
     if (errCrudos) console.error('[F0] Error eliminando crudos:', errCrudos.message);
     if (errArticles) console.error('[F0] Error eliminando articles:', errArticles.message);
