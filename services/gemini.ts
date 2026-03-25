@@ -3,8 +3,8 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { pcmToWav } from './audioProcessor';
 
-const MODEL_ID = 'gemini-2.0-flash';
-const FAST_MODEL_ID = 'gemini-2.0-flash'; // Fast, stable model for quick tasks. gemini-1.5-flash tiraba 404 en el SDK nuevo.
+const MODEL_ID = 'gemini-1.5-flash';
+const FAST_MODEL_ID = 'gemini-1.5-flash'; // El modelo 2.0-flash está danto 404 para nuevos usuarios. Volvemos al estable 1.5-flash.
 const TTS_MODEL_ID = 'gemini-2.5-flash-preview-tts';
 const VEO_MODEL_ID = 'models/veo-3.1-generate-preview'; // Usar nombre completo con prefijo
 
@@ -130,40 +130,38 @@ export const getGeminiResponse = async (prompt: string, temp: number = 0.5, syst
   }
 
   if (lastError?.message?.includes("429") || lastError?.message?.includes("RESOURCE_EXHAUSTED")) {
-    // Si estamos en 2.0-flash y nos bloquea, intentamos como último recurso saltar a 2.5-flash
-    // ya que Google contabiliza las peticiones por separado entre modelos
-    if (modelId === 'gemini-2.0-flash') {
-      console.log("⚠️ Todas las claves fallaron en 2.0-flash por cuota. Rescatando operación automáticamente con gemini-2.5-flash...");
+    if (modelId === 'gemini-1.5-flash') {
+      console.log("⚠️ Todas las claves fallaron en 1.5-flash por cuota. Rescatando operación automáticamente con gemini-2.0-flash-exp...");
       try {
         const fallbackAi = new GoogleGenAI({ apiKey: keysToTry[0] });
         const fallbackResponse = await fallbackAi.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.0-flash-exp',
           contents: prompt,
           config: {
             temperature: temp,
             systemInstruction: systemInstruction
           }
         });
-        console.log("✅ Operación rescatada: gemini-2.5-flash tomó el control con éxito!");
+        console.log("✅ Operación rescatada: gemini-2.0-flash-exp tomó el control con éxito!");
         return fallbackResponse.text || "";
       } catch (fallbackError: any) {
-        console.log("⚠️ Fallback a 2.5-flash también falló:", fallbackError.message);
-        console.log("⚠️ Intentando fallback último recurso a gemini-3-flash-preview...");
+        console.log("⚠️ Fallback a 2.0-flash-exp también falló:", fallbackError.message);
+        console.log("⚠️ Intentando fallback último recurso a gemini-1.5-pro...");
         try {
           const fallbackAiPro = new GoogleGenAI({ apiKey: keysToTry[0] });
           const fallbackResponsePro = await fallbackAiPro.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-1.5-pro',
             contents: prompt,
             config: {
               temperature: temp,
               systemInstruction: systemInstruction
             }
           });
-          console.log("✅ Fallback a gemini-3-flash-preview exitoso");
+          console.log("✅ Fallback a 1.5-pro exitoso");
           return fallbackResponsePro.text || "";
         } catch (fallbackErrorPro: any) {
-          console.error("❌ Fallback a 3-flash-preview también falló:", fallbackErrorPro.message);
-          throw new Error("Cuota de IA excedida en todos los modelos (2.0 y 2.5/3.0). Por favor espera 1 minuto o considera habilitar facturación en Google AI Studio.");
+          console.error("❌ Fallback a 1.5-pro también falló:", fallbackErrorPro.message);
+          throw new Error("Cuota de IA excedida en todos los modelos (1.5 y 2.0-exp). Por favor espera 1 minuto o considera habilitar facturación en Google AI Studio.");
         }
       }
     }
@@ -184,6 +182,10 @@ export const generateProfessionalNews = async (rawInput: string): Promise<{ titl
 
   // Si ambas expresiones fallan, devolvemos todo el texto crudo como body para no bloquear al usuario
   let finalTitle = titleMatch ? titleMatch[1].trim() : "Generado por IA";
+  if (finalTitle === "Generado por IA" && cleanResponse.length < 100 && !cleanResponse.includes('[')) {
+      finalTitle = cleanResponse.split('\n')[0].substring(0, 50);
+  }
+  
   let finalBody = bodyMatch ? bodyMatch[1].trim() : cleanResponse.trim();
 
   // Limpiar marcas markdown si quedaron
@@ -468,7 +470,7 @@ export const generateSpeech = async (
 }
 
 // === CONSTANTS FOR CLONING ===
-const ANALYSIS_MODEL_ID = 'gemini-2.0-flash';
+const ANALYSIS_MODEL_ID = 'gemini-1.5-flash';
 
 // Helper to fetch audio and convert to base64
 const fetchAudioAsBase64 = async (url: string): Promise<string> => {
