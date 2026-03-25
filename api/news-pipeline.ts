@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'crypto';
 import sharp from 'sharp';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
+import { pipeline } from 'stream/promises';
+import ffmpeg from 'fluent-ffmpeg';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURACIÓN GLOBAL
@@ -25,6 +30,8 @@ const r2 = new S3Client({
     credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY },
     forcePathStyle: true
 });
+
+const CORTINA_URL = 'https://pub-5b294f92f42e4cbda687d0122e15bc72.r2.dev/audios/news-intro.mp3';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -278,11 +285,10 @@ async function runTransformation(ids?: number[]) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runResumen(baseUrl: string, ids?: number[]) {
-    console.log('[Pipeline] F3: IA (Redacción, Resumen Ara, Optimización Guion)...');
+    console.log('[Pipeline] F3: IA (Resumen Ara + Texto Slide/Audio)...');
     const query = supabase.from('articles').select('id, title, text').is('super_resumen', null);
     if (ids && ids.length > 0) query.in('id', ids);
     
-    // 3 llamadas a Gemini por artículo = ~9 segundos. Límite: 2 artículos (18s).
     const { data: articles, error } = await query.order('created_at', { ascending: false }).limit(2);
     if (error || !articles) return { count: 0, error: error?.message };
 
@@ -291,58 +297,41 @@ async function runResumen(baseUrl: string, ids?: number[]) {
         try {
             console.log(`[F3] Procesando artículo ${art.id}...`);
 
-            // 1) REDACCIÓN PROFESIONAL
-            const promptProf = `Reescribe de forma profesional esta información: ${art.title} ${art.text.substring(0, 3000)}.\n\nREGLA ESTRICTA DE FORMATO:\nEmpieza tu respuesta con [TITULO_SLIDE], luego el título. Después [TEXTO_LECTURA] y luego el texto. NO uses [TÍTULO_SLIDE] con tilde.`;
+            // PRODUCTO 2: REDACCIÓN PROFESIONAL (Base para Slide y Audio)
+            const promptProf = `Reescribe de forma profesional esta noticia para ser leída por un locutor de TV. Mantén la formalidad periodística.\n\nNOTICIA:\n${art.title}\n${art.text.substring(0, 3000)}`;
             const resProf = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt: promptProf })
             }).then(r => r.json());
 
-            let finalTitle = art.title;
-            let finalBody = art.text;
-            if (resProf?.text) {
-                const cleanResponse = resProf.text.replace(/\*\*/g, '').replace(/\[TÍTULO_SLIDE\]/gi, '[TITULO_SLIDE]').replace(/\[TEXTO LECTURA\]/gi, '[TEXTO_LECTURA]');
-                const titleMatch = cleanResponse.match(/\[TITULO_SLIDE\]\s*([\s\S]*?)\s*\[TEXTO_LECTURA\]/i);
-                const bodyMatch = cleanResponse.match(/\[TEXTO_LECTURA\]\s*([\s\S]*)/i);
-                if (titleMatch) finalTitle = titleMatch[1].trim().replace(/^#+\s*/, '');
-                if (bodyMatch) finalBody = bodyMatch[1].trim();
-            }
+            let professionalBody = resProf?.text || art.text;
 
-            // 2) SÚPER RESUMEN ESTILO ARA
+            // PRODUCTO 1: SÚPER RESUMEN ESTILO ARA (Basado en la redacción profesional)
             const REGLA_DE_ORO = `ROL: SENIOR NEWS EDITOR (ESTABILIDAD ANTIBALBUCEO). REGLAS: 1. SHEÍSMO (SSH): LL/Y -> SSH. 2. ORTOGRAFÍA LIMPIA: NO DOBLES LETRAS (VISITÁNOS), NO "H" PARA ASPIRAR (ESTAS), -CIÓN ESTÁNDAR. 3. VOSEO AGUDO: FORZAR TILDES. 4. MAYÚSCULAS: TODO EN MAYÚSCULAS. 5. CTA OBLIGATORIO: LA 4TA ORACIÓN TERMINA CON AUTORIDAD.`;
-            const promptResumen = `ACTUÁ COMO UN EDITOR DE NOTICIAS SENIOR DE SALADILLO VIVO. GENERA UN SÚPER RESUMEN "ESTILO ARA" SIGUIENDO ESTAS REGLAS DE ORO:\n\n${REGLA_DE_ORO}\n\nREGLAS OBLIGATORIAS:\n1. EXACTAMENTE 4 ORACIONES EN MAYÚSCULAS.\n2. MÉTRICA POR ORACIÓN: \n   - ORACIÓN 1: 18 A 21 PALABRAS. EMPIEZA CON ANCLA PROFESIONAL (COMO VOS SABÉS / TE CUENTO / FIJATE).\n   - ORACIONES 2 Y 3: 15 A 18 PALABRAS CADA UNA. TONO AUTORITARIO.\n   - ORACIÓN 4: 15 A 18 PALABRAS. TERMINA CON CTA (VISITÁ NUESTRA WEB / ENTRÁ A NUESTRO SITIO / ENTERÁTE DE TODO).\n3. PROHIBIDO: "VISTE", "CHE", "PIBE", "HOY", "AYER", "MAÑANA".\n4. FONÉTICA: LL/Y -> SSH. MANTENÉ ORTOGRAFÍA LIMPIA Y MAYÚSCULAS.\n\nNOTICIA COMPLETA:\n${finalBody.substring(0, 3000)}`;
-            const systemResumen = `ERES UN SENIOR NEWS EDITOR DE TELEVISIÓN. ${REGLA_DE_ORO} GENERA EXACTAMENTE 4 ORACIONES EN MAYÚSCULAS CON MÉTRICAS 21/18/18/18 Y CTA OBLIGATORIO.`;
-
+            const promptAra = `ACTUÁ COMO UN EDITOR DE NOTICIAS SENIOR DE SALADILLO VIVO. GENERA UN SÚPER RESUMEN "ESTILO ARA" BASADO EN ESTE TEXTO:\n\n${professionalBody.substring(0, 3000)}\n\nSEGUÍ ESTAS REGLAS DE ORO:\n\n${REGLA_DE_ORO}\n\nREGLAS OBLIGATORIAS:\n1. EXACTAMENTE 4 ORACIONES EN MAYÚSCULAS.\n2. MÉTRICA POR ORACIÓN: \n   - ORACIÓN 1: 18 A 21 PALABRAS. EMPIEZA CON ANCLA PROFESIONAL (COMO VOS SABÉS / TE CUENTO / FIJATE).\n   - ORACIONES 2 Y 3: 15 A 18 PALABRAS CADA UNA. TONO AUTORITARIO.\n   - ORACIÓN 4: 15 A 18 PALABRAS. TERMINA CON CTA (VISITÁ NUESTRA WEB / ENTRÁ A NUESTRO SITIO / ENTERÁTE DE TODO).\n3. PROHIBIDO: "VISTE", "CHE", "PIBE", "HOY", "AYER", "MAÑANA".\n4. FONÉTICA: LL/Y -> SSH. MANTENÉ ORTOGRAFÍA LIMPIA Y MAYÚSCULAS.`;
+            
             const resAra = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: promptResumen, system: systemResumen, temperature: 0.3 })
+                body: JSON.stringify({ prompt: promptAra, system: REGLA_DE_ORO, temperature: 0.3 })
             }).then(r => r.json());
 
-            let superResumen = resAra?.text ? resAra.text.replace(/\[.*?\]/gi, '').trim().toUpperCase() : '';
+            let superResumenAra = resAra?.text ? resAra.text.replace(/\[.*?\]/gi, '').trim().toUpperCase() : 'Error al generar Ara.';
 
-            // 3) OPTIMIZAR GUION (para Audio)
-            if (superResumen) {
-                const systemOpt = "Eres un experto guionista de radio y locución periodística. Tu tarea es adaptar el texto para ser leído en voz alta en un noticiero. DEBES MANTENER LA FORMALIDAD PERIODÍSTICA. PROHIBIDO usar modismos informales (ej. 'che'). NO agregues títulos ni metadatos. Solo devuelve el texto optimizado para lectura.";
-                const promptOpt = `Optimiza la puntuación y redacción de este texto para una lectura periodística fluida en Google TTS Argentina.\n  Mantenelo estrictamente formal, serio y neutro.\nCreatividad: 10/10. \n  Instrucción adicional del director: ERES UN EXPERTO GUIONISTA DE TV RIO PLATENSE. \n  Texto original: "${superResumen}"`;
+            // PRODUCTO 2 FINAL: OPTIMIZACIÓN DE GUION (Para el Audio del Slide)
+            const systemOpt = "Eres un experto guionista de radio y locución periodística TV Rioplatense. Tu tarea es adaptar el texto para ser leído en voz alta. DEBES MANTENER LA FORMALIDAD PERIODÍSTICA.";
+            const promptOpt = `Ajusta la puntuación y redacción de este texto para una lectura periodística fluida en Google TTS (Argentina).\nMantenlo estrictamente formal, serio y neutro.\nTEXTO PARA OPTIMIZAR: "${professionalBody.substring(0, 1500)}"`;
 
-                const resOpt = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: promptOpt, system: systemOpt, temperature: 0.3 })
-                }).then(r => r.json());
+            const resOpt = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: promptOpt, system: systemOpt, temperature: 0.3 })
+            }).then(r => r.json());
 
-                if (resOpt?.text) {
-                    superResumen = resOpt.text.trim();
-                }
-            } else {
-                superResumen = "Error al generar el resumen de Ara.";
-            }
+            let slideVoiceText = resOpt?.text ? resOpt.text.trim() : professionalBody;
 
-            // 4) ACTUALIZACIÓN FINAL EN DB
+            // ACTUALIZACIÓN EN DB: Ambos productos por separado
             await supabase.from('articles').update({
-                title: finalTitle.substring(0, 255),
-                text: finalBody,
-                super_resumen: superResumen,
-                body_voice_tuning: superResumen
+                super_resumen: superResumenAra,
+                body_voice_tuning: slideVoiceText
             }).eq('id', art.id);
 
             processed++;
@@ -356,23 +345,28 @@ async function runResumen(baseUrl: string, ids?: number[]) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runAudio(ids?: number[]) {
-    console.log('[Pipeline] F4: Audio TTS...');
-    const query = supabase.from('articles').select('id, super_resumen').is('audio_url', null).not('super_resumen', 'is', null);
+    console.log('[Pipeline] F4: Audio TTS con Cortina Mix...');
+    const query = supabase.from('articles').select('id, body_voice_tuning').is('audio_url', null).not('body_voice_tuning', 'is', null);
     if (ids && ids.length > 0) query.in('id', ids);
 
-    // TTS HD toma unos 3-5 secs. Límite: 3 artículos.
-    const { data: articles, error } = await query.limit(3);
+    const { data: articles, error } = await query.limit(2); // Reducimos a 2 por el tiempo de mezcla
     if (error || !articles) return { count: 0, error: error?.message };
 
-    let processed = 0;
-    let errorMsg: string | undefined;
     const ttsKey = (process.env.GOOGLE_TTS_API_KEY || process.env.VITE_GOOGLE_TTS_API_KEY || '').trim();
-
     if (!ttsKey) return { count: 0, error: 'Google TTS Key missing' };
 
+    let processed = 0;
+
     for (const art of articles) {
+        const tmpDir = os.tmpdir();
+        const ttsFile = path.join(tmpDir, `tts_${art.id}_${Date.now()}.mp3`);
+        const musicFile = path.join(tmpDir, `music_${art.id}.mp3`);
+        const outputFile = path.join(tmpDir, `mixed_${art.id}.mp3`);
+
         try {
-            const ssml = `<speak xml:lang='es-AR'><prosody rate='1.05' pitch='0.0st'>${art.super_resumen}</prosody></speak>`;
+            // 1) Generar TTS HD
+            console.log(`[F4] Generando TTS para noticia ${art.id}...`);
+            const ssml = `<speak xml:lang='es-AR'><prosody rate='1.05' pitch='0.0st'>${art.body_voice_tuning}</prosody></speak>`;
             const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${ttsKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -383,24 +377,74 @@ async function runAudio(ids?: number[]) {
                 })
             });
 
-            const data = await ttsRes.json();
-            if (data.error) throw new Error(data.error.message || 'TTS Error');
-            if (data.audioContent) {
-                const fileName = `tts_cache_${crypto.createHash('sha256').update(ssml).digest('hex')}.mp3`;
-                await r2.send(new PutObjectCommand({
-                    Bucket: R2_BUCKET_NAME, Key: `audios_Ara/${fileName}`, Body: Buffer.from(data.audioContent, 'base64'), ContentType: 'audio/mpeg'
-                }));
-                const audioUrl = `${R2_PUBLIC_BASE}/audios_Ara/${fileName}`;
-                const { error: updErr } = await supabase.from('articles').update({ audio_url: audioUrl, audio_status: 'ready' }).eq('id', art.id);
-                if (updErr) throw updErr;
-                processed++;
-            }
-        } catch (e:any) { 
-            console.error(`Error audio ${art.id}:`, e.message);
-            if (!errorMsg) errorMsg = e.message;
+            const ttsData = await ttsRes.json();
+            if (ttsData.error) throw new Error(ttsData.error.message);
+            fs.writeFileSync(ttsFile, Buffer.from(ttsData.audioContent, 'base64'));
+
+            // 2) Descargar Cortina
+            console.log(`[F4] Descargando cortina...`);
+            const musRes = await fetch(CORTINA_URL);
+            if (!musRes.ok) throw new Error("Fallo al descargar cortina musical");
+            await pipeline(musRes.body as any, fs.createWriteStream(musicFile));
+
+            // 3) MEZCLA CON FFMPEG
+            // 1s intro música, locución con música de fondo (ducking), 2s música final con fade out.
+            console.log(`[F4] Mezclando audio con FFmpeg...`);
+            
+            // Obtener duración de la voz para el timing
+            const voiceDuration: number = await new Promise((resolve, reject) => {
+                ffmpeg.ffprobe(ttsFile, (err, metadata) => {
+                    if (err) reject(err);
+                    else resolve(metadata.format.duration || 10);
+                });
+            });
+
+            const totalDuration = 1 + voiceDuration + 2;
+
+            await new Promise((resolve, reject) => {
+                ffmpeg()
+                    .input(musicFile)
+                    .inputOptions(['-stream_loop -1']) // Repetir música si es corta
+                    .input(ttsFile)
+                    // Filtro complejo:
+                    // 1. Música (0) -> bajar volumen al 15% entre t=1 y t=1+voz
+                    // 2. Mezclar música procesada con voz (1) retrasada 1 segundo
+                    // 3. Aplicar fade out de 0.5s al final de la duración total
+                    .complexFilter([
+                        `[0:a]volume=0.4,volume=enable='between(t,1,${1 + voiceDuration})':volume=0.15,afade=t=out:st=${totalDuration - 0.5}:d=0.5[bg]`,
+                        `[1:a]adelay=1000|1000[voice]`,
+                        `[bg][voice]amix=inputs=2:duration=longest[out]`
+                    ])
+                    .map('[out]')
+                    .duration(totalDuration)
+                    .audioCodec('libmp3lame')
+                    .toFormat('mp3')
+                    .on('end', resolve)
+                    .on('error', reject)
+                    .save(outputFile);
+            });
+
+            // 4) Subir a R2
+            const mixedBuffer = fs.readFileSync(outputFile);
+            const fileName = `ara_mix_${art.id}_${Date.now()}.mp3`;
+            await r2.send(new PutObjectCommand({
+                Bucket: R2_BUCKET_NAME, Key: `audios_Ara/${fileName}`, Body: mixedBuffer, ContentType: 'audio/mpeg'
+            }));
+
+            const audioUrl = `${R2_PUBLIC_BASE}/audios_Ara/${fileName}`;
+            await supabase.from('articles').update({ audio_url: audioUrl, audio_status: 'ready' }).eq('id', art.id);
+
+            processed++;
+            console.log(`[F4] Noticia ${art.id} completada.`);
+
+        } catch (e: any) {
+            console.error(`Error en F4 ${art.id}:`, e.message);
+        } finally {
+            // Limpieza de archivos temporales
+            [ttsFile, musicFile, outputFile].forEach(f => { if(fs.existsSync(f)) fs.unlinkSync(f); });
         }
     }
-    return { count: processed, error: errorMsg };
+    return { count: processed };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -420,13 +464,13 @@ async function runSlide(ids?: number[]) {
 
     for (const art of articles) {
         try {
-            const words = (art.super_resumen || '').split(/\s+/).length;
+            const words = (art.body_voice_tuning || '').split(/\s+/).length;
             const duration = Math.max(12, Math.round((words / 200) * 60) + 5);
             const cleanTitle = art.title.toUpperCase().replace(/["“”«»¨]/g, '');
             
             const html = `<!DOCTYPE html><html><body style="background:black;color:white;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;font-family:sans-serif;padding:5%;text-align:center;">
                 <h1 style="font-size:8vw;margin-bottom:2vh;">${cleanTitle}</h1>
-                <p style="font-size:4vw;line-height:1.2;">${art.super_resumen}</p>
+                <p style="font-size:4vw;line-height:1.2;">${art.body_voice_tuning}</p>
                 <script>setTimeout(() => window.parent.postMessage({type:'SLIDE_ENDED'}, '*'), ${duration * 1000});</script>
             </body></html>`;
 
