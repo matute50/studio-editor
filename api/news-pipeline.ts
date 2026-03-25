@@ -447,6 +447,33 @@ async function runSlide(ids?: number[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FASE 0: LIMPIEZA AUTOMÁTICA (> 2 DÍAS)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function runCleanup() {
+    console.log('[Pipeline] F0: Cleanup > 2 days...');
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    
+    // Cleanup de crudos
+    const { count: countCrudos, error: errCrudos } = await supabase.from('articles_crudos')
+        .delete({ count: 'exact' })
+        .lt('created_at', twoDaysAgo);
+
+    // Cleanup de publicados
+    const { count: countArticles, error: errArticles } = await supabase.from('articles')
+        .delete({ count: 'exact' })
+        .lt('created_at', twoDaysAgo);
+
+    if (errCrudos) console.error('[F0] Error eliminando crudos:', errCrudos.message);
+    if (errArticles) console.error('[F0] Error eliminando articles:', errArticles.message);
+
+    return { 
+        crudos_eliminados: countCrudos || 0, 
+        noticias_eliminadas: countArticles || 0 
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HANDLER PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -473,8 +500,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'resumen') return res.status(200).json(await runResumen(currentUrl, ids));
         if (action === 'audio') return res.status(200).json(await runAudio(ids));
         if (action === 'slide') return res.status(200).json(await runSlide(ids));
+        if (action === 'cleanup') return res.status(200).json(await runCleanup());
         
         if (action === 'full') {
+            const cleanup = await runCleanup();
             const scrape = await runScraping();
             const transform = await runTransformation();
             const resumen = await runResumen(currentUrl);
@@ -483,7 +512,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             
             return res.status(200).json({ 
                 success: true, 
-                steps: { scrape, transform, resumen, audio, slide } 
+                cleanup,
+                scrape,
+                transform,
+                resumen,
+                audio,
+                slide
             });
         }
 
