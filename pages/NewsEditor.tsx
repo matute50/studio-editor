@@ -461,13 +461,18 @@ export const NewsEditor: React.FC = () => {
 
             <form onSubmit={handleSave} className="space-y-6" autoComplete="off">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título Gancho (Use | para salto de línea)</label>
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest px-1">
+                  <label className="text-slate-400">Título Gancho (Use | para salto de línea)</label>
+                  <span className={title.length > 48 ? 'text-red-500 font-bold animate-pulse' : 'text-slate-400'}>
+                    {title.length} / 48
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value.replace(/[\n\r]+/g, ' '))}
                   required
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className={`w-full px-4 py-3 bg-slate-50 border ${title.length > 48 ? 'border-red-300 ring-1 ring-red-100' : 'border-slate-200'} rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all`}
                 />
               </div>
 
