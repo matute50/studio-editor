@@ -117,7 +117,96 @@ Rioplatense nativo (Saladillo/Buenos Aires). Entonación profesional neutra, cal
 
 const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitles, lower thirds, ticker, ui, microphone, headset, cables, earpiece, melting hands, fused fingers, extra fingers, distorted hands, floating head, severed neck, mutating jewelry, green spill, green halo, shadows on background, gradient background, vignette, depth of field on background, unblinking, robot eyes, zombie stare, looking away, morphing, shoulder distortion, radioactive teeth, too many teeth, wrinkles aged, studio background generado, newsroom, 3D environment, bokeh excesivo, wall texture, floor, corners, horizon line, spotlight on background, furniture, decor, realistic room, brackets braces, metal in mouth, unnatural teeth, glowing teeth, exposed teeth at rest, gum distortion, plastic skin, wax skin, porcelain skin, over-smoothed skin, CGI skin, doll skin, synthetic skin, skin without pores, overly perfect skin, camera movement, zoom, push, pull, reframe, dolly, pan, tilt, turtle neck, forward head, hunched posture, visible breathing, chest rise, nostril flare, tongue visible, suggestive mouth, erotic mouth, adult content, seductive expression, shiny skin, glossy skin, specular highlights, oily skin, beauty filter, color shift on clothing, hue drift on blazer, outfit color inconsistency, smile showing teeth, wide smile, toothy grin, performative smile, theatrical happiness, mouth open for smile, lips parted for smile, separate background generation, replacing reference background, inventing background details, mechanical jaw movement, hinge jaw motion, frame by frame lip movement, discrete lip positions, no coarticulation, cheek inflation during nasals, hypernasality visible, dental closure on aspirated s, boca de goma, rubber mouth, synthetic lip movement, robotic mouth movement, lip sync mismatch, mouth ahead of audio, mouth behind audio, ascending final intonation, upward sentence ending, amateur delivery cadence, full bilabial closure on intervocalic b, full dental closure on intervocalic d, music, background music, soundtrack, animations, wipes, transitions, background animation`;
 
-const PROMPT_MAESTRO_SYSTEM = `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES] Eye-level, locked-off medium shot of Ara. Photorealistic facial identity lock, exact attire, and static background identical to the reference. [ANCLA_RIOPLATENSE] Una periodista argentina de Buenos Aires con voz firme y fluida. [AUDIO_STUDIO_CONTROL] Character says: "Saladissho Vivo. La misma información, mejor contada. Visitános." [STRICT_PHONETICS] Read with natural professional fluency. No pauses between syllables. Execute "ssh" as /ʃ/ (sheísmo) for "LL" and "Y". Maintain "L" as a standard lateral alveolar. Pronounce all "S" consonants clearly. Use Argentine cadence. Sound: complete studio silence. Negative prompt: stuttering, hesitating, mumbling, pausing between words, double vowels, glitched audio, informassión, visitáanos, Spanish accent, accent from Spain, ceceo, seseo peninsular, corporate motivational tone, generic face, airbrushed skin, plastic texture, morphing.`;
+// ============================================================
+// PROMPTS MAESTRO VEO 3.1 — ESTUDIO y EXTERIORES (CHROMA KEY)
+// ============================================================
+
+/** VEO 3.1 — MODO ESTUDIO */
+const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES]
+Eye-level, locked-off medium shot of Ara. Strict identity preservation from reference image. No variation in facial structure, skin texture, hairstyle, or wardrobe. Maintain identical studio background from reference with zero alteration. Photorealistic rendering, natural skin detail, no smoothing or beautification filters.
+
+[FRAMING_AND_PRESENCE]
+Centered composition, shoulders and head visible. Neutral professional posture. Direct eye contact with camera. No body sway, no head drift, no micro-expressions unrelated to speech.
+
+[ANCLA_RIOPLATENSE]
+Argentinian news reporter from Buenos Aires. Confident, natural delivery with authentic Rioplatense Spanish accent (Buenos Aires). Professional, warm, and precise tone. Avoid exaggerated expressiveness.
+
+[AUDIO_STUDIO_CONTROL]
+Clean studio recording. No background noise, no reverb, no compression artifacts. Broadcast-quality audio. Consistent volume and tone.
+
+[DIALOGUE]
+"${dialogo}"
+
+[STRICT_PHONETICS_RIOPLATENSE]
+Deliver with continuous natural speech flow. No syllable segmentation.
+Apply sheísmo: pronounce "LL" and "Y" as /ʃ/.
+Allow natural Rioplatense "S" behavior (including soft aspiration in appropriate positions).
+Preserve standard Argentine intonation and cadence.
+Correct stress: "información", "visitános".
+Avoid unnatural vowel elongation or duplication.
+
+[ANTI_DRIFT_CONSTRAINTS]
+No facial morphing, no identity drift, no blinking anomalies, no lip-sync mismatch, no timing lag between audio and lips.
+
+[NEGATIVE_PROMPT]
+stuttering, hesitation, robotic cadence, exaggerated acting, over-articulation, Spanish (Spain) accent, ceceo, incorrect Rioplatense phonetics, inconsistent voice tone, pitch fluctuation, background change, lighting flicker, soft focus, beauty filter, plastic skin, uncanny valley, lip desync, audio glitches`;
+
+/** VEO 3.1 — MODO EXTERIORES con CHROMA KEY */
+const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `[PRIORIDAD_SISTEMA:CHROMA_KEY]
+Absolute priority: pure chroma key background. Solid uniform green (#00FF00), perfectly flat and evenly lit. No gradients, no texture, no wrinkles, no noise.
+
+[FIDELIDAD_CONTEXTUAL]
+Use background_reference_image_1.png strictly for subject identity only. Do not transfer any background elements from the reference.
+
+[SUBJECT_LIGHTING_ISOLATION]
+Subject lit independently from background. Strong natural daylight simulation: front lighting, 5500K, ~90,000 lux. High contrast on subject with defined, realistic shadows on the body only.
+Green screen lighting must remain completely flat, shadowless, evenly exposed, and unaffected by subject lighting.
+
+[COLOR_SEPARATION]
+Ensure clear color separation between subject and green background. No green spill on skin, hair, or clothing. No color contamination or edge blending.
+
+[CAMERA_AND_COMPOSITION]
+Eye-level, locked-off medium shot. Centered framing. No camera movement, no shake, no zoom.
+
+[DEPTH_OF_FIELD]
+Shallow depth of field applied ONLY to subject. Background must remain perfectly flat and uniform without blur artifacts or gradients.
+
+[ANCLA_RIOPLATENSE]
+Argentinian field reporter from Buenos Aires. Natural, confident delivery with authentic Rioplatense accent. Professional but slightly more dynamic tone than studio.
+
+[ACCIÓN_NARRATIVA]
+Ara stands upright, holding microphone naturally (if present). Minimal natural movement only from speech. No exaggerated gestures.
+
+[AUDIO_ARA_V2]
+Clean voice recording, no background noise. Outdoor clarity without wind or ambient interference.
+
+[DIALOGUE]
+"${dialogo}"
+
+[STRICT_PHONETICS_RIOPLATENSE]
+Continuous natural speech flow. No syllable segmentation.
+Apply sheísmo (/ʃ/ for LL and Y).
+Allow natural Rioplatense "S" aspiration depending on speech rhythm.
+Maintain Argentine cadence and intonation.
+Avoid vowel duplication or artificial emphasis.
+
+[CIERRE]
+Mouth closes naturally ~250ms after speech ends. Return to neutral expression.
+
+[ANTI_DRIFT_CONSTRAINTS]
+No identity drift, no facial morphing, no edge flickering, no chroma noise, no halo artifacts, no transparency errors.
+
+[NEGATIVE_PROMPT]
+background details, gradients, shadows on background, uneven green, green spill, color bleeding, edge artifacts, halo effect, compression noise, camera movement, camera drift, zoom, text overlays, subtitles, lip desync, robotic voice`;
+
+// Helper: devuelve el prompt VEO 3.1 correcto según el modo activo
+const getPromptMaestroVEO = (modo: 'estudio' | 'exterior', dialogo: string) =>
+    modo === 'exterior'
+        ? PROMPT_MAESTRO_VEO_EXTERIORES(dialogo)
+        : PROMPT_MAESTRO_VEO_ESTUDIO(dialogo);
+
+// Mantenemos PROMPT_MAESTRO_SYSTEM como alias del de estudio para compatibilidad
+const PROMPT_MAESTRO_SYSTEM = PROMPT_MAESTRO_VEO_ESTUDIO('Saladissho Vivo. La misma información, mejor contada. Visitános.');
 
 const PROMPT_MAESTRO_GROK = `Hyper-photorealistic 8K exact match to reference image of Ara: identical facial bone structure, skin with visible pores and micro-wrinkles around eyes and mouth, natural fine peach fuzz/vello, realistic makeup, individual hair strands, lifelike eye reflections, clothing texture — zero deviation. Medium close-up waist-up shot, Ara looking DIRECTLY at camera with confident warm professional gaze conveying connection and sincerity. Captured mid-sentence actively speaking with wide open mouth: mouth extremely wide open mid-vowel articulation right now, lips clearly stretched and parted horizontally and vertically, upper and lower teeth prominently visible showing white, inner mouth cavity and tongue realistically positioned, no closed mouth, no sealed lips, no pursed lips, no neutral closed expression — strictly enforced wide open speaking mouth in fluent speech. Ara confident engaging Buenos Aires news anchor (TN/C5N style), saying: "{TEXTO_A_DECIR}" in authentic porteño rioplatense accent. Dynamic natural expressiveness prepared for animation: subtle authentic micro-expressions synced to speech tone, gentle eyebrow raise or furrow for emphasis, micro head tilt or nod for natural flow, lively sparkling eyes reflecting emotion and intelligence, subtle mouth corner curves, natural open-palm hand gestures synced to key words, restrained professional presenter style — no frozen face, no immobile features. Perfect porteño lip sync ready for animation: dynamic jaw drop on open vowels, lip protrusion and tension for yeísmo rehilado [sh/z], aspiration relaxed jaw on final /s/, sharp seseo, energetic realistic mouth dynamics. Broadcast studio realism: soft three-point lighting (key light left, fill right, subtle warm rim light), subsurface scattering skin, realistic lip gloss with wet inner lips and teeth visible, shallow depth of field sharp focus on face eyes mouth jaw and hands, captured as real news broadcast frame on Arri Alexa 65 with 85mm f/1.4 prime lens, accurate skin tones, maximum photorealism, no uncanny valley, fully prepared for facial animation and lip-sync. Vertical 9:16, --ar 9:16 --v 6 --stylize 15 --q 2 --style raw --chaos 0`;
 
@@ -1396,15 +1485,19 @@ export function AvatarStudio() {
                         </div>
                         <button 
                             onClick={() => {
-                                if (workingMode === 'exterior') {
-                                    copiarAlPortapapeles(generarPromptParaClip({ script: extScript || '' }));
+                                if (aiEngine === 'GROK') {
+                                    copiarAlPortapapeles(PROMPT_MAESTRO_GROK.replace('{TEXTO_A_DECIR}', extScript || 'Saladissho Vivo. La misma información, mejor contada. Visitános.'));
                                 } else {
-                                    copiarAlPortapapeles(aiEngine === 'GROK' ? PROMPT_MAESTRO_GROK : PROMPT_MAESTRO_SYSTEM);
+                                    // VEO 3.1: usa el prompt correcto según ESTUDIO o EXTERIORES
+                                    const dialogo = workingMode === 'exterior'
+                                        ? (extScript || 'Escribí el diálogo de Ara en exteriores.')
+                                        : 'Saladissho Vivo. La misma información, mejor contada. Visitános.';
+                                    copiarAlPortapapeles(getPromptMaestroVEO(workingMode, dialogo));
                                 }
                             }}
                             className="px-3 py-1.5 bg-[#1A1A1A] border border-[#00B140]/30 text-[#00B140] rounded-md text-[9px] font-black uppercase tracking-tighter hover:bg-[#00B140] hover:text-black transition-all flex items-center gap-2"
                         >
-                            <Sparkles size={12} /> Prompt Maestro ({workingMode === 'exterior' ? 'VEO 3.1' : aiEngine})
+                            <Sparkles size={12} /> Prompt Maestro ({aiEngine === 'GROK' ? 'GROK' : `VEO 3.1 · ${workingMode === 'exterior' ? 'EXTERIORES' : 'ESTUDIO'}`})
                         </button>
                     </div>
 
@@ -1462,7 +1555,13 @@ export function AvatarStudio() {
                                                     <RefreshCw size={10} /> Cambiar
                                                 </button>
                                                 <button 
-                                                    onClick={() => copiarAlPortapapeles(generarPromptParaClip({ script: selectedSaludo }))}
+                                                    onClick={() => {
+                                                        if (aiEngine === 'VEO') {
+                                                            copiarAlPortapapeles(getPromptMaestroVEO(workingMode, selectedSaludo));
+                                                        } else {
+                                                            copiarAlPortapapeles(generarPromptParaClip({ script: selectedSaludo }));
+                                                        }
+                                                    }}
                                                     className="text-[9px] bg-[#1A1A1A] hover:bg-[#00B140] hover:text-black transition-all border border-[#222] px-2 py-0.5 rounded-md text-[#555] font-black uppercase"
                                                 >
                                                     Copiar Prompt
@@ -1491,7 +1590,13 @@ export function AvatarStudio() {
                                                     <RefreshCw size={10} /> Cambiar
                                                 </button>
                                                 <button 
-                                                    onClick={() => copiarAlPortapapeles(generarPromptParaClip({ script: selectedCTA }))}
+                                                    onClick={() => {
+                                                        if (aiEngine === 'VEO') {
+                                                            copiarAlPortapapeles(getPromptMaestroVEO(workingMode, selectedCTA));
+                                                        } else {
+                                                            copiarAlPortapapeles(generarPromptParaClip({ script: selectedCTA }));
+                                                        }
+                                                    }}
                                                     className="text-[9px] bg-[#1A1A1A] hover:bg-[#00B140] hover:text-black transition-all border border-[#222] px-2 py-0.5 rounded-md text-[#555] font-black uppercase"
                                                 >
                                                     Copiar Prompt
@@ -1520,7 +1625,13 @@ export function AvatarStudio() {
                                                     <RefreshCw size={10} /> Cambiar
                                                 </button>
                                                 <button 
-                                                    onClick={() => copiarAlPortapapeles(generarPromptParaClip({ script: selectedSlogan }))}
+                                                    onClick={() => {
+                                                        if (aiEngine === 'VEO') {
+                                                            copiarAlPortapapeles(getPromptMaestroVEO(workingMode, selectedSlogan));
+                                                        } else {
+                                                            copiarAlPortapapeles(generarPromptParaClip({ script: selectedSlogan }));
+                                                        }
+                                                    }}
                                                     className="text-[9px] bg-[#1A1A1A] hover:bg-[#00B140] hover:text-black transition-all border border-[#222] px-2 py-0.5 rounded-md text-[#555] font-black uppercase"
                                                 >
                                                     Copiar Prompt
