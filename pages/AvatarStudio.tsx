@@ -955,8 +955,8 @@ export function AvatarStudio() {
         try {
             // 1. Obtener imagen de referencia en base64
             const imagePath = workingMode === 'estudio' 
-                ? `https://media.saladillovivo.com.ar/vestuario_de_hoy_estudio/REFERENCE_IMAGE.PNG`
-                : `https://media.saladillovivo.com.ar/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.PNG`;
+                ? `https://media.saladillovivo.com.ar/vestuario_de_hoy_estudio/REFERENCE_IMAGE.png`
+                : `https://media.saladillovivo.com.ar/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.png`;
             
             const imgResp = await fetch(imagePath);
             const imgBlob = await imgResp.blob();
@@ -1487,7 +1487,7 @@ export function AvatarStudio() {
                                 ) : (
                                     <>
                                         <img 
-                                            src={workingMode === 'estudio' ? `https://media.saladillovivo.com.ar/vestuario_de_hoy_estudio/REFERENCE_IMAGE.PNG?t=${imageTimestamp}` : `https://media.saladillovivo.com.ar/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.PNG?t=${imageTimestamp}`} 
+                                            src={workingMode === 'estudio' ? `https://media.saladillovivo.com.ar/vestuario_de_hoy_estudio/REFERENCE_IMAGE.png?t=${imageTimestamp}` : `https://media.saladillovivo.com.ar/vestuario_de_hoy_exteriores/REFERENCE_IMAGE.png?t=${imageTimestamp}`} 
                                             className="absolute inset-0 w-full h-full object-cover transition-opacity" 
                                             alt="Avatar Preview"
                                         />
