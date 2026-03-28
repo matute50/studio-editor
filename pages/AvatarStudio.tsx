@@ -701,36 +701,9 @@ export function AvatarStudio() {
         });
     }, [selectedSegmentId]);
 
-    // Cargar audios al montar y verificar vestuario diario
+    // Cargar audios al montar
     useEffect(() => {
         fetchAudios();
-        
-        // Verificación de vestuario automático diario
-        const checkVestuario = async () => {
-            const today = new Date().toISOString().slice(0, 10);
-            const lsKey = `last_vestuario_update_${workingMode}`;
-            const lastUpdate = localStorage.getItem(lsKey);
-            
-            if (lastUpdate !== today) {
-                console.log(`[Vestuario] Iniciando rotación diaria para: ${workingMode}`);
-                try {
-                    const res = await fetch('/api/admin-utils?action=cambiar-vestuario', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ location: workingMode === 'estudio' ? 'estudio' : 'exteriores' })
-                    });
-                    if (res.ok) {
-                        localStorage.setItem(lsKey, today);
-                        console.log(`[Vestuario] Rotación completada con éxito para ${workingMode}`);
-                        setImageTimestamp(Date.now());
-                    }
-                } catch (err) {
-                    console.error('[Vestuario] Error en rotación diaria:', err);
-                }
-            }
-        };
-
-        checkVestuario();
         const interval = setInterval(fetchAudios, 5000); // Poll cada 5s
         return () => clearInterval(interval);
     }, [workingMode]);
