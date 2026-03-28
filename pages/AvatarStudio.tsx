@@ -122,82 +122,48 @@ const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitl
 // ============================================================
 
 /** VEO 3.1 — MODO ESTUDIO */
-const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `[IDENTIDAD_VISUAL:ARA_BUENOS_AIRES]
-Eye-level, locked-off medium shot of Ara. Strict identity preservation from reference image. No variation in facial structure, skin texture, hairstyle, or wardrobe. Maintain identical studio background from reference with zero alteration. Photorealistic rendering, natural skin detail, no smoothing or beautification filters.
+const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `Professional female news reporter, Ara, Argentinian from Buenos Aires. Maintain strong visual consistency with the reference image, preserving facial identity, hairstyle, wardrobe, and overall appearance.
 
-[FRAMING_AND_PRESENCE]
-Centered composition, shoulders and head visible. Neutral professional posture. Direct eye contact with camera. No body sway, no head drift, no micro-expressions unrelated to speech.
+Photorealistic, natural skin texture, realistic lighting, no artificial filters.
 
-[ANCLA_RIOPLATENSE]
-Argentinian news reporter from Buenos Aires. Confident, natural delivery with authentic Rioplatense Spanish accent (Buenos Aires). Professional, warm, and precise tone. Avoid exaggerated expressiveness.
+Calm, confident, and professional presence. Natural facial movement, subtle blinking, stable gaze.
 
-[AUDIO_STUDIO_CONTROL]
-Clean studio recording. No background noise, no reverb, no compression artifacts. Broadcast-quality audio. Consistent volume and tone.
+Eye-level, locked-off medium shot. Clean and modern news studio background, identical to the reference image.
 
-[DIALOGUE]
+Centered composition, head and shoulders visible. Direct eye contact with camera.
+
+Professional broadcast look, balanced lighting, neutral tones.
+
+Speaks in Rioplatense Spanish (Buenos Aires accent). Natural, fluid speech with correct intonation and rhythm. Professional news delivery, warm and clear tone.
+
+Clean studio audio, clear voice, no background noise.
+
+She says:
 "${dialogo}"
 
-[STRICT_PHONETICS_RIOPLATENSE]
-Deliver with continuous natural speech flow. No syllable segmentation.
-Apply sheísmo: pronounce "LL" and "Y" as /ʃ/.
-Allow natural Rioplatense "S" behavior (including soft aspiration in appropriate positions).
-Preserve standard Argentine intonation and cadence.
-Correct stress: "información", "visitános".
-Avoid unnatural vowel elongation or duplication.
-
-[ANTI_DRIFT_CONSTRAINTS]
-No facial morphing, no identity drift, no blinking anomalies, no lip-sync mismatch, no timing lag between audio and lips.
-
-[NEGATIVE_PROMPT]
-stuttering, hesitation, robotic cadence, exaggerated acting, over-articulation, Spanish (Spain) accent, ceceo, incorrect Rioplatense phonetics, inconsistent voice tone, pitch fluctuation, background change, lighting flicker, soft focus, beauty filter, plastic skin, uncanny valley, lip desync, audio glitches`;
+Avoid: robotic voice, exaggerated acting, Spain Spanish accent, lip sync errors, identity inconsistency, background changes, lighting flicker, blur, artificial skin, unnatural facial distortion.`;
 
 /** VEO 3.1 — MODO EXTERIORES con CHROMA KEY */
-const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `[PRIORIDAD_SISTEMA:CHROMA_KEY]
-Absolute priority: pure chroma key background. Solid uniform green (#00FF00), perfectly flat and evenly lit. No gradients, no texture, no wrinkles, no noise.
+const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `Professional female news reporter, Ara, Argentinian from Buenos Aires. Maintain strong visual consistency with the reference image, preserving facial identity, hairstyle, wardrobe, and overall appearance.
 
-[FIDELIDAD_CONTEXTUAL]
-Use background_reference_image_1.png strictly for subject identity only. Do not transfer any background elements from the reference.
+Photorealistic, natural skin texture, realistic lighting, no artificial filters.
 
-[SUBJECT_LIGHTING_ISOLATION]
-Subject lit independently from background. Strong natural daylight simulation: front lighting, 5500K, ~90,000 lux. High contrast on subject with defined, realistic shadows on the body only.
-Green screen lighting must remain completely flat, shadowless, evenly exposed, and unaffected by subject lighting.
+Calm, confident, and professional presence. Natural facial movement, subtle blinking, stable gaze.
 
-[COLOR_SEPARATION]
-Ensure clear color separation between subject and green background. No green spill on skin, hair, or clothing. No color contamination or edge blending.
+Eye-level, locked-off medium shot. Green screen background, flat chroma green, evenly lit, no shadows.
 
-[CAMERA_AND_COMPOSITION]
-Eye-level, locked-off medium shot. Centered framing. No camera movement, no shake, no zoom.
+Centered composition, head and shoulders visible. Reporter holding a microphone.
 
-[DEPTH_OF_FIELD]
-Shallow depth of field applied ONLY to subject. Background must remain perfectly flat and uniform without blur artifacts or gradients.
+Natural outdoor reporting posture, direct eye contact.
 
-[ANCLA_RIOPLATENSE]
-Argentinian field reporter from Buenos Aires. Natural, confident delivery with authentic Rioplatense accent. Professional but slightly more dynamic tone than studio.
+Speaks in Rioplatense Spanish (Buenos Aires accent). Natural, fluid speech with correct intonation and rhythm. Professional news delivery, warm and clear tone.
 
-[ACCIÓN_NARRATIVA]
-Ara stands upright, holding microphone naturally (if present). Minimal natural movement only from speech. No exaggerated gestures.
+Clean voice recording, no environmental noise.
 
-[AUDIO_ARA_V2]
-Clean voice recording, no background noise. Outdoor clarity without wind or ambient interference.
-
-[DIALOGUE]
+She says:
 "${dialogo}"
 
-[STRICT_PHONETICS_RIOPLATENSE]
-Continuous natural speech flow. No syllable segmentation.
-Apply sheísmo (/ʃ/ for LL and Y).
-Allow natural Rioplatense "S" aspiration depending on speech rhythm.
-Maintain Argentine cadence and intonation.
-Avoid vowel duplication or artificial emphasis.
-
-[CIERRE]
-Mouth closes naturally ~250ms after speech ends. Return to neutral expression.
-
-[ANTI_DRIFT_CONSTRAINTS]
-No identity drift, no facial morphing, no edge flickering, no chroma noise, no halo artifacts, no transparency errors.
-
-[NEGATIVE_PROMPT]
-background details, gradients, shadows on background, uneven green, green spill, color bleeding, edge artifacts, halo effect, compression noise, camera movement, camera drift, zoom, text overlays, subtitles, lip desync, robotic voice`;
+Avoid: robotic voice, exaggerated acting, Spain Spanish accent, lip sync errors, identity inconsistency, lighting flicker, blur, artificial skin, chroma shadows, background artifacts.`;
 
 // Helper: devuelve el prompt VEO 3.1 correcto según el modo activo
 const getPromptMaestroVEO = (modo: 'estudio' | 'exterior', dialogo: string) =>
