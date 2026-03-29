@@ -122,62 +122,69 @@ const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitl
 // ============================================================
 
 /** VEO 3.1 — MODO ESTUDIO */
-const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `[CORE_PRIORITY]
-Strict preservation of Ara’s identity and ARGENTINE (Buenos Aires) accent. Non-negotiable.
-[IDENTIDAD_VISUAL]
-Eye-level medium shot of Ara. Exact match to reference image: same face, skin texture, hairstyle, wardrobe, and background. Photorealistic, natural skin detail.
-[FRAMING]
-Centered, relaxed composition. Head and shoulders visible. Direct eye contact.
-[PRESENCE]
-Natural and dynamic. Subtle head movement and micro-expressions allowed. No stiffness.
-[STYLE_SOCIAL]
-Short-form social media style. Engaging, direct, slightly energetic. Immediate start, no delay before speaking.
-[VOICE_AND_DELIVERY]
-Native Buenos Aires (Argentina) speaker. TV news style from Buenos Aires. Clear Argentine Spanish accent (porteño). Slightly faster pace, confident and natural tone.
+const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `[CORE]
+Ara must exactly match the reference image and maintain a native Buenos Aires (Argentina) porteño accent. This is non-negotiable.
+[VISUAL]
+Eye-level medium shot (head and shoulders). Centered framing, direct eye contact. 
+Photorealistic: exact face, skin texture, hairstyle, wardrobe, and background from reference. 
+Natural micro-expressions and subtle head movement.
+[STYLE]
+Short-form social media delivery. Immediate start, engaging, confident, slightly energetic but natural.
+[VOICE]
+Native Buenos Aires Spanish (porteño). Clear Argentine accent with strong sheísmo (LL/Y → "sh"), characteristic intonation. 
+Slightly fast pace, natural rhythm, not exaggerated.
+Use natural Argentine phrasing and rhythm typical of Buenos Aires speech.
 [AUDIO]
 Clean studio sound. No noise.
 [DIALOGUE]
 "${dialogo}"
-[ACCENT_ANCHOR]
-Buenos Aires Spanish (Argentina), porteño accent. Strong sheísmo (LL/Y → “sh”). Characteristic Argentine intonation.
-[ACCENT_EXCLUSION]
-No Chilean accent, no Mexican accent, no Caribbean accent, no Spain accent, no neutral Spanish.
-[STABILITY_CONSTRAINTS]
-No identity drift, no lip-sync mismatch, no background change.
+[CONSTRAINTS]
+No identity drift. No lip-sync errors. No background changes.
 [NEGATIVE]
-neutral Spanish accent, Chilean accent, Mexican accent, Spain accent, ceceo, robotic delivery, monotone voice, lip desync, audio glitches, plastic skin`;
+Non-Argentine accents (Chile, Mexico, Caribbean, Spain), neutral Spanish, ceceo, robotic or monotone delivery, lip desync, audio glitches, artificial or plastic skin.`;
 
 /** VEO 3.1 — MODO EXTERIORES con CHROMA KEY */
-const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `[CORE_PRIORITY]
-Strict preservation of Ara’s identity and ARGENTINE (Buenos Aires) accent. Non-negotiable.
-[IDENTIDAD_VISUAL]
-Eye-level medium shot of Ara. Exact match to reference image: same face, skin texture, hairstyle, and wardrobe. Photorealistic, natural skin detail. No beautification.
-[CHROMA_BACKGROUND]
-Uniform green screen background (chroma key green). Even color, no gradients, no texture, no wrinkles. Pure flat green.
-[LIGHTING_FOR_KEY]
-Soft, even front lighting on subject. Separate background lighting to keep green evenly lit. No shadows on background. No green spill on skin or hair. Clean edge separation.
-[FRAMING]
-Centered composition. Head and shoulders visible. Safe margin around subject for clean keying.
-[PRESENCE]
-Natural and dynamic. Subtle head movement and micro-expressions allowed. No stiffness.
-[STYLE_SOCIAL]
-Short-form social media style. Engaging, direct, slightly energetic. Immediate start.
-[VOICE_AND_DELIVERY]
-Native Buenos Aires (Argentina) speaker. Clear porteño accent. Slightly fast, confident, natural delivery.
+const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `[CORE]
+Ara must exactly match the reference image and maintain a native Buenos Aires (Argentina) porteño accent. This is non-negotiable.
+
+[VISUAL]
+Eye-level medium shot (head and shoulders). Centered framing, direct eye contact. 
+Exact match to reference image (face, skin texture, hairstyle, wardrobe).
+Background must be a clean, evenly lit green screen (chroma key).
+
+[LIGHTING]
+Professional chroma key lighting setup. 
+Even illumination on green background (no shadows, no gradients, no hotspots).
+Green screen must be perfectly uniform (#00FF00), wrinkle-free, and noise-free.
+Subject separated from background with soft, natural key light and subtle rim light for clean edge separation.
+No green spill on skin or hair. Natural skin tones preserved.
+
+[ENVIRONMENT]
+Outdoor context implied but not affecting subject quality. 
+No wind distortion, no lighting inconsistency on subject.
+
+[STYLE]
+Short-form social media delivery. Immediate start, engaging, confident, slightly energetic but natural.
+
+[VOICE]
+Native Buenos Aires Spanish (porteño). Clear Argentine accent with strong sheísmo (LL/Y → "sh"), characteristic intonation. 
+Slightly fast pace, natural rhythm, not exaggerated.
+Use natural Argentine phrasing and rhythm typical of Buenos Aires speech.
+
 [AUDIO]
-Clean studio voice. No noise.
+Clean voice capture, studio-like clarity despite outdoor setting.
+No wind noise, no echo, no environmental interference.
+
 [DIALOGUE]
 "${dialogo}"
-[ACCENT_ANCHOR]
-Buenos Aires Spanish (Argentina), porteño accent. Strong sheísmo (LL/Y → “sh”). Authentic Argentine cadence.
-[ACCENT_EXCLUSION]
-No Chilean accent, no Mexican accent, no Caribbean accent, no Spain accent, no neutral Spanish.
-[STABILITY_CONSTRAINTS]
-No identity drift, no background variation, no lighting flicker, no lip-sync mismatch.
-[CHROMA_CONSTRAINTS]
-No motion blur on edges, no transparency artifacts, no color spill, no green reflection on subject.
+
+[CONSTRAINTS]
+No identity drift. No lip-sync errors. No background inconsistencies. Stable green screen.
+
 [NEGATIVE]
-uneven green background, shadows on green screen, green spill, color contamination, motion blur edges, neutral Spanish accent, Chilean accent, Spain accent, robotic delivery, lip desync, plastic skin`;
+Non-Argentine accents (Chile, Mexico, Caribbean, Spain), neutral Spanish, ceceo, 
+wind noise, echo, environmental noise, inconsistent lighting, shadows on green screen, green spill, 
+robotic or monotone delivery, lip desync, audio glitches, artificial or plastic skin.`;
 
 // Helper: devuelve el prompt VEO 3.1 correcto según el modo activo
 const getPromptMaestroVEO = (modo: 'estudio' | 'exterior', dialogo: string) => {
