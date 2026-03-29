@@ -122,48 +122,62 @@ const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitl
 // ============================================================
 
 /** VEO 3.1 — MODO ESTUDIO */
-const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `Professional female news reporter, Ara, Argentinian from Buenos Aires. Maintain strong visual consistency with the reference image, preserving facial identity, hairstyle, wardrobe, and overall appearance.
-
-Photorealistic, natural skin texture, realistic lighting, no artificial filters.
-
-Calm, confident, and professional presence. Natural facial movement, subtle blinking, stable gaze.
-
-Eye-level, locked-off medium shot. Clean and modern news studio background, identical to the reference image.
-
-Centered composition, head and shoulders visible. Direct eye contact with camera.
-
-Professional broadcast look, balanced lighting, neutral tones.
-
-Speaks in Rioplatense Spanish (Buenos Aires accent). Natural, fluid speech with correct intonation and rhythm. Professional news delivery, warm and clear tone.
-
-Clean studio audio, clear voice, no background noise.
-
-She says:
+const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `[CORE_PRIORITY]
+Strict preservation of Ara’s identity and ARGENTINE (Buenos Aires) accent. Non-negotiable.
+[IDENTIDAD_VISUAL]
+Eye-level medium shot of Ara. Exact match to reference image: same face, skin texture, hairstyle, wardrobe, and background. Photorealistic, natural skin detail.
+[FRAMING]
+Centered, relaxed composition. Head and shoulders visible. Direct eye contact.
+[PRESENCE]
+Natural and dynamic. Subtle head movement and micro-expressions allowed. No stiffness.
+[STYLE_SOCIAL]
+Short-form social media style. Engaging, direct, slightly energetic. Immediate start, no delay before speaking.
+[VOICE_AND_DELIVERY]
+Native Buenos Aires (Argentina) speaker. TV news style from Buenos Aires. Clear Argentine Spanish accent (porteño). Slightly faster pace, confident and natural tone.
+[AUDIO]
+Clean studio sound. No noise.
+[DIALOGUE]
 "${dialogo}"
-
-Avoid: robotic voice, exaggerated acting, Spain Spanish accent, lip sync errors, identity inconsistency, background changes, lighting flicker, blur, artificial skin, unnatural facial distortion.`;
+[ACCENT_ANCHOR]
+Buenos Aires Spanish (Argentina), porteño accent. Strong sheísmo (LL/Y → “sh”). Characteristic Argentine intonation.
+[ACCENT_EXCLUSION]
+No Chilean accent, no Mexican accent, no Caribbean accent, no Spain accent, no neutral Spanish.
+[STABILITY_CONSTRAINTS]
+No identity drift, no lip-sync mismatch, no background change.
+[NEGATIVE]
+neutral Spanish accent, Chilean accent, Mexican accent, Spain accent, ceceo, robotic delivery, monotone voice, lip desync, audio glitches, plastic skin`;
 
 /** VEO 3.1 — MODO EXTERIORES con CHROMA KEY */
-const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `Professional female news reporter, Ara, Argentinian from Buenos Aires. Maintain strong visual consistency with the reference image, preserving facial identity, hairstyle, wardrobe, and overall appearance.
-
-Photorealistic, natural skin texture, realistic lighting, no artificial filters.
-
-Calm, confident, and professional presence. Natural facial movement, subtle blinking, stable gaze.
-
-Eye-level, locked-off medium shot. Green screen background, flat chroma green, evenly lit, no shadows.
-
-Centered composition, head and shoulders visible. Reporter holding a microphone.
-
-Natural outdoor reporting posture, direct eye contact.
-
-Speaks in Rioplatense Spanish (Buenos Aires accent). Natural, fluid speech with correct intonation and rhythm. Professional news delivery, warm and clear tone.
-
-Clean voice recording, no environmental noise.
-
-She says:
+const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `[CORE_PRIORITY]
+Strict preservation of Ara’s identity and ARGENTINE (Buenos Aires) accent. Non-negotiable.
+[IDENTIDAD_VISUAL]
+Eye-level medium shot of Ara. Exact match to reference image: same face, skin texture, hairstyle, and wardrobe. Photorealistic, natural skin detail. No beautification.
+[CHROMA_BACKGROUND]
+Uniform green screen background (chroma key green). Even color, no gradients, no texture, no wrinkles. Pure flat green.
+[LIGHTING_FOR_KEY]
+Soft, even front lighting on subject. Separate background lighting to keep green evenly lit. No shadows on background. No green spill on skin or hair. Clean edge separation.
+[FRAMING]
+Centered composition. Head and shoulders visible. Safe margin around subject for clean keying.
+[PRESENCE]
+Natural and dynamic. Subtle head movement and micro-expressions allowed. No stiffness.
+[STYLE_SOCIAL]
+Short-form social media style. Engaging, direct, slightly energetic. Immediate start.
+[VOICE_AND_DELIVERY]
+Native Buenos Aires (Argentina) speaker. Clear porteño accent. Slightly fast, confident, natural delivery.
+[AUDIO]
+Clean studio voice. No noise.
+[DIALOGUE]
 "${dialogo}"
-
-Avoid: robotic voice, exaggerated acting, Spain Spanish accent, lip sync errors, identity inconsistency, lighting flicker, blur, artificial skin, chroma shadows, background artifacts.`;
+[ACCENT_ANCHOR]
+Buenos Aires Spanish (Argentina), porteño accent. Strong sheísmo (LL/Y → “sh”). Authentic Argentine cadence.
+[ACCENT_EXCLUSION]
+No Chilean accent, no Mexican accent, no Caribbean accent, no Spain accent, no neutral Spanish.
+[STABILITY_CONSTRAINTS]
+No identity drift, no background variation, no lighting flicker, no lip-sync mismatch.
+[CHROMA_CONSTRAINTS]
+No motion blur on edges, no transparency artifacts, no color spill, no green reflection on subject.
+[NEGATIVE]
+uneven green background, shadows on green screen, green spill, color contamination, motion blur edges, neutral Spanish accent, Chilean accent, Spain accent, robotic delivery, lip desync, plastic skin`;
 
 // Helper: devuelve el prompt VEO 3.1 correcto según el modo activo
 const getPromptMaestroVEO = (modo: 'estudio' | 'exterior', dialogo: string) =>
