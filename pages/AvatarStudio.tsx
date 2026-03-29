@@ -131,47 +131,13 @@ Audio: Clean dialogue only, professional TV studio acoustics. NO background musi
 Negative Prompt: subtitles, captions, watermark, text overlays, words on screen, wipes, transitions, camera movement, tracking, dolly, background music, sound effects, artifacts, morphing, floating background.`;
 
 /** VEO 3.1 — MODO EXTERIORES con CHROMA KEY */
-const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `[CORE]
-Ara must exactly match the reference image and maintain a native Buenos Aires (Argentina) porteño accent. This is non-negotiable.
-
-[VISUAL]
-Eye-level medium shot (head and shoulders). Centered framing, direct eye contact. 
-Exact match to reference image (face, skin texture, hairstyle, wardrobe).
-Background must be a clean, evenly lit green screen (chroma key).
-
-[LIGHTING]
-Professional chroma key lighting setup. 
-Even illumination on green background (no shadows, no gradients, no hotspots).
-Green screen must be perfectly uniform (#00FF00), wrinkle-free, and noise-free.
-Subject separated from background with soft, natural key light and subtle rim light for clean edge separation.
-No green spill on skin or hair. Natural skin tones preserved.
-
-[ENVIRONMENT]
-Outdoor context implied but not affecting subject quality. 
-No wind distortion, no lighting inconsistency on subject.
-
-[STYLE]
-Short-form social media delivery. Immediate start, engaging, confident, slightly energetic but natural.
-
-[VOICE]
-Native Buenos Aires Spanish (porteño). Clear Argentine accent with strong sheísmo (LL/Y → "sh"), characteristic intonation. 
-Slightly fast pace, natural rhythm, not exaggerated.
-Use natural Argentine phrasing and rhythm typical of Buenos Aires speech.
-
-[AUDIO]
-Clean voice capture, studio-like clarity despite outdoor setting.
-No wind noise, no echo, no environmental interference.
-
-[DIALOGUE]
-"${dialogo}"
-
-[CONSTRAINTS]
-No identity drift. No lip-sync errors. No background inconsistencies. Stable green screen.
-
-[NEGATIVE]
-Non-Argentine accents (Chile, Mexico, Caribbean, Spain), neutral Spanish, ceceo, 
-wind noise, echo, environmental noise, inconsistent lighting, shadows on green screen, green spill, 
-robotic or monotone delivery, lip desync, audio glitches, artificial or plastic skin.`;
+const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `Camera: Static, locked-off medium shot, 50mm lens, with camera positioned at eye level (thats where the camera is). Sharp focus with high contrast edge definition for clean chroma key extraction. Zero camera movement, absolute tripod stability.
+Subject: Ara, a 35-year-old Argentine female journalist. She has long, dark brown chest-length hair with curls. She is wearing a blue sweater featuring a "Saladillo Vivo" logo pin on it. Underneath the sweater, she wears a shirt with only the collar and sleeves visible. She holds a professional handheld broadcast microphone. She has a highly cordial, close, and sensitive facial expression.
+Action: She looks directly at the lens delivering the news. She holds the microphone steadily and moves her free hand slightly and gracefully to emphasize her words, maintaining a professional outdoor broadcast posture.
+Context: A perfectly flat, evenly lit, solid bright green background (green screen). Zero shadows on the background. The green background remains completely static and unaltered.
+Style: Professional outdoor broadcast TV news segment, flat even lighting on the subject to prevent green spill, 4K realistic cinematic quality, crisp focus.
+Audio: Clean dialogue only, outdoor open-air acoustics, slight handheld microphone presence. NO background music, NO sound effects. Professional female voice with a marked Argentine Rioplatense accent from Buenos Aires province. The voice features clear 'sheísmo' (yeísmo rehilado on 'y' and 'll' sounds), aspirated 's', and a highly natural melodic intonation. She says: "${dialogo}"
+Negative Prompt: shadows on background, green spill on subject, subtitles, captions, watermark, text overlays, words on screen, wipes, transitions, camera movement, background music, sound effects, artifacts, morphing.`;
 
 // Helper: devuelve el prompt VEO 3.1 correcto según el modo activo
 const getPromptMaestroVEO = (modo: 'estudio' | 'exterior', dialogo: string) => {
