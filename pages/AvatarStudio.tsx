@@ -122,26 +122,13 @@ const NEGATIVE_PROMPT = `[NEGATIVE PROMPT]:\n--no text, logo, watermark, subtitl
 // ============================================================
 
 /** VEO 3.1 — MODO ESTUDIO */
-const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `[CORE]
-Ara must exactly match the reference image and maintain a native Buenos Aires (Argentina) porteño accent. This is non-negotiable.
-[VISUAL]
-Eye-level medium shot (head and shoulders). Centered framing, direct eye contact. 
-Photorealistic: exact face, skin texture, hairstyle, wardrobe, and background from reference. 
-Natural micro-expressions and subtle head movement.
-[STYLE]
-Short-form social media delivery. Immediate start, engaging, confident, slightly energetic but natural.
-[VOICE]
-Native Buenos Aires Spanish (porteño). Clear Argentine accent with strong sheísmo (LL/Y → "sh"), characteristic intonation. 
-Slightly fast pace, natural rhythm, not exaggerated.
-Use natural Argentine phrasing and rhythm typical of Buenos Aires speech.
-[AUDIO]
-Clean studio sound. No noise.
-[DIALOGUE]
-"${dialogo}"
-[CONSTRAINTS]
-No identity drift. No lip-sync errors. No background changes.
-[NEGATIVE]
-Non-Argentine accents (Chile, Mexico, Caribbean, Spain), neutral Spanish, ceceo, robotic or monotone delivery, lip desync, audio glitches, artificial or plastic skin.`;
+const PROMPT_MAESTRO_VEO_ESTUDIO = (dialogo: string) => `Camera: Static, locked-off medium shot with camera positioned at eye level (thats where the camera is). Zero camera movement, absolute tripod stability.
+Subject: Ara, a 35-year-old Argentine female journalist. She has long, dark brown chest-length hair with curls. She is wearing a blue sweater featuring a "Saladillo Vivo" logo pin on it. Underneath the sweater, she wears a shirt with only the collar and sleeves visible. She has a highly cordial, close, and sensitive facial expression.
+Action: She looks directly at the lens delivering the news. She moves her hands slightly and gracefully to emphasize her words, maintaining a professional broadcast posture.
+Context: "Saladillo Vivo" TV news studio. The background is a wall featuring gray and light blue squares with 3D relief texture. In the furthest corner, there is a larger white square containing the "Saladillo Vivo" logo: a box with a blue border on the top and left, and a light blue border on the bottom and right. In the center of the logo is a blue circle containing a white "play" triangle, and on the bottom right of the logo, there is a small red circle. The background remains completely static and unaltered.
+Style: Professional broadcast TV news segment, high-key studio lighting, 4K realistic cinematic quality, crisp focus.
+Audio: Clean dialogue only, professional TV studio acoustics. NO background music, NO sound effects. Professional female voice with a marked Argentine Rioplatense accent from Buenos Aires province. The voice features clear 'sheísmo' (yeísmo rehilado on 'y' and 'll' sounds), aspirated 's', and a highly natural melodic intonation. She says: "${dialogo}"
+Negative Prompt: subtitles, captions, watermark, text overlays, words on screen, wipes, transitions, camera movement, tracking, dolly, background music, sound effects, artifacts, morphing, floating background.`;
 
 /** VEO 3.1 — MODO EXTERIORES con CHROMA KEY */
 const PROMPT_MAESTRO_VEO_EXTERIORES = (dialogo: string) => `[CORE]
