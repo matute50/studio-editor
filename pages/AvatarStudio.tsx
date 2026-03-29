@@ -53,7 +53,7 @@ interface LocalNews {
 const MOODS = ['SOLEMNE', 'URGENTE', 'ALEGRE', 'TRISTE'] as const;
 type MoodType = (typeof MOODS)[number];
 import { improveScriptWithGemini } from '../services/claude';
-import { generateAvatarVideo, optimizeBodyForAudio, adaptarTextoArgentino, translateActionToEnglish } from '../services/gemini';
+import { generateAvatarVideo, optimizeBodyForAudio, adaptarTextoArgentino, translateActionToEnglish, formatoMayusculasMinusculas } from '../services/gemini';
 import saludoTxt from '../saludo.txt?raw';
 import ctaTxt from '../CTA.txt?raw';
 import slogansTxt from '../slogans.txt?raw';
@@ -180,10 +180,12 @@ No motion blur on edges, no transparency artifacts, no color spill, no green ref
 uneven green background, shadows on green screen, green spill, color contamination, motion blur edges, neutral Spanish accent, Chilean accent, Spain accent, robotic delivery, lip desync, plastic skin`;
 
 // Helper: devuelve el prompt VEO 3.1 correcto según el modo activo
-const getPromptMaestroVEO = (modo: 'estudio' | 'exterior', dialogo: string) =>
-    modo === 'exterior'
-        ? PROMPT_MAESTRO_VEO_EXTERIORES(dialogo)
-        : PROMPT_MAESTRO_VEO_ESTUDIO(dialogo);
+const getPromptMaestroVEO = (modo: 'estudio' | 'exterior', dialogo: string) => {
+    const formattedDialogo = formatoMayusculasMinusculas(dialogo);
+    return modo === 'exterior'
+        ? PROMPT_MAESTRO_VEO_EXTERIORES(formattedDialogo)
+        : PROMPT_MAESTRO_VEO_ESTUDIO(formattedDialogo);
+};
 
 // Mantenemos PROMPT_MAESTRO_SYSTEM como alias del de estudio para compatibilidad
 const PROMPT_MAESTRO_SYSTEM = PROMPT_MAESTRO_VEO_ESTUDIO('Saladissho Vivo. La misma información, mejor contada. Visitános.');

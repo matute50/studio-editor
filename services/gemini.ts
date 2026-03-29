@@ -650,50 +650,67 @@ const getVeoClient = (apiKey: string) => {
  * Esto evita que el modelo de voz nativo de Veo recaiga en acento neutro.
  */
 export const adaptarTextoArgentino = (texto: string): string => {
-    let textoBase = texto.toUpperCase();
-    
     // 0. Corrector de Acentuación Voseo (Rioplatense): Forzamos la tilde en la vocal tónica
-    textoBase = textoBase
-        .replace(/\b(ENTERATE)\b/gi, "ENTERÁTE")
-        .replace(/\b(INFORMATE)\b/gi, "INFORMÁTE")
-        .replace(/\b(SUMATE)\b/gi, "SUMÁTE")
-        .replace(/\b(ACERCATE)\b/gi, "ACERCÁTE")
-        .replace(/\b(COMUNICATE)\b/gi, "COMUNICÁTE")
-        .replace(/\b(SUSCRIBITE)\b/gi, "SUSCRIBÍTE")
-        .replace(/\b(SEGUINOS)\b/gi, "SEGUÍNOS")
-        .replace(/\b(MIRALO)\b/gi, "MIRÁLO")
-        .replace(/\b(CONTANOS)\b/gi, "CONTÁNOS")
-        .replace(/\b(BUSCALO)\b/gi, "BUSCÁLO")
-        .replace(/\b(LLAMAME)\b/gi, "LLAMÁME")
-        .replace(/\b(ENTRA)\b/gi, "ENTRÁ")
-        .replace(/\b(MIRA)\b/gi, "MIRÁ")
-        .replace(/\b(VISITANOS)\b/gi, "VISITÁNOS");
+    const replaceMatch = (match: string, upperReplacement: string, lowerReplacement: string, capitalizeReplacement: string) => {
+        if (match === match.toUpperCase()) return upperReplacement;
+        if (match[0] === match[0].toUpperCase()) return capitalizeReplacement;
+        return lowerReplacement;
+    };
+
+    let textoBase = texto
+        .replace(/\b(enterate)\b/gi, (m) => replaceMatch(m, "ENTERÁTE", "enteráte", "Enteráte"))
+        .replace(/\b(informate)\b/gi, (m) => replaceMatch(m, "INFORMÁTE", "informáte", "Informáte"))
+        .replace(/\b(sumate)\b/gi, (m) => replaceMatch(m, "SUMÁTE", "sumáte", "Sumáte"))
+        .replace(/\b(acercate)\b/gi, (m) => replaceMatch(m, "ACERCÁTE", "acercáte", "Acercáte"))
+        .replace(/\b(comunicate)\b/gi, (m) => replaceMatch(m, "COMUNICÁTE", "comunicáte", "Comunicáte"))
+        .replace(/\b(suscribite)\b/gi, (m) => replaceMatch(m, "SUSCRIBÍTE", "suscribíte", "Suscribíte"))
+        .replace(/\b(seguinos)\b/gi, (m) => replaceMatch(m, "SEGUÍNOS", "seguínos", "Seguínos"))
+        .replace(/\b(miralo)\b/gi, (m) => replaceMatch(m, "MIRÁLO", "mirálo", "Mirálo"))
+        .replace(/\b(contanos)\b/gi, (m) => replaceMatch(m, "CONTÁNOS", "contános", "Contános"))
+        .replace(/\b(buscalo)\b/gi, (m) => replaceMatch(m, "BUSCÁLO", "buscálo", "Buscálo"))
+        .replace(/\b(llamame)\b/gi, (m) => replaceMatch(m, "LLAMÁME", "llamáme", "Llamáme"))
+        .replace(/\b(entra)\b/gi, (m) => replaceMatch(m, "ENTRÁ", "entrá", "Entrá"))
+        .replace(/\b(mira)\b/gi, (m) => replaceMatch(m, "MIRÁ", "mirá", "Mirá"))
+        .replace(/\b(visitanos)\b/gi, (m) => replaceMatch(m, "VISITÁNOS", "visitános", "Visitános"));
 
     // 1. Limpieza de Dobles Letras (Antibalbuceo)
     textoBase = textoBase
-        .replace(/ÁA/g, "Á")
-        .replace(/ÉE/g, "É")
-        .replace(/ÍI/g, "Í")
-        .replace(/ÓO/g, "Ó")
-        .replace(/ÚU/g, "Ú");
+        .replace(/áa/gi, (m) => m === m.toUpperCase() ? "Á" : m[0] === m[0].toUpperCase() ? "Á" : "á")
+        .replace(/ée/gi, (m) => m === m.toUpperCase() ? "É" : m[0] === m[0].toUpperCase() ? "É" : "é")
+        .replace(/íi/gi, (m) => m === m.toUpperCase() ? "Í" : m[0] === m[0].toUpperCase() ? "Í" : "í")
+        .replace(/óo/gi, (m) => m === m.toUpperCase() ? "Ó" : m[0] === m[0].toUpperCase() ? "Ó" : "ó")
+        .replace(/úu/gi, (m) => m === m.toUpperCase() ? "Ú" : m[0] === m[0].toUpperCase() ? "Ú" : "ú");
 
     // 2. Reemplazo de LL y Y por SSH (Sheísmo para VEO 3.1)
     let textoProcesado = textoBase
         // Protegemos la conjunción "Y" y palabras terminadas en Y (como hoy) que no deben SSH
-        .replace(/\bY\b/g, "Y@@@")
-        .replace(/([A-Z]+Y)\b/g, "$1@@@")
+        .replace(/\by\b/gi, (m) => m === "Y" ? "Y@@@" : "y@@@")
+        .replace(/([A-Záéíóúñ]+y)\b/gi, "$1@@@")
 
         // Reemplazo LL -> SSH
-        .replace(/LL/g, "SSH")
+        .replace(/ll/gi, (m) => m === "LL" ? "SSH" : m[0] === m[0].toUpperCase() ? "Ssh" : "ssh")
         
         // Reemplazo Y -> SSH (solo si no es protegida)
-        .replace(/Y(?!@@@)/g, "SSH")
+        .replace(/y(?!@@@)/gi, (m) => m === "Y" ? "SSH" : m[0] === m[0].toUpperCase() ? "Ssh" : "ssh")
 
         // Restauración y Cantito
         .replace(/@@@/g, "")
-        .replace(/(MUNICIPALIDAD|MUNICIPIO|INTENDENTE|GOBERNADOR)/g, "$1,");
+        .replace(/(municipalidad|municipio|intendente|gobernador)/gi, (m) => m + ",");
 
-    return textoProcesado.toUpperCase();
+    return textoProcesado;
+};
+
+/**
+ * Transforma un texto en MAYÚSCULAS a Mayúsculas y minúsculas (Sentence case),
+ * respetando las tildes rioplatenses ya procesadas. Se usa específicamente
+ * para los prompts de VEO 3.1 para evitar que la IA interprete ALL CAPS como gritos.
+ */
+export const formatoMayusculasMinusculas = (texto: string): string => {
+    // 1. Convertir todo a minúsculas
+    let min = texto.toLowerCase();
+    
+    // 2. Capitalizar la primera letra del texto y después de cada punto, signo de interrogación o exclamación
+    return min.replace(/(^\s*|[\.\!\?]\s*)([a-zñáéíóúü])/g, (m, p1, p2) => p1 + p2.toUpperCase());
 };
 
 /**
@@ -729,8 +746,8 @@ export const generateAvatarVideo = async (
     try {
         const isExtension = !!previousVideoBase64;
         
-        // REGLA 3: Pre-procesador de Acento (Inyector de Voseo)
-        const textoProcesado = adaptarTextoArgentino(textoDeseado);
+        // REGLA 3: Pre-procesador de Acento (Inyector de Voseo) y Formato Mayúsculas/Minúsculas
+        const textoProcesado = formatoMayusculasMinusculas(adaptarTextoArgentino(textoDeseado));
 
         // REGLA 2: Formato del Prompt de Texto (Front-loading y Cero Comillas)
         // Se inyecta el textoProcesado sin comillas internas y con (no subtitles) al final absoluto.
