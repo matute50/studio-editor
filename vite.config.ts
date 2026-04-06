@@ -848,6 +848,7 @@ export default defineConfig(({ mode }) => {
         ]
       }
     },
+    envPrefix: ['VITE_', 'GEMINI_', 'ANTHROPIC_', 'GROQ_'],
     plugins: [
       react(), 
       listAudiosPlugin(), 

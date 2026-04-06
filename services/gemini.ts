@@ -68,15 +68,18 @@ const getApiKeys = (silent: boolean = false): string[] => {
     }
   };
 
-  // 1. Intentar con process.env (Soportado vía vite.config.ts define) e import.meta.env (Vite)
-  // Iteramos hasta 30 para permitir al usuario agregar muchas llaves si lo necesita
+  // Collect all keys matching the pattern
   for (let i = 1; i <= 30; i++) {
     const keyName = i === 1 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${i}`;
-    const viteKeyName = `VITE_${keyName}`;
+    const val = (import.meta.env as any)[keyName];
+    if (val) addKey(val);
+  }
 
-    try { addKey(process.env[keyName]); } catch (e) { }
-    try { addKey((import.meta.env as any)[keyName]); } catch (e) { }
-    try { addKey((import.meta.env as any)[viteKeyName]); } catch (e) { }
+  // Also try VITE_ prefixed keys just in case
+  for (let i = 1; i <= 30; i++) {
+    const keyName = i === 1 ? 'VITE_GEMINI_API_KEY' : `VITE_GEMINI_API_KEY_${i}`;
+    const val = (import.meta.env as any)[keyName];
+    if (val) addKey(val);
   }
   
   // Casos especiales históricos
@@ -91,69 +94,81 @@ const getApiKeys = (silent: boolean = false): string[] => {
 };
 
 
-export const getGeminiResponse = async (prompt: string, temp: number = 0.5, systemInstruction: string = SYSTEM_NEWS_PROMPT, modelId: string = MODEL_ID): Promise<string> => {
+export const getGeminiResponse = async (
+  prompt: string, 
+  temp: number = 0.5, 
+  systemInstruction: string = SYSTEM_NEWS_PROMPT, 
+  modelId: string = MODEL_ID,
+  silent: boolean = false
+): Promise<string> => {
   if (!prompt) return "";
 
-  const keysToTry = getApiKeys(true); // silent to not flood console
+  const keysToTry = getApiKeys(true); 
   if (keysToTry.length === 0) return "Error: No hay API Key configurada (GEMINI_API_KEY, GEMINI_API_KEY_2, etc).";
 
-  // Prioridad de modelos para fallback
+  // Priority of models for fallback
   const modelsToTry = [
-    modelId,                 // El que pide el llamador (normalmente 2.5-flash)
-    'gemini-2.5-flash',      // Forzar 2.5-flash si el anterior era otro
-    'gemini-2.0-flash',      // Versión GA
-    'gemini-2.0-flash-exp',  // Versión Experimental
-    'gemini-2.5-pro'         // Último recurso (más lento pero robusto)
+    modelId,                 
+    'gemini-2.5-flash',      
+    'gemini-2.0-flash',      
+    'gemini-2.0-flash-exp',  
+    'gemini-2.5-pro'         
   ];
 
-  // Eliminar duplicados si modelId ya era uno de los fijos
   const uniqueModels = [...new Set(modelsToTry)];
   let lastError: any = null;
 
   for (const currentModel of uniqueModels) {
-    console.log(`[Gemini SDK] Intentando modelo ${currentModel} con ${keysToTry.length} claves...`);
+    if (!silent) console.info(`[Gemini SDK] 🔄 Intentando con modelo: ${currentModel}...`);
     
     for (const apiKey of keysToTry) {
       try {
         const ai = new GoogleGenAI({ apiKey });
+        
         const response = await ai.models.generateContent({
           model: currentModel,
-          contents: prompt,
+          contents: [{ parts: [{ text: prompt }] }],
           config: {
             temperature: temp,
-            systemInstruction: systemInstruction
-          }
+            systemInstruction: systemInstruction 
+          } as any
         });
         
-        if (response.text) return response.text;
-        throw new Error("Respuesta de IA vacía");
+        const textResponse = response.text || response.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (textResponse) {
+          if (!silent) console.info(`[Gemini SDK] ✅ Éxito con llave ...${apiKey.slice(-5)} en modelo ${currentModel}`);
+          return textResponse as string;
+        }
+        
+        throw new Error("Respuesta de IA vacía.");
 
       } catch (error: any) {
         lastError = error;
         const msg = error.message.toLowerCase();
         const isQuotaError = msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota");
-        const isNotFoundError = msg.includes("404") || msg.includes("not_found") || msg.includes("not found");
+        const isNotFoundError = msg.includes("404") || msg.includes("not_found");
         const isModelOverloaded = msg.includes("503") || msg.includes("overloaded");
 
-        if (isQuotaError || isNotFoundError || isModelOverloaded) {
-          const reason = isQuotaError ? "Cuota excedida" : isNotFoundError ? "No encontrado" : "Sobrecargado";
-          console.warn(`⚠️ ${reason} en ${currentModel} con clave ...${apiKey.slice(-4)}. Pasando a la siguiente clave...`);
-          continue; // Probar siguiente clave con EL MISMO MODELO
-        } else {
-          // Error crítico (ej: API Key inválida 400 o error de red)
-          console.error(`❌ Error crítico en ${currentModel} (...${apiKey.slice(-4)}):`, error.message);
-          // Si es un error de prompt o algo que no se arregla rotando llaves, igual seguimos por si otra llave funciona por alguna razón técnica loca de Google
-          continue;
+        if (isQuotaError) {
+          if (!silent) console.warn(`[Gemini SDK] ⚠️ Cuota excedida para llave ...${apiKey.slice(-5)} en ${currentModel}`);
+          continue; 
+        } 
+        
+        if (isNotFoundError) {
+          if (!silent) console.warn(`[Gemini SDK] ❌ Modelo ${currentModel} no disponible para esta llave.`);
+          break; // Try next model for this key
         }
+
+        if (!silent) console.error(`[Gemini SDK] ❗ Error con llave ...${apiKey.slice(-5)} en ${currentModel}:`, error.message);
+        continue;
       }
     }
-    // Si llegamos acá, es que probamos TODAS las llaves para este modelo y fallaron.
-    console.error(`❌ Fallaron TODAS las claves para el modelo ${currentModel}. Saltando al siguiente modelo fallback...`);
   }
 
-  // Si después de todos los modelos y todas las llaves seguimos acá, falló todo.
-  const finalErrorMsg = "Error al optimizar: Cuota de IA excedida en todos los modelos (2.5-flash, 2.0-flash, 2.0-exp, 2.5-pro) con todas las claves disponibles. Por favor espera 1 minuto o considera habilitar facturación en Google AI Studio.";
-  console.error(`[FATAL] ${finalErrorMsg}`, lastError?.message);
+  const finalErrorMsg = `Cuota excedida o error técnico tras probar ${uniqueModels.length} modelos y ${keysToTry.length} claves únicas. Último error: ${lastError?.message || "Desconocido"}.`;
+  console.error(`[Gemini SDK] ❌ AGOTADOS TODOS LOS RECURSOS:`, finalErrorMsg);
+  
   throw new Error(finalErrorMsg);
 };
 
