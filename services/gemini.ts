@@ -54,6 +54,7 @@ Actúa como un Editor Jefe de Redacción Profesional especializado en medios dig
 `;
 
 // Helper to get all available API keys
+// Helper to get all available API keys
 const getApiKeys = (silent: boolean = false): string[] => {
   const keys: string[] = [];
 
@@ -67,45 +68,24 @@ const getApiKeys = (silent: boolean = false): string[] => {
     }
   };
 
-  // 1. Intentar con process.env (Soportado vía vite.config.ts define)
-  try { addKey(process.env.API_KEY); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_2); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_3); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_4); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_5); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_6); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_7); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_8); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_9); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_10); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_11); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_12); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_13); } catch (e) { }
-  try { addKey(process.env.GEMINI_API_KEY_14); } catch (e) { }
+  // 1. Intentar con process.env (Soportado vía vite.config.ts define) e import.meta.env (Vite)
+  // Iteramos hasta 30 para permitir al usuario agregar muchas llaves si lo necesita
+  for (let i = 1; i <= 30; i++) {
+    const keyName = i === 1 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${i}`;
+    const viteKeyName = `VITE_${keyName}`;
 
-  // 2. Intentar con import.meta.env (Soportado nativamente por Vite)
-  try {
-    addKey(import.meta.env.VITE_GEMINI_API_KEY);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_2);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_3);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_4);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_5);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_6);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_7);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_8);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_9);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_10);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_11);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_12);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_13);
-    addKey(import.meta.env.VITE_GEMINI_API_KEY_14);
-  } catch (e) { }
+    try { addKey(process.env[keyName]); } catch (e) { }
+    try { addKey((import.meta.env as any)[keyName]); } catch (e) { }
+    try { addKey((import.meta.env as any)[viteKeyName]); } catch (e) { }
+  }
+  
+  // Casos especiales históricos
+  try { addKey(process.env.API_KEY); } catch (e) { }
 
   // Filter out duplicates
   const finalKeys = [...new Set(keys)];
   if (!silent) {
-    console.log(`[Gemini SDK] Cargadas ${finalKeys.length} API Keys válidas para rotación.`);
+    console.log(`[Gemini SDK] Cargadas ${finalKeys.length} API Keys únicas para rotación (soporte hasta 30).`);
   }
   return finalKeys;
 };
@@ -114,82 +94,69 @@ const getApiKeys = (silent: boolean = false): string[] => {
 export const getGeminiResponse = async (prompt: string, temp: number = 0.5, systemInstruction: string = SYSTEM_NEWS_PROMPT, modelId: string = MODEL_ID): Promise<string> => {
   if (!prompt) return "";
 
-  const keysToTry = getApiKeys();
+  const keysToTry = getApiKeys(true); // silent to not flood console
+  if (keysToTry.length === 0) return "Error: No hay API Key configurada (GEMINI_API_KEY, GEMINI_API_KEY_2, etc).";
 
-  if (keysToTry.length === 0) return "Error: No hay API Key configurada (API_KEY, API_KEY_2, etc).";
+  // Prioridad de modelos para fallback
+  const modelsToTry = [
+    modelId,                 // El que pide el llamador (normalmente 2.5-flash)
+    'gemini-2.5-flash',      // Forzar 2.5-flash si el anterior era otro
+    'gemini-2.0-flash',      // Versión GA
+    'gemini-2.0-flash-exp',  // Versión Experimental
+    'gemini-2.5-pro'         // Último recurso (más lento pero robusto)
+  ];
 
+  // Eliminar duplicados si modelId ya era uno de los fijos
+  const uniqueModels = [...new Set(modelsToTry)];
   let lastError: any = null;
 
-  for (const apiKey of keysToTry) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: modelId,
-        contents: prompt,
-        config: {
-          temperature: temp,
-          systemInstruction: systemInstruction
-        }
-      });
-      return response.text || "";
-    } catch (error: any) {
-      // Handle Quota Exceeded specifically
-      const isQuotaError = error.message.includes("429") || error.message.includes("RESOURCE_EXHAUSTED");
-      const isNotFoundError = error.message.includes("404") || error.message.includes("not found");
-
-      if (isNotFoundError || isQuotaError) {
-        console.log(`⚠️ ${isQuotaError ? 'Cuota excedida' : 'Modelo no encontrado'} con clave terminada en ...${apiKey.slice(-4)} para el modelo ${modelId}. Probando siguiente clave si existe...`);
-        lastError = error;
-        continue; // Try the next API key in the array
-      } else {
-        lastError = error;
-        console.error(`Error desconocido en IA con clave ...${apiKey.slice(-4)}:`, error.message);
-        break; // Stop trying keys if it's a completely different error
-      }
-    }
-  }
-
-  if (lastError?.message?.includes("429") || lastError?.message?.includes("RESOURCE_EXHAUSTED")) {
-    if (modelId === 'gemini-2.5-flash') {
-      console.log("⚠️ Todas las claves fallaron en 2.5-flash por cuota. Rescatando operación automáticamente con gemini-2.0-flash-exp...");
+  for (const currentModel of uniqueModels) {
+    console.log(`[Gemini SDK] Intentando modelo ${currentModel} con ${keysToTry.length} claves...`);
+    
+    for (const apiKey of keysToTry) {
       try {
-        const fallbackAi = new GoogleGenAI({ apiKey: keysToTry[0] });
-        const fallbackResponse = await fallbackAi.models.generateContent({
-          model: 'gemini-2.0-flash-exp',
+        const ai = new GoogleGenAI({ apiKey });
+        const response = await ai.models.generateContent({
+          model: currentModel,
           contents: prompt,
           config: {
             temperature: temp,
             systemInstruction: systemInstruction
           }
         });
-        console.log("✅ Operación rescatada: gemini-2.0-flash-exp tomó el control con éxito!");
-        return fallbackResponse.text || "";
-      } catch (fallbackError: any) {
-        console.log("⚠️ Fallback a 2.0-flash-exp también falló:", fallbackError.message);
-        console.log("⚠️ Intentando fallback último recurso a gemini-2.5-pro...");
-        try {
-          const fallbackAiPro = new GoogleGenAI({ apiKey: keysToTry[0] });
-          const fallbackResponsePro = await fallbackAiPro.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
-            config: {
-              temperature: temp,
-              systemInstruction: systemInstruction
-            }
-          });
-          console.log("✅ Fallback a 2.5-pro exitoso");
-          return fallbackResponsePro.text || "";
-        } catch (fallbackErrorPro: any) {
-          console.error("❌ Fallback a 2.5-pro también falló:", fallbackErrorPro.message);
-          throw new Error("Cuota de IA excedida en todos los modelos (2.5-flash, 2.0-exp, 2.5-pro). Por favor espera 1 minuto o considera habilitar facturación en Google AI Studio.");
+        
+        if (response.text) return response.text;
+        throw new Error("Respuesta de IA vacía");
+
+      } catch (error: any) {
+        lastError = error;
+        const msg = error.message.toLowerCase();
+        const isQuotaError = msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota");
+        const isNotFoundError = msg.includes("404") || msg.includes("not_found") || msg.includes("not found");
+        const isModelOverloaded = msg.includes("503") || msg.includes("overloaded");
+
+        if (isQuotaError || isNotFoundError || isModelOverloaded) {
+          const reason = isQuotaError ? "Cuota excedida" : isNotFoundError ? "No encontrado" : "Sobrecargado";
+          console.warn(`⚠️ ${reason} en ${currentModel} con clave ...${apiKey.slice(-4)}. Pasando a la siguiente clave...`);
+          continue; // Probar siguiente clave con EL MISMO MODELO
+        } else {
+          // Error crítico (ej: API Key inválida 400 o error de red)
+          console.error(`❌ Error crítico en ${currentModel} (...${apiKey.slice(-4)}):`, error.message);
+          // Si es un error de prompt o algo que no se arregla rotando llaves, igual seguimos por si otra llave funciona por alguna razón técnica loca de Google
+          continue;
         }
       }
     }
+    // Si llegamos acá, es que probamos TODAS las llaves para este modelo y fallaron.
+    console.error(`❌ Fallaron TODAS las claves para el modelo ${currentModel}. Saltando al siguiente modelo fallback...`);
   }
 
-  console.error("❌ Todas las claves fallaron y no se pudo usar fallback en getGeminiResponse:", lastError?.message);
-  throw lastError || new Error("Error desconocido al contactar Gemini");
+  // Si después de todos los modelos y todas las llaves seguimos acá, falló todo.
+  const finalErrorMsg = "Error al optimizar: Cuota de IA excedida en todos los modelos (2.5-flash, 2.0-flash, 2.0-exp, 2.5-pro) con todas las claves disponibles. Por favor espera 1 minuto o considera habilitar facturación en Google AI Studio.";
+  console.error(`[FATAL] ${finalErrorMsg}`, lastError?.message);
+  throw new Error(finalErrorMsg);
 };
+
 
 export const generateProfessionalNews = async (rawInput: string): Promise<{ title: string, body: string }> => {
   const prompt = `Analiza y reescribe de forma profesional esta información siguiendo las reglas del Editor Jefe: ${rawInput}.`;

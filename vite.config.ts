@@ -261,12 +261,13 @@ const geminiProxyPlugin = () => {
     configResolved(config: any) {
       const folder = config.root || process.cwd();
       const env = loadEnv(config.mode || 'development', folder, '');
-      apiKeys = [
-        env.GEMINI_API_KEY, env.GEMINI_API_KEY_2, env.GEMINI_API_KEY_3, env.GEMINI_API_KEY_4, 
-        env.GEMINI_API_KEY_5, env.GEMINI_API_KEY_6, env.GEMINI_API_KEY_7, env.GEMINI_API_KEY_8, 
-        env.GEMINI_API_KEY_9, env.GEMINI_API_KEY_10, env.GEMINI_API_KEY_11, env.GEMINI_API_KEY_12, 
-        env.GEMINI_API_KEY_13, env.GEMINI_API_KEY_14, process.env.GEMINI_API_KEY
-      ].filter(Boolean) as string[];
+      const geminiKeys: string[] = [];
+      for (let i = 1; i <= 30; i++) {
+        const keyName = i === 1 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${i}`;
+        if (env[keyName]) geminiKeys.push(env[keyName]);
+      }
+      if (process.env.GEMINI_API_KEY) geminiKeys.push(process.env.GEMINI_API_KEY);
+      apiKeys = [...new Set(geminiKeys)];
     },
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
@@ -864,21 +865,13 @@ export default defineConfig(({ mode }) => {
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GOOGLE_TTS_API_KEY': JSON.stringify(env.GOOGLE_TTS_API_KEY),
-      'process.env.GEMINI_API_KEY_2': JSON.stringify(env.GEMINI_API_KEY_2),
-      'process.env.GEMINI_API_KEY_3': JSON.stringify(env.GEMINI_API_KEY_3),
-      'process.env.GEMINI_API_KEY_4': JSON.stringify(env.GEMINI_API_KEY_4),
-      'process.env.GEMINI_API_KEY_5': JSON.stringify(env.GEMINI_API_KEY_5),
-      'process.env.GEMINI_API_KEY_6': JSON.stringify(env.GEMINI_API_KEY_6),
-      'process.env.GEMINI_API_KEY_7': JSON.stringify(env.GEMINI_API_KEY_7),
-      'process.env.GEMINI_API_KEY_8': JSON.stringify(env.GEMINI_API_KEY_8),
-      'process.env.GEMINI_API_KEY_9': JSON.stringify(env.GEMINI_API_KEY_9),
-      'process.env.GEMINI_API_KEY_10': JSON.stringify(env.GEMINI_API_KEY_10),
-      'process.env.GEMINI_API_KEY_11': JSON.stringify(env.GEMINI_API_KEY_11),
-      'process.env.GEMINI_API_KEY_12': JSON.stringify(env.GEMINI_API_KEY_12),
-      'process.env.GEMINI_API_KEY_13': JSON.stringify(env.GEMINI_API_KEY_13),
-      'process.env.GEMINI_API_KEY_14': JSON.stringify(env.GEMINI_API_KEY_14)
+      ...Object.fromEntries(
+        Array.from({ length: 30 }, (_, i) => {
+          const key = i === 0 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${i + 1}`;
+          return [`process.env.${key}`, JSON.stringify(env[key] || process.env[key])];
+        })
+      )
     },
     resolve: {
       alias: {
