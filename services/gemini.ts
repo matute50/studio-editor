@@ -5,8 +5,8 @@ import { pcmToWav } from './audioProcessor';
 
 const MODEL_ID = 'models/gemini-1.5-flash';
 const FAST_MODEL_ID = 'models/gemini-1.5-flash'; 
-const TTS_MODEL_ID = 'models/gemini-1.5-flash-preview-tts';
-const VEO_MODEL_ID = 'models/veo-3.1-generate-preview'; // Usar nombre completo con prefijo
+const TTS_MODEL_ID = 'models/gemini-1.5-flash'; // Cambiado a modelo base más estable
+const VEO_MODEL_ID = 'models/veo-3.1-generate-preview'; 
 
 const SYSTEM_NEWS_PROMPT = `
 ### ROL
@@ -111,10 +111,12 @@ export const getGeminiResponse = async (
     modelId,                 
     'gemini-1.5-flash',
     'gemini-1.5-flash-latest',
-    'gemini-2.0-flash-exp',
+    'gemini-1.5-flash-002',
     'gemini-2.0-flash',
+    'gemini-2.0-flash-lite-preview-02-05',
     'gemini-1.5-pro',
-    'gemini-1.5-pro-latest',
+    'gemini-1.5-pro-002',
+    'gemini-2.0-flash-exp',
     'gemini-2.5-flash',      
     'gemini-2.5-pro'         
   ];
@@ -428,60 +430,83 @@ export const generateSpeech = async (
 ): Promise<{ localUrl: string, blob: Blob, pcmData: Uint8Array }> => {
   const keysToTry = getApiKeys();
 
-  if (keysToTry.length === 0) throw new Error("No hay claves API configuradas.");
+  const ttsModelsToTry = [
+    TTS_MODEL_ID,
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash-002',
+    'gemini-1.5-flash-preview-tts', // Mantener como último recurso por si vuelve a estar online
+    'gemini-2.0-flash'
+  ];
 
-  let lastError: any = null;
+  const uniqueTtsModels = [...new Set(ttsModelsToTry)].map(m => m.startsWith('models/') ? m : `models/${m}`);
 
-  for (const apiKey of keysToTry) {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const normalizedVoice = voiceName.toLowerCase();
-      const isFemale = ['aoede', 'kore', 'berenice', 'cassiopeia'].includes(normalizedVoice);
-      const genderLabel = isFemale ? 'una mujer' : 'un hombre';
-      const ageLabel = isFemale ? '32' : '35';
-      const textureLabel = isFemale ? 'clara, cálida y profesional' : 'profunda, serena y con autoridad';
-      const registerLabel = isFemale ? 'mezzo-soprano' : 'barítono';
+  for (const currentTtsModel of uniqueTtsModels) {
+    for (const apiKey of keysToTry) {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const normalizedVoice = voiceName.toLowerCase();
+        
+        const accentTag = `[Voz: Locutora de Buenos Aires, volumen alto y estable]`;
+        const enrichedText = extraConfig 
+          ? `${accentTag} [Tono: ${extraConfig}] ${text}` 
+          : `${accentTag} ${text}`;
 
-      // TÁCTICA FINAL PERMITIDA POR GOOGLE TTS: "Tag de Una Sola Línea"
-      // Tras confirmar que Gemini 2.5 TTS rechaza 'systemInstruction' y 'Multi-turn chat',
-      // la única forma de pasar la identidad sin bajar volumen ni perder acento es
-      // un tag directo asimilable en menos de un microsegundo de cálculo, sin explicaciones.
-      const accentTag = `[Voz: Locutora de Buenos Aires, volumen alto y estable]`;
-      const enrichedText = extraConfig 
-        ? `${accentTag} [Tono: ${extraConfig}] ${text}` 
-        : `${accentTag} ${text}`;
+        console.log(`[Gemini TTS] 🔄 Intentando audio con ${currentTtsModel} y llave ...${apiKey.slice(-5)}`);
 
-      const response = await ai.models.generateContent({
-        model: TTS_MODEL_ID,
-        contents: [{ parts: [{ text: enrichedText }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            languageCode: 'es-AR',
-            voiceConfig: { 
-              prebuiltVoiceConfig: { 
-                voiceName: voiceName as any 
-              } 
-            }
-          },
-          seed: seed !== undefined ? Math.min(seed, 2147483647) : undefined,
-          speakingRate: 1.0,
-          pitch: 0.0
-        } as any
-      });
+        const response = await ai.models.generateContent({
+          model: currentTtsModel,
+          contents: [{ parts: [{ text: enrichedText }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              languageCode: 'es-AR',
+              voiceConfig: { 
+                prebuiltVoiceConfig: { 
+                  voiceName: voiceName as any 
+                } 
+              }
+            },
+            seed: seed !== undefined ? Math.min(seed, 2147483647) : undefined,
+            speakingRate: 1.0,
+            pitch: 0.0
+          } as any
+        });
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (!base64Audio) throw new Error("La IA no devolvió datos de audio.");
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) throw new Error("La IA no devolvió datos de audio.");
 
-      const pcmData = decodeBase64(base64Audio);
-      // Convert to WAV for browser compatibility (24kHz, 1 channel)
-      const blob = pcmToWav(pcmData, 24000, 1);
+        const pcmData = decodeBase64(base64Audio);
+        const blob = pcmToWav(pcmData, 24000, 1);
 
-      return {
-        localUrl: URL.createObjectURL(blob),
-        blob,
-        pcmData
-      };
+        console.info(`[Gemini TTS] ✅ Éxito con ${currentTtsModel}`);
+
+        return {
+          localUrl: URL.createObjectURL(blob),
+          blob,
+          pcmData
+        };
+      } catch (error: any) {
+        const msg = error.message.toLowerCase();
+        const isQuotaError = msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota");
+        const isNotFoundError = msg.includes("404") || msg.includes("not_found");
+        
+        if (isNotFoundError) {
+           console.warn(`[Gemini TTS] ❌ Modelo ${currentTtsModel} no disponible para audio con esta llave.`);
+           break; // Probar siguiente modelo para esta llave o siguiente llave para este modelo? 
+           // Mejor romper el bucle interno de llaves para este modelo e ir al siguiente modelo.
+        }
+
+        console.warn(`Fallo Gemini TTS con llave ...${apiKey.slice(-4)} en ${currentTtsModel}: ${error.message}`);
+        
+        if (isQuotaError && apiKey === keysToTry[keysToTry.length - 1] && currentTtsModel === uniqueTtsModels[uniqueTtsModels.length - 1]) {
+          lastError = new Error("⏳ Límite de cuota agostado en todos los modelos TTS.");
+        } else {
+          lastError = error;
+        }
+      }
+    }
+  }
 
 
 
