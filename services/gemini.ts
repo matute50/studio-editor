@@ -3,9 +3,9 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { pcmToWav } from './audioProcessor';
 
-const MODEL_ID = 'gemini-2.5-flash';
-const FAST_MODEL_ID = 'gemini-2.5-flash'; // gemini-1.5-flash y 2.0-flash están dando 404 con las llaves actuales. Usamos 2.5 directo.
-const TTS_MODEL_ID = 'gemini-2.5-flash-preview-tts';
+const MODEL_ID = 'models/gemini-1.5-flash';
+const FAST_MODEL_ID = 'models/gemini-1.5-flash'; 
+const TTS_MODEL_ID = 'models/gemini-1.5-flash-preview-tts';
 const VEO_MODEL_ID = 'models/veo-3.1-generate-preview'; // Usar nombre completo con prefijo
 
 const SYSTEM_NEWS_PROMPT = `
@@ -109,13 +109,17 @@ export const getGeminiResponse = async (
   // Priority of models for fallback
   const modelsToTry = [
     modelId,                 
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-2.0-flash-exp',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro',
+    'gemini-1.5-pro-latest',
     'gemini-2.5-flash',      
-    'gemini-2.0-flash',      
-    'gemini-2.0-flash-exp',  
     'gemini-2.5-pro'         
   ];
 
-  const uniqueModels = [...new Set(modelsToTry)];
+  const uniqueModels = [...new Set(modelsToTry)].map(m => m.startsWith('models/') ? m : `models/${m}`);
   let lastError: any = null;
 
   for (const currentModel of uniqueModels) {
@@ -134,7 +138,19 @@ export const getGeminiResponse = async (
           } as any
         });
         
-        const textResponse = response.text || response.candidates?.[0]?.content?.parts?.[0]?.text;
+        let textResponse = "";
+        try {
+          // El SDK @google/genai 1.33.0+ devuelve resultados donde text puede ser propiedad o método según el contexto (stream vs static)
+          // Usamos una aproximación defensiva:
+          const resObj = response as any;
+          textResponse = typeof resObj.text === 'function' ? resObj.text() : (resObj.text || "");
+          
+          if (!textResponse && resObj.candidates?.[0]?.content?.parts?.[0]?.text) {
+             textResponse = resObj.candidates[0].content.parts[0].text;
+          }
+        } catch (e) {
+          textResponse = (response as any).candidates?.[0]?.content?.parts?.[0]?.text || "";
+        }
         
         if (textResponse) {
           if (!silent) console.info(`[Gemini SDK] ✅ Éxito con llave ...${apiKey.slice(-5)} en modelo ${currentModel}`);
@@ -487,7 +503,7 @@ export const generateSpeech = async (
 }
 
 // === CONSTANTS FOR CLONING ===
-const ANALYSIS_MODEL_ID = 'gemini-2.5-flash';
+const ANALYSIS_MODEL_ID = 'models/gemini-1.5-flash';
 
 // Helper to fetch audio and convert to base64
 const fetchAudioAsBase64 = async (url: string): Promise<string> => {

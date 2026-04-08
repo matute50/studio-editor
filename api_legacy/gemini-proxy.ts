@@ -18,13 +18,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ].filter(Boolean) as string[];
 
     const configs = [
-      { model: "gemini-2.0-flash", v: "v1beta" },
       { model: "gemini-1.5-flash", v: "v1beta" },
       { model: "gemini-1.5-flash-latest", v: "v1beta" },
+      { model: "gemini-2.0-flash-exp", v: "v1beta" },
       { model: "gemini-1.5-pro", v: "v1beta" },
-      { model: "gemini-1.5-pro-latest", v: "v1beta" },
-      { model: "gemini-2.5-flash-preview", v: "v1beta" },
-      { model: "gemini-3-flash-preview", v: "v1beta" }
+      { model: "gemini-1.5-pro-latest", v: "v1beta" }
     ];
 
     if (apiKeys.length === 0) {
