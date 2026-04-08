@@ -435,17 +435,17 @@ export const generateSpeech = async (
     'gemini-1.5-flash',
     'gemini-1.5-flash-latest',
     'gemini-1.5-flash-002',
-    'gemini-1.5-flash-preview-tts', // Mantener como último recurso por si vuelve a estar online
+    'gemini-1.5-flash-preview-tts',
     'gemini-2.0-flash'
   ];
 
   const uniqueTtsModels = [...new Set(ttsModelsToTry)].map(m => m.startsWith('models/') ? m : `models/${m}`);
+  let lastError: any = null;
 
   for (const currentTtsModel of uniqueTtsModels) {
     for (const apiKey of keysToTry) {
       try {
         const ai = new GoogleGenAI({ apiKey });
-        const normalizedVoice = voiceName.toLowerCase();
         
         const accentTag = `[Voz: Locutora de Buenos Aires, volumen alto y estable]`;
         const enrichedText = extraConfig 
@@ -458,7 +458,7 @@ export const generateSpeech = async (
           model: currentTtsModel,
           contents: [{ parts: [{ text: enrichedText }] }],
           config: {
-            responseModalities: [Modality.AUDIO],
+            responseModalalities: [Modality.AUDIO],
             speechConfig: {
               languageCode: 'es-AR',
               voiceConfig: { 
@@ -493,34 +493,17 @@ export const generateSpeech = async (
         
         if (isNotFoundError) {
            console.warn(`[Gemini TTS] ❌ Modelo ${currentTtsModel} no disponible para audio con esta llave.`);
-           break; // Probar siguiente modelo para esta llave o siguiente llave para este modelo? 
-           // Mejor romper el bucle interno de llaves para este modelo e ir al siguiente modelo.
+           break; 
         }
 
         console.warn(`Fallo Gemini TTS con llave ...${apiKey.slice(-4)} en ${currentTtsModel}: ${error.message}`);
         
         if (isQuotaError && apiKey === keysToTry[keysToTry.length - 1] && currentTtsModel === uniqueTtsModels[uniqueTtsModels.length - 1]) {
-          lastError = new Error("⏳ Límite de cuota agostado en todos los modelos TTS.");
+          lastError = new Error("⏳ Límite de cuota agotado en todos los modelos TTS.");
         } else {
           lastError = error;
         }
       }
-    }
-  }
-
-
-
-    } catch (error: any) {
-      const isQuotaError = error.message.includes("429") || error.message.includes("RESOURCE_EXHAUSTED");
-      console.warn(`Fallo al generar audio con clave terminada en ...${apiKey.slice(-4)}: ${error.message} `);
-      
-      if (isQuotaError && apiKey === keysToTry[keysToTry.length - 1]) {
-        // Si la última clave también falló por cuota
-        lastError = new Error("⏳ Límite de cuota (Free Tier) alcanzado. La nueva versión de Gemini TTS permite un máximo de 10 audios diarios por clave. Por favor, esperá o usá otra clave.");
-      } else {
-        lastError = error;
-      }
-      // Continue to next key
     }
   }
 
