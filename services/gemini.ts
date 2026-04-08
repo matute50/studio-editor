@@ -498,8 +498,7 @@ export const generateSpeech = async (
   pitch: string = 'medio',
   speed: number = 1.0,
   extraConfig: string = '',
-  seed: number = 2147483647, // Semilla técnica fija para estabilidad total de Ara
-  useWebFallback: boolean = true
+  seed: number = 2147483647 // Semilla técnica fija para estabilidad total de Ara
 ): Promise<{ localUrl: string, blob: Blob, pcmData: Uint8Array }> => {
   const keysToTry = getApiKeys();
 
@@ -563,22 +562,16 @@ export const generateSpeech = async (
         const msg = error.message.toLowerCase();
         const isQuotaError = msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota");
         const isNotFoundError = msg.includes("404") || msg.includes("not_found");
-        // Error crítico de billing: no rotar claves, redirigir a fallback o lanzar error
+        // Error crítico de billing: no rotar claves, redirigir a fallback directamente
         const isBillingError = msg.includes("billing") || msg.includes("billing_not_enabled") || msg.includes("enable billing");
         
         if (isBillingError) {
-          console.warn(`[Gemini TTS] 💳 Error de billing detectado.`);
-          if (useWebFallback) {
-            console.warn(`[Gemini TTS] Activando fallback a Web Speech API...`);
-            try {
-              return await generateSpeechFallback(text, speed);
-            } catch (fallbackErr: any) {
-              lastError = fallbackErr;
-              break;
-            }
-          } else {
-            console.warn(`[Gemini TTS] Saltando Web Speech API (useWebFallback=false).`);
-            throw error; // Lanzar error directamente para que se capture
+          console.warn(`[Gemini TTS] 💳 Error de billing detectado. Activando fallback a Web Speech API...`);
+          try {
+            return await generateSpeechFallback(text, speed);
+          } catch (fallbackErr: any) {
+            lastError = fallbackErr;
+            break;
           }
         }
 
@@ -598,17 +591,13 @@ export const generateSpeech = async (
     }
   }
 
-  if (useWebFallback) {
-    // Último recurso: intentar Web Speech API si Gemini falló
-    console.warn('[Gemini TTS] 🔄 Todos los modelos Gemini fallaron. Intentando Web Speech API como último recurso...');
-    try {
-      return await generateSpeechFallback(text, speed);
-    } catch (fallbackErr: any) {
-      throw lastError || fallbackErr || new Error("Todas las claves fallaron al generar audio.");
-    }
+  // Último recurso: intentar Web Speech API si Gemini falló
+  console.warn('[Gemini TTS] 🔄 Todos los modelos Gemini fallaron. Intentando Web Speech API como último recurso...');
+  try {
+    return await generateSpeechFallback(text, speed);
+  } catch (fallbackErr: any) {
+    throw lastError || fallbackErr || new Error("Todas las claves fallaron al generar audio.");
   }
-
-  throw lastError || new Error("Todas las claves fallaron al generar audio y el Web Fallback está deshabilitado.");
 }
 
 // === CONSTANTS FOR CLONING ===
