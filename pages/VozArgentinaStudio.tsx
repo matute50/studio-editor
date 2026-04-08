@@ -186,13 +186,15 @@ Ejemplo de Salida:
             'medio',
             1.05,
             fullExtraConfig,
-            2147483647 // Semilla dura obligatoria para identidad acústica de Ara
+            2147483647, // Semilla dura obligatoria para identidad acústica de Ara
+            false       // useWebFallback = false (Para saltar a Google Cloud TTS si falla)
           );
           setAudioUrl(localUrl);
         } catch (err) {
           console.warn("Gemini falló en prueba, intentando fallback de Google Cloud...");
+          const googleVoiceId = selectedVoice === 'aoede' ? 'es-US-Chirp3-HD-Aoede' : 'es-ES-Neural2-F';
           const { localUrl } = await generateAudio(testText, {
-            voiceId: selectedVoice,
+            voiceId: googleVoiceId,
             pitch: 0,
             speakingRate: 1.05
           });
