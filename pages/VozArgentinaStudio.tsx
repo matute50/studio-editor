@@ -191,8 +191,12 @@ Ejemplo de Salida:
           setAudioUrl(localUrl);
         } catch (err) {
           console.warn("Gemini falló en prueba, intentando fallback de Google Cloud...");
+          const mapVoiceId = (vid: string) => {
+            if (vid === 'aoede') return 'es-US-Chirp3-HD-Aoede';
+            return vid;
+          };
           const { localUrl } = await generateAudio(testText, {
-            voiceId: selectedVoice,
+            voiceId: mapVoiceId(selectedVoice),
             pitch: 0,
             speakingRate: 1.05
           });
