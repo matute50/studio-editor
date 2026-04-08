@@ -48,6 +48,7 @@ export const SlideGenerator: React.FC = () => {
   const [audioDuration, setAudioDuration] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingSlideId, setDeletingSlideId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => { fetchArticles(); }, []);
@@ -464,6 +465,37 @@ export const SlideGenerator: React.FC = () => {
     } catch (e: any) { setError(e.message); } finally { setIsDeleting(false); }
   };
 
+  const handleDeletePublishedSlide = async (e: React.MouseEvent, article: Article) => {
+    e.stopPropagation();
+    const confirmDelete = window.confirm(`¿Eliminar slide publicado de "${article.title.replace(/\|/g, ' ').substring(0, 50)}"?\n\nSe eliminará el slide, el audio y todos sus datos.`);
+    if (!confirmDelete) return;
+    setDeletingSlideId(article.id);
+    try {
+      // Eliminar slide HTML de R2
+      if (article.url_slide) await deleteFileFromR2(article.url_slide);
+      // Eliminar audio de R2
+      if (article.audio_url) await deleteFileFromR2(article.audio_url);
+      // Limpiar campos en Supabase
+      await supabase.from('articles').update({
+        url_slide: null,
+        animation_duration: null,
+        audio_url: null
+      }).eq('id', article.id);
+      // Si era el artículo seleccionado, actualizar estado local
+      if (selectedArticle?.id === article.id) {
+        setSelectedArticle(prev => prev ? { ...prev, url_slide: undefined, audio_url: undefined, animation_duration: undefined } : null);
+        setAudioReady(false);
+        setAudioDuration(0);
+      }
+      setSuccess('Slide y audio eliminados.');
+      fetchArticles();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDeletingSlideId(null);
+    }
+  };
+
   return (
     <div className="h-[calc(100vh-8rem)] grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn">
       <div className="lg:col-span-9 flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden relative">
@@ -611,6 +643,18 @@ export const SlideGenerator: React.FC = () => {
                   {article.url_slide && <span className="text-[7px] font-black text-blue-600 uppercase">🎬 SLIDE</span>}
                 </div>
               </div>
+              {article.url_slide && (
+                <button
+                  onClick={(e) => handleDeletePublishedSlide(e, article)}
+                  disabled={deletingSlideId === article.id}
+                  title="Eliminar slide publicado"
+                  className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-100 text-red-500 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-wait shadow-sm"
+                >
+                  {deletingSlideId === article.id
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <X size={11} strokeWidth={3} />}
+                </button>
+              )}
             </div>
           ))}
         </div>
