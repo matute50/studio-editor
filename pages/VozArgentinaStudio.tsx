@@ -186,7 +186,8 @@ Ejemplo de Salida:
             'medio',
             1.05,
             fullExtraConfig,
-            2147483647 // Semilla dura obligatoria para identidad acústica de Ara
+            2147483647, // Semilla dura obligatoria para identidad acústica de Ara
+            true        // Lanzar error al fallar → activa Google Cloud TTS como fallback
           );
           setAudioUrl(localUrl);
         } catch (err) {

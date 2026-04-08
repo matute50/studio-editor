@@ -498,7 +498,8 @@ export const generateSpeech = async (
   pitch: string = 'medio',
   speed: number = 1.0,
   extraConfig: string = '',
-  seed: number = 2147483647 // Semilla técnica fija para estabilidad total de Ara
+  seed: number = 2147483647, // Semilla técnica fija para estabilidad total de Ara
+  useGoogleTTSFallback: boolean = false // Cuando es true, lanza error en lugar de usar Web Speech API
 ): Promise<{ localUrl: string, blob: Blob, pcmData: Uint8Array }> => {
   const keysToTry = getApiKeys();
 
@@ -566,6 +567,12 @@ export const generateSpeech = async (
         const isBillingError = msg.includes("billing") || msg.includes("billing_not_enabled") || msg.includes("enable billing");
         
         if (isBillingError) {
+          if (useGoogleTTSFallback) {
+            // Lanzar el error para que el componente active Google Cloud TTS
+            console.warn(`[Gemini TTS] 💳 Error de billing. Señalizando al componente para activar Google Cloud TTS...`);
+            lastError = error;
+            throw error;
+          }
           console.warn(`[Gemini TTS] 💳 Error de billing detectado. Activando fallback a Web Speech API...`);
           try {
             return await generateSpeechFallback(text, speed);
@@ -589,6 +596,12 @@ export const generateSpeech = async (
         }
       }
     }
+  }
+
+  // Si el componente quiere manejar el fallback a Google Cloud TTS, lanzar el error aquí
+  if (useGoogleTTSFallback) {
+    console.warn('[Gemini TTS] 🔄 Todos los modelos Gemini fallaron. Lanzando error para Google Cloud TTS...');
+    throw lastError || new Error("Todos los modelos Gemini fallaron al generar audio.");
   }
 
   // Último recurso: intentar Web Speech API si Gemini falló
