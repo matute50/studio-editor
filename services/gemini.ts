@@ -5,7 +5,7 @@ import { pcmToWav } from './audioProcessor';
 
 const MODEL_ID = 'models/gemini-1.5-flash';
 const FAST_MODEL_ID = 'models/gemini-1.5-flash'; 
-const TTS_MODEL_ID = 'models/gemini-1.5-flash'; // Cambiado a modelo base más estable
+const TTS_MODEL_ID = 'models/gemini-2.5-flash-preview-tts'; // Modelo TTS nativo de Gemini
 const VEO_MODEL_ID = 'models/veo-3.1-generate-preview'; 
 
 const SYSTEM_NEWS_PROMPT = `
@@ -503,13 +503,12 @@ export const generateSpeech = async (
 ): Promise<{ localUrl: string, blob: Blob, pcmData: Uint8Array }> => {
   const keysToTry = getApiKeys();
 
+  // Modelos TTS nativos de Gemini — DEBEN ser modelos con soporte de audio de salida
+  // Los modelos de texto (gemini-1.5-flash, etc.) NO generan audio y serán ignorados
   const ttsModelsToTry = [
-    TTS_MODEL_ID,
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-flash-preview-tts',
-    'gemini-2.0-flash'
+    TTS_MODEL_ID,                         // gemini-2.5-flash-preview-tts (mejor calidad de estilo)
+    'gemini-2.0-flash-preview-tts',        // Fallback con buena calidad
+    'gemini-2.0-flash-live-001',           // Fallback alternativo
   ];
 
   const uniqueTtsModels = [...new Set(ttsModelsToTry)].map(m => m.startsWith('models/') ? m : `models/${m}`);
@@ -520,10 +519,24 @@ export const generateSpeech = async (
       try {
         const ai = new GoogleGenAI({ apiKey });
         
-        const accentTag = `[Voz: Locutora de Buenos Aires, volumen alto y estable]`;
-        const enrichedText = extraConfig 
-          ? `${accentTag} [Tono: ${extraConfig}] ${text}` 
-          : `${accentTag} ${text}`;
+        // Construir la instrucción de actuación como prosa natural.
+        // Los modelos Gemini TTS leen TODO el texto y usan las instrucciones de actuación
+        // para modular el estilo. Tags como [Tono:] no tienen efecto — deben ser oraciones naturales.
+        const baseActingInstruction = `Sos una locutora profesional argentina de Buenos Aires. Tu acento es rioplatense auténtico: usás voseo, sheísmo (la LL y la Y se pronuncian como "sh"), y la S al final de sílaba y antes de consonante es aspirada (suena como una "j" suave o "h"). Leé el siguiente texto con esa fonética, con la melodía de un noticiero de Buenos Aires y con las siguientes instrucciones de dirección adicionales:\n`;
+        
+        let actingBlock = baseActingInstruction;
+        if (extraConfig && extraConfig.trim()) {
+          // Limpiar el bloque de config JSON técnico (no aporta al TTS)
+          const cleanExtra = extraConfig
+            .replace(/```json[\s\S]*?```/g, '')
+            .replace(/\[CONFIGURACIÓN TÉCNICA[\s\S]*?\]/g, '')
+            .replace(/Prompt para el campo[\s\S]*?(?=\[|$)/g, '')
+            .trim();
+          if (cleanExtra) {
+            actingBlock += cleanExtra + '\n\n';
+          }
+        }
+        const enrichedText = `${actingBlock}\nTexto a leer:\n${text}`;
 
         console.log(`[Gemini TTS] 🔄 Intentando audio con ${currentTtsModel} y llave ...${apiKey.slice(-5)}`);
 
@@ -531,9 +544,8 @@ export const generateSpeech = async (
           model: currentTtsModel,
           contents: [{ parts: [{ text: enrichedText }] }],
           config: {
-            responseModalalities: [Modality.AUDIO],
+            responseModalities: [Modality.AUDIO],  // Clave correcta (sin "ali" extra)
             speechConfig: {
-              languageCode: 'es-AR',
               voiceConfig: { 
                 prebuiltVoiceConfig: { 
                   voiceName: voiceName as any 
@@ -541,10 +553,9 @@ export const generateSpeech = async (
               }
             },
             seed: seed !== undefined ? Math.min(seed, 2147483647) : undefined,
-            speakingRate: 1.0,
-            pitch: 0.0
           } as any
         });
+
 
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (!base64Audio) throw new Error("La IA no devolvió datos de audio.");

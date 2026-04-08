@@ -51,18 +51,47 @@ function sanitizeVoseo(text: string): string {
 }
 
 /**
- * Wraps text in SSML tags targeting es-AR phonetics for multlingual models.
- * Fixed prosody to ensure determinism.
+ * Aplica la S aspirada rioplatense reemplazando clusters s+consonante
+ * con una aproximación fonética que los modelos Chirp3-HD interpretan correctamente.
+ * Ej: "estas noticias" → "ehtah noticiaj" (representación IPA informal)
+ */
+function applyAspiradaS(text: string): string {
+    // S al final de palabra antes de consonante → "h" (aspirada porteña)
+    return text
+        // "es " + consonante al inicio de siguiente palabra
+        .replace(/\bs(?=[bcdfghjklmnpqrstvwxyz])/gi, 'h')
+        // S al final de palabras (plurales, segunda persona voseo, etc.)
+        .replace(/s\b(?=\s+[bcdfghjklmnpqrstvwxyz])/gi, 'h')
+        // plurales terminados en -as, -es, -os antes de consonante siguiente
+        .replace(/(as|es|os|is)\b(?=[\s,]+[bcdfghjklmnpqrstvwxyz])/gi, (m) => m.slice(0, -1) + 'h');
+}
+
+/**
+ * Wraps text in SSML tags targeting es-AR phonetics for Chirp3-HD.
+ * Agrega pausas naturales, énfasis y prosodia rioplatense.
  */
 function prepareSSML(text: string): string {
     const trimmed = text.trim();
     if (trimmed.startsWith('<speak')) {
         return trimmed;
     }
-    // Very basic escaping for XML
-    const escapedText = trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return `<speak xml:lang='es-AR'><prosody rate='1.05' pitch='0.0st'>${escapedText}</prosody></speak>`;
+
+    // Aplicar S aspirada antes de generar SSML
+    let processed = applyAspiradaS(trimmed);
+
+    // Escape XML básico
+    processed = processed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Agregar pausas en comas y puntos para prosodia natural de noticiero
+    processed = processed
+        .replace(/,\s*/g, ', <break time="150ms"/> ')
+        .replace(/\.\s*/g, '. <break time="300ms"/> ')
+        .replace(/;\s*/g, '; <break time="200ms"/> ')
+        .replace(/:\s*/g, ': <break time="180ms"/> ');
+
+    return `<speak xml:lang='es-AR'><prosody rate='1.05' pitch='-1st'>${processed}</prosody></speak>`;
 }
+
 
 // Para NodeJS o Browser: MD5 Nativo rudimentario o CryptoJS (Asumimos uso de CryptoJS instanciado)
 import CryptoJS from 'crypto-js';
