@@ -117,6 +117,7 @@ export const getGeminiResponse = async (
     'gemini-1.5-pro',
     'gemini-1.5-pro-002',
     'gemini-2.0-flash-exp',
+    'gemini-2.0-flash',
     'gemini-2.5-flash',      
     'gemini-2.5-pro'         
   ];
@@ -420,6 +421,77 @@ function decodeBase64(base64: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * FALLBACK: Web Speech API del navegador.
+ * Se activa cuando Gemini TTS falla por billing o cuota agotada.
+ * Genera audio localmente, completamente gratuito.
+ */
+export const generateSpeechFallback = (text: string, rate: number = 1.0): Promise<{ localUrl: string, blob: Blob, pcmData: Uint8Array }> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      reject(new Error('[TTS Fallback] Web Speech API no disponible en este entorno.'));
+      return;
+    }
+
+    console.warn('[TTS Fallback] ⚠️ Usando Web Speech API del navegador (Gemini TTS requiere billing).');
+
+    // Grabamos el audio usando AudioContext + MediaRecorder
+    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) {
+      reject(new Error('[TTS Fallback] AudioContext no disponible.'));
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-AR';
+    utterance.rate = rate;
+    utterance.pitch = 0.9;
+    utterance.volume = 1.0;
+
+    // Intentar seleccionar voz en español (Argentina o Latinoamérica)
+    const voices = window.speechSynthesis.getVoices();
+    const esVoice = voices.find(v => v.lang === 'es-AR') ||
+                    voices.find(v => v.lang.startsWith('es-')) ||
+                    voices.find(v => v.lang.startsWith('es'));
+    if (esVoice) {
+      utterance.voice = esVoice;
+      console.log(`[TTS Fallback] Voz seleccionada: ${esVoice.name} (${esVoice.lang})`);
+    }
+
+    // Grabar usando MediaRecorder a través de un destino de stream
+    const audioCtx = new AudioContextClass();
+    const dest = audioCtx.createMediaStreamDestination();
+    const mediaRecorder = new MediaRecorder(dest.stream);
+    const chunks: BlobPart[] = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      audioCtx.close();
+      const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+      const localUrl = URL.createObjectURL(blob);
+      // pcmData vacío como placeholder compatible con la interfaz
+      const pcmData = new Uint8Array(0);
+      console.info('[TTS Fallback] ✅ Audio generado con Web Speech API.');
+      resolve({ localUrl, blob, pcmData });
+    };
+
+    utterance.onend = () => {
+      setTimeout(() => mediaRecorder.stop(), 300);
+    };
+
+    utterance.onerror = (e) => {
+      audioCtx.close();
+      reject(new Error(`[TTS Fallback] Error en SpeechSynthesis: ${e.error}`));
+    };
+
+    mediaRecorder.start();
+    window.speechSynthesis.speak(utterance);
+  });
+};
+
 export const generateSpeech = async (
   text: string,
   voiceName: string = 'Kore',
@@ -490,7 +562,19 @@ export const generateSpeech = async (
         const msg = error.message.toLowerCase();
         const isQuotaError = msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota");
         const isNotFoundError = msg.includes("404") || msg.includes("not_found");
+        // Error crítico de billing: no rotar claves, redirigir a fallback directamente
+        const isBillingError = msg.includes("billing") || msg.includes("billing_not_enabled") || msg.includes("enable billing");
         
+        if (isBillingError) {
+          console.warn(`[Gemini TTS] 💳 Error de billing detectado. Activando fallback a Web Speech API...`);
+          try {
+            return await generateSpeechFallback(text, speed);
+          } catch (fallbackErr: any) {
+            lastError = fallbackErr;
+            break;
+          }
+        }
+
         if (isNotFoundError) {
            console.warn(`[Gemini TTS] ❌ Modelo ${currentTtsModel} no disponible para audio con esta llave.`);
            break; 
@@ -507,7 +591,13 @@ export const generateSpeech = async (
     }
   }
 
-  throw lastError || new Error("Todas las claves fallaron al generar audio.");
+  // Último recurso: intentar Web Speech API si Gemini falló
+  console.warn('[Gemini TTS] 🔄 Todos los modelos Gemini fallaron. Intentando Web Speech API como último recurso...');
+  try {
+    return await generateSpeechFallback(text, speed);
+  } catch (fallbackErr: any) {
+    throw lastError || fallbackErr || new Error("Todas las claves fallaron al generar audio.");
+  }
 }
 
 // === CONSTANTS FOR CLONING ===
@@ -798,10 +888,12 @@ export const generateAvatarVideo = async (
                 aspectRatio: "16:9",
                 durationSeconds: 8,
                 resolution: "720p",
-                seed: 1045
+                fps: 24,
+                personPresence: "MANDATORY"
             }
         };
 
+        console.log(`[VEO_REST_V4] Enviando solicitud a ${currentModelId}...`);
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -809,144 +901,68 @@ export const generateAvatarVideo = async (
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+            const errText = await response.text();
+            throw new Error(`Cloud Vision/Veo API Error (${response.status}): ${errText}`);
         }
 
-        const operation = await response.json();
-        const operationName = operation.name;
-        console.log(`[VEO_REST] Operación iniciada: ${operationName}`);
+        const data = await response.json();
+        const operationName = data.name;
 
-        // Polling loop: Veo puede tardar minutos
-        const opUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`;
-        let done = false;
-        let finalResponse = null;
-        let pollingAttempts = 0;
-        const maxPollingAttempts = 60; // 10 minutos aprox (10s x 60)
+        console.log(`[VEO_REST_V4] Operación iniciada: ${operationName}. Consultando estado...`);
 
-        while (!done && pollingAttempts < maxPollingAttempts) {
-            pollingAttempts++;
-            await new Promise(r => setTimeout(r, 10000)); // Esperar 10s
-
-            const opRes = await fetch(opUrl);
-            if (!opRes.ok) continue;
-
-            const opData = await opRes.json();
-            if (opData.done) {
-                done = true;
-                if (opData.error) {
-                    throw new Error(`Operación falló: ${opData.error.message}`);
-                }
-                finalResponse = opData.response;
-            } else {
-                console.log(`[VEO_POLLING] Progreso: ${opData.metadata?.progress || 0}%...`);
-            }
-        }
-
-        if (!done) {
-            throw new Error("Timeout esperando la generación de video.");
-        }
-
-        const veoResponse = finalResponse?.generateVideoResponse;
-
-        // 1. Verificar si el video fue bloqueado por filtros de seguridad (RAI)
-        if (veoResponse?.raiMediaFilteredCount && veoResponse.raiMediaFilteredCount > 0) {
-            const reasons = veoResponse.raiMediaFilteredReasons?.join(", ") || "Violación de políticas de seguridad (Likeness/Likelihood)";
-            console.error("Video bloqueado por RAI de Google:", reasons);
-            throw new Error(`Google bloqueó el video por seguridad: ${reasons}`);
-        }
-
-        // 2. Extraer la URI del video de la estructura correcta de Veo 3.1 REST
-        const videoUri = veoResponse?.generatedSamples?.[0]?.video?.uri;
-
-        if (!videoUri) {
-            console.error("Respuesta final sin URI de video:", JSON.stringify(finalResponse, null, 2));
-            throw new Error("No se pudo extraer la URI del video. Es posible que haya sido filtrado o haya ocurrido un error silencioso.");
-        }
-
-        console.log(`[VEO_REST] URI encontrada: ${videoUri}`);
-
-        // 2. Descargar el video desde la URI (necesita la API KEY para el download)
-        const downloadUrl = `${videoUri}&key=${apiKey}`;
-        const videoResp = await fetch(downloadUrl);
-        
-        if (!videoResp.ok) {
-            throw new Error(`Error al descargar video de Google: ${videoResp.statusText}`);
-        }
-
-        const videoBlob = await videoResp.blob();
-        
-        // 3. Convertir a Base64 para sincronización con el sistema de producción si es necesario
-        // o devolver directamente el Blob URL para visualización inmediata
-        const videoDataOutput = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-            reader.readAsDataURL(videoBlob);
-        });
-
-        return {
-            videoUrl: URL.createObjectURL(videoBlob),
-            status: 'ready',
-            videoData: videoDataOutput // Mantenemos el videoData en base64 para el flujo de extensiones
-        };
+        // POLLING: Consultar el estado de la operación de larga duración
+        return await pollVeoOperation(operationName, apiKey);
 
     } catch (error: any) {
-        // Manejo de cuotas y modelos no encontrados con reintentos automáticos
-        const isQuotaError = error.message.includes("429") || error.message.includes("RESOURCE_EXHAUSTED");
-        const isNotFoundError = error.message.includes("404") || error.message.includes("not found");
+        console.error(`[VEO_REST_V4] Error fatal:`, error);
         
-        if ((isQuotaError || isNotFoundError) && retryCount < modelsToTry.length) {
-            // BACKOFF: 10s para el primer reintento, luego exponencial (20s, 40s...) + jitter
-            let waitTime = isNotFoundError ? 1000 : 10000 * Math.pow(2, retryCount);
-            const jitter = Math.random() * 2000; // + 0-2 segundos aleatorios
-            waitTime += jitter;
-
-            console.warn(`[VEO_REST Fallback] Error en intento ${retryCount + 1}: ${error.message}. Reintentando en ${Math.round(waitTime/1000)}s...`);
-            await new Promise(r => setTimeout(r, waitTime));
-            return generateAvatarVideo(textoDeseado, imageReferenceBase64, audioReferenceBase64, backgroundBase64, previousVideoBase64, aspectRatio, retryCount + 1);
+        // Reintentar si no hemos agotado los modelos disponibles
+        if (retryCount < modelsToTry.length - 1) {
+            console.warn(`[VEO_REST_V4] Reintentando con siguiente modelo...`);
+            return await generateAvatarVideo(textoDeseado, imageReferenceBase64, audioReferenceBase64, backgroundBase64, previousVideoBase64, aspectRatio, retryCount + 1);
         }
-
-        console.error("Error en Video Service REST:", error);
-        throw new Error(`Fallo en generación de video: ${error.message}`);
+        
+        throw error;
     }
 };
 
 /**
- * --- ARQUITECTURA DE CONTINGENCIA (DISEÑO DE 2 PASOS) ---
- * Propuesta para el caso de que el audio nativo de Veo 3.1 no cumpla los estándares Rioplatenses.
- * 
- * PASO 1: Generación de Video Base (Veo 3.1)
- * El video se genera con Veo 3.1 usando el prompt optimizado. Si el acento falla, 
- * el video se trata como una base visual sin valor de audio final.
- * 
- * PASO 2: Post-Procesamiento de Lip-Sync Externo
- * Se toma el video generado y se envía a una API de Lip-Sync especializada 
- * (Sync Labs, HeyGen, o Wav2Lip) junto con un audio de alta fidelidad generado por 
- * un motor TTS especializado en clonación Rioplatense (Google es-AR o ElevenLabs).
+ * Función de Polling para operaciones Predict de Veo 3.1
  */
+const pollVeoOperation = async (operationName: string, apiKey: string): Promise<{ videoUrl: string, status: string, videoData?: string }> => {
+    const pollUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`;
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutos aprox (5s * 60)
 
-/**
- * Función PLACEHOLDER para el terreno de contingencia
- * Prepara la integración con un servicio de Lip-Sync de terceros.
- */
-export const postProcessExternalLipSync = async (videoUrl: string, audioFile: string) => {
-    console.log("[CONTINGENCIA] Iniciando post-procesamiento de Lip-Sync externo...");
-    console.log(`[CONTINGENCIA] Video Base: ${videoUrl}`);
-    console.log(`[CONTINGENCIA] Audio de Referencia (es-AR): ${audioFile}`);
+    while (attempts < maxAttempts) {
+        const response = await fetch(pollUrl);
+        const data = await response.json();
 
-    /**
-     * Ejemplo de flujo esperado:
-     * 1. Descargar videoUrl a un buffer.
-     * 2. Llamar a API externa (ej. Sync Labs):
-     *    const syncResponse = await fetch('https://api.synclabs.so/v1/video', {
-     *        method: 'POST',
-     *        body: JSON.stringify({ videoUrl, audioUrl: audioFile, model: 'sync-1.6' })
-     *    });
-     * 3. Retornar la nueva URL del video sincronizado con el audio Rioplatense nativo.
-     */
-    
-    return {
-        status: 'pending_external',
-        message: "Groundwork preparado para Lip-Sync de terceros (ElevenLabs + SyncLabs)."
-    };
+        if (data.done) {
+            if (data.error) {
+                throw new Error(`Veo Generation Failed: ${JSON.stringify(data.error)}`);
+            }
+            
+            // Éxito: El video está en data.response.video o similar
+            const videoData = data.response?.video?.bytesBase64Encoded || data.response?.instances?.[0]?.video?.bytesBase64Encoded;
+            
+            if (!videoData) {
+                console.error("Payload de respuesta Veo inesperado:", data);
+                throw new Error("La operación terminó pero no se encontró la data del video.");
+            }
+
+            const blob = new Blob([decodeBase64(videoData)], { type: 'video/mp4' });
+            return {
+                videoUrl: URL.createObjectURL(blob),
+                status: 'completed',
+                videoData: videoData
+            };
+        }
+
+        console.log(`[VEO_POLL] Esperando... (${attempts + 1}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        attempts++;
+    }
+
+    throw new Error("Tiempo de espera agotado para la generación del video.");
 };
