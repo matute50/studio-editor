@@ -431,7 +431,7 @@ async function runAudio(ids?: number[]) {
                 Bucket: R2_BUCKET_NAME, Key: `audios_Ara/${fileName}`, Body: mixedBuffer, ContentType: 'audio/mpeg'
             }));
 
-            const audioUrl = `${CDN_URL}/audios_Ara/${fileName}`;
+            const audioUrl = `${R2_PUBLIC_BASE}/audios_Ara/${fileName}`;
             await supabase.from('articles').update({ audio_url: audioUrl, audio_status: 'ready' }).eq('id', art.id);
 
             processed++;
