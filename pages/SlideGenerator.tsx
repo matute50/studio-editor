@@ -322,6 +322,7 @@ export const SlideGenerator: React.FC = () => {
         </div>
         
         <div class="fade-screen" id="fade"></div>
+        ${article.audio_url ? `<audio id="slide_audio" preload="auto"><source src="${article.audio_url}" type="audio/mpeg"></audio>` : ''}
     </div>
     
     <script>
@@ -332,6 +333,15 @@ export const SlideGenerator: React.FC = () => {
         window.addEventListener('load', () => { 
             const duration = ${duration}; 
             window.parent.postMessage({ type: 'SET_SLIDE_DURATION', durationSeconds: duration }, '*'); 
+
+            // Si el slide se abre directamente (no en iframe parent), intentamos reproducir el audio
+            if (window.self === window.top || urlParams.get('playAudio') === 'true') {
+                const audio = document.getElementById('slide_audio');
+                if (audio) {
+                    audio.play().catch(e => console.log('Autoplay bloqueado por el navegador:', e));
+                }
+            }
+
             startVisuals();
         });
 

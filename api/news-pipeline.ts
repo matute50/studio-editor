@@ -431,7 +431,7 @@ async function runAudio(ids?: number[]) {
                 Bucket: R2_BUCKET_NAME, Key: `audios_Ara/${fileName}`, Body: mixedBuffer, ContentType: 'audio/mpeg'
             }));
 
-            const audioUrl = `${R2_PUBLIC_BASE}/audios_Ara/${fileName}`;
+            const audioUrl = `${CDN_URL}/audios_Ara/${fileName}`;
             await supabase.from('articles').update({ audio_url: audioUrl, audio_status: 'ready' }).eq('id', art.id);
 
             processed++;
@@ -469,9 +469,19 @@ async function runSlide(ids?: number[]) {
             const cleanTitle = art.title.toUpperCase().replace(/["“”«»¨]/g, '');
             
             const html = `<!DOCTYPE html><html><body style="background:black;color:white;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;font-family:sans-serif;padding:5%;text-align:center;">
+                ${art.audio_url ? `<audio id="slideAudio" preload="auto"><source src="${art.audio_url}" type="audio/mpeg"></audio>` : ''}
                 <h1 style="font-size:8vw;margin-bottom:2vh;">${cleanTitle}</h1>
                 <p style="font-size:4vw;line-height:1.2;">${art.body_voice_tuning}</p>
-                <script>setTimeout(() => window.parent.postMessage({type:'SLIDE_ENDED'}, '*'), ${duration * 1000});</script>
+                <script>
+                    window.addEventListener('load', () => {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        if (window.self === window.top || urlParams.get('playAudio') === 'true') {
+                            const audio = document.getElementById('slideAudio');
+                            if (audio) audio.play().catch(e => console.log('Autoplay bloqueado:', e));
+                        }
+                    });
+                    setTimeout(() => window.parent.postMessage({type:'SLIDE_ENDED'}, '*'), ${duration * 1000});
+                </script>
             </body></html>`;
 
             const fileName = `slide_${art.id}_${Date.now()}.html`;
