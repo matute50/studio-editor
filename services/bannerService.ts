@@ -4,7 +4,7 @@ import { Banner } from '../types';
 export const bannerService = {
   async getBanners(): Promise<Banner[]> {
     const { data, error } = await supabase
-      .from('banners')
+      .from('anuncios')
       .select('*')
       .order('position', { ascending: true })
       .order('created_at', { ascending: false });
@@ -18,7 +18,7 @@ export const bannerService = {
 
   async getActiveBanners(): Promise<Banner[]> {
     const { data, error } = await supabase
-      .from('banners')
+      .from('anuncios')
       .select('*')
       .eq('is_active', true)
       .order('position', { ascending: true })
@@ -33,7 +33,7 @@ export const bannerService = {
 
   async createBanner(banner: Omit<Banner, 'id' | 'created_at'>): Promise<Banner> {
     const { data, error } = await supabase
-      .from('banners')
+      .from('anuncios')
       .insert([banner])
       .select()
       .single();
@@ -44,7 +44,7 @@ export const bannerService = {
 
   async updateBanner(id: string, updates: Partial<Banner>): Promise<Banner> {
     const { data, error } = await supabase
-      .from('banners')
+      .from('anuncios')
       .update(updates)
       .eq('id', id)
       .select()
@@ -56,7 +56,7 @@ export const bannerService = {
 
   async deleteBanner(id: string): Promise<void> {
     const { error } = await supabase
-      .from('banners')
+      .from('anuncios')
       .delete()
       .eq('id', id);
 

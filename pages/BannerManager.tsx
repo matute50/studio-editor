@@ -19,6 +19,7 @@ export const BannerManager: React.FC = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBanners();
@@ -48,7 +49,7 @@ export const BannerManager: React.FC = () => {
     }
   };
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!newBanner.title || (!selectedFile && !newBanner.image_url)) {
       alert('Título e Imagen son requeridos');
       return;
@@ -64,25 +65,55 @@ export const BannerManager: React.FC = () => {
         setUploadingFile(false);
       }
 
-      await bannerService.createBanner({
-        title: newBanner.title!,
-        image_url: imageUrl,
-        link_url: newBanner.link_url || '',
-        is_active: newBanner.is_active || true,
-        position: newBanner.position || 0
-      });
+      if (editingId) {
+        await bannerService.updateBanner(editingId, {
+          title: newBanner.title!,
+          image_url: imageUrl,
+          link_url: newBanner.link_url || '',
+          is_active: newBanner.is_active ?? true,
+          position: newBanner.position ?? 0
+        });
+      } else {
+        await bannerService.createBanner({
+          title: newBanner.title!,
+          image_url: imageUrl,
+          link_url: newBanner.link_url || '',
+          is_active: newBanner.is_active ?? true,
+          position: newBanner.position ?? 0
+        });
+      }
 
-      setShowAddForm(false);
-      setNewBanner({ title: '', link_url: '', is_active: true, position: banners.length });
-      setSelectedFile(null);
-      setPreviewUrl(null);
+      handleCancelForm();
       await fetchBanners();
     } catch (error: any) {
-      alert('Error creando banner: ' + error.message);
+      alert('Error guardando banner: ' + error.message);
     } finally {
       setSaving(false);
       setUploadingFile(false);
     }
+  };
+
+  const handleEdit = (banner: Banner) => {
+    setEditingId(banner.id);
+    setNewBanner({
+      title: banner.title,
+      link_url: banner.link_url,
+      is_active: banner.is_active,
+      position: banner.position,
+      image_url: banner.image_url
+    });
+    setPreviewUrl(banner.image_url);
+    setSelectedFile(null);
+    setShowAddForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelForm = () => {
+    setShowAddForm(false);
+    setEditingId(null);
+    setNewBanner({ title: '', link_url: '', is_active: true, position: banners.length });
+    setSelectedFile(null);
+    setPreviewUrl(null);
   };
 
   const toggleActive = async (banner: Banner) => {
@@ -112,7 +143,7 @@ export const BannerManager: React.FC = () => {
           <p className="text-slate-500 font-medium">Administra la publicidad de la columna derecha</p>
         </div>
         <button
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => showAddForm ? handleCancelForm() : setShowAddForm(true)}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-500/30"
         >
           {showAddForm ? <X size={20} /> : <Plus size={20} />}
@@ -122,7 +153,7 @@ export const BannerManager: React.FC = () => {
 
       {showAddForm && (
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-100 animate-fadeIn">
-          <h2 className="text-xl font-bold mb-4">Agregar Nuevo Banner</h2>
+          <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Banner' : 'Agregar Nuevo Banner'}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
@@ -189,14 +220,20 @@ export const BannerManager: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex justify-end gap-3">
             <button
-              onClick={handleCreate}
+              onClick={handleCancelForm}
+              className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
               disabled={saving || uploadingFile}
               className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all disabled:opacity-50"
             >
               {(saving || uploadingFile) ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
-              {uploadingFile ? 'Subiendo Imagen...' : saving ? 'Guardando...' : 'Crear Banner'}
+              {uploadingFile ? 'Subiendo...' : saving ? 'Guardando...' : editingId ? 'Guardar Cambios' : 'Crear Banner'}
             </button>
           </div>
         </div>
@@ -225,6 +262,13 @@ export const BannerManager: React.FC = () => {
                     title={banner.is_active ? 'Desactivar' : 'Activar'}
                   >
                     {banner.is_active ? <Check size={14} /> : <X size={14} />}
+                  </button>
+                  <button 
+                    onClick={() => handleEdit(banner)}
+                    className="p-1.5 rounded-lg bg-blue-500/90 text-white shadow backdrop-blur-md hover:bg-blue-600 transition-colors"
+                    title="Editar"
+                  >
+                    <Edit2 size={14} />
                   </button>
                   <button 
                     onClick={() => handleDelete(banner.id)}
