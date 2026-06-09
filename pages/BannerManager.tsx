@@ -200,22 +200,42 @@ export const BannerManager: React.FC = () => {
 
             <div className="space-y-4">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Imagen del Banner</label>
-              <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 flex flex-col items-center justify-center text-center relative overflow-hidden h-48 bg-slate-50">
-                {previewUrl ? (
-                  <img src={previewUrl} alt="Preview" className="w-full h-full object-contain absolute inset-0" />
-                ) : (
-                  <div className="text-slate-400">
-                    <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm font-bold">Clic o arrastrar imagen</p>
-                    <p className="text-xs mt-1">Recomendado: 300x250 o 300x600 px</p>
-                  </div>
-                )}
+              
+              <div className="flex flex-col gap-3">
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  type="text"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  value={newBanner.image_url || ''}
+                  onChange={(e) => {
+                    setNewBanner({ ...newBanner, image_url: e.target.value });
+                    if (e.target.value) setPreviewUrl(e.target.value);
+                    else setPreviewUrl(null);
+                  }}
+                  placeholder="Pega la URL de la imagen aquí..."
                 />
+                
+                <div className="relative flex items-center justify-center">
+                  <div className="border-t border-slate-200 w-full"></div>
+                  <span className="absolute bg-white px-2 text-xs font-bold text-slate-400 uppercase tracking-widest">O Sube un Archivo</span>
+                </div>
+
+                <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 flex flex-col items-center justify-center text-center relative overflow-hidden h-48 bg-slate-50">
+                  {previewUrl ? (
+                    <img src={previewUrl} alt="Preview" className="w-full h-full object-contain absolute inset-0" />
+                  ) : (
+                    <div className="text-slate-400">
+                      <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm font-bold">Clic o arrastrar imagen</p>
+                      <p className="text-xs mt-1">Recomendado: 300x250 o 300x600 px</p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           </div>
