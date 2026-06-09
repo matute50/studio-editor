@@ -96,6 +96,24 @@ export const uploadImageToR2 = async (file: File): Promise<string> => {
   } catch (error: any) { throw handleR2Error(error); }
 };
 
+export const uploadBannerToR2 = async (file: File): Promise<string> => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const fileExt = file.name.split('.').pop();
+    const cleanName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = `banner_${Date.now()}_${cleanName}.${fileExt}`;
+    const key = `banners/${fileName}`;
+
+    await r2Client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: new Uint8Array(arrayBuffer),
+      ContentType: file.type || 'image/jpeg',
+    }));
+    return `${CDN_URL}/${key}`;
+  } catch (error: any) { throw handleR2Error(error); }
+};
+
 export const uploadBackgroundToR2 = async (file: File): Promise<string> => {
   try {
     const arrayBuffer = await file.arrayBuffer();

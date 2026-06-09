@@ -15,7 +15,8 @@ import {
   UserCheck,
   Globe,
   Clapperboard,
-  Youtube
+  Youtube,
+  MonitorUp
 } from 'lucide-react';
 
 
@@ -31,6 +32,7 @@ const navItems = [
   { title: 'Control Streaming', path: '/streaming', icon: Video },
   { title: 'YouTube Manager', path: '/youtube-manager', icon: Youtube },
   { title: 'Agenda Eventos', path: '/agenda', icon: CalendarDays },
+  { title: 'Gestor de Banners', path: '/banners', icon: MonitorUp },
   { title: 'Vista Previa Portal', path: '/portal', icon: Globe },
 ];
 

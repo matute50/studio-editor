@@ -46,6 +46,7 @@ const modules = [
   { title: 'Control Streaming', desc: 'YouTube Live Manager.', icon: Video, path: '/streaming', color: 'bg-red-600', text: 'text-red-600', bgLight: 'bg-red-50' },
   { title: 'YouTube Manager', desc: 'Videoteca TV.', icon: Youtube, path: '/youtube-manager', color: 'bg-rose-600', text: 'text-rose-600', bgLight: 'bg-rose-50' },
   { title: 'Agenda Eventos', desc: 'Calendario local.', icon: CalendarDays, path: '/agenda', color: 'bg-purple-600', text: 'text-purple-600', bgLight: 'bg-purple-50' },
+  { title: 'Gestor Banners', desc: 'Publicidad.', icon: ImageIcon, path: '/banners', color: 'bg-emerald-600', text: 'text-emerald-600', bgLight: 'bg-emerald-50' },
 ];
 
 // ─────────────────────────────────────────────────

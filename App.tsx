@@ -12,6 +12,7 @@ import { SocialManager } from './pages/SocialManager';
 import { AvatarStudio } from './pages/AvatarStudio';
 import { StreamingControl } from './pages/StreamingControl';
 import { YouTubeStudio } from './pages/YouTubeStudio';
+import { BannerManager } from './pages/BannerManager';
 // import { DailyShowDirector } from './pages/DailyShowDirector';
 import { PublicHome } from './pages/PublicHome';
 import { AIAssistant } from './components/AIAssistant';
@@ -135,6 +136,7 @@ function App() {
           <Route path="/avatar-studio" element={<Layout><AvatarStudio /></Layout>} />
           <Route path="/streaming" element={<Layout><StreamingControl /></Layout>} />
           <Route path="/youtube-manager" element={<Layout><YouTubeStudio /></Layout>} />
+          <Route path="/banners" element={<Layout><BannerManager /></Layout>} />
           <Route path="/portal" element={<PublicHome />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

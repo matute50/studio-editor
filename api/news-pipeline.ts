@@ -469,18 +469,40 @@ async function runSlide(ids?: number[]) {
             const cleanTitle = art.title.toUpperCase().replace(/["“”«»¨]/g, '');
             
             const html = `<!DOCTYPE html><html><body style="background:black;color:white;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;font-family:sans-serif;padding:5%;text-align:center;">
-                ${art.audio_url ? `<audio id="slideAudio" preload="auto"><source src="${art.audio_url}" type="audio/mpeg"></audio>` : ''}
+                ${art.audio_url ? `<audio id="slide_audio" preload="auto" crossorigin="anonymous"><source src="${art.audio_url}" type="audio/mpeg"></audio>` : ''}
                 <h1 style="font-size:8vw;margin-bottom:2vh;">${cleanTitle}</h1>
                 <p style="font-size:4vw;line-height:1.2;">${art.body_voice_tuning}</p>
                 <script>
+                    function startAudio() {
+                        const audio = document.getElementById('slide_audio');
+                        if (audio && audio.paused) {
+                            audio.play().then(() => {
+                                document.body.removeEventListener('click', startAudio);
+                                document.body.removeEventListener('touchstart', startAudio);
+                            }).catch(() => {});
+                        }
+                    }
+
                     window.addEventListener('load', () => {
                         const urlParams = new URLSearchParams(window.location.search);
-                        if (window.self === window.top || urlParams.get('playAudio') === 'true') {
-                            const audio = document.getElementById('slideAudio');
-                            if (audio) audio.play().catch(e => console.log('Autoplay bloqueado:', e));
+                        const audio = document.getElementById('slide_audio');
+                        const playRequested = window.self === window.top || urlParams.get('playAudio') === 'true';
+
+                        if (audio) {
+                            audio.onloadedmetadata = () => {
+                                window.parent.postMessage({ type: 'SET_SLIDE_DURATION', durationSeconds: audio.duration || ${duration} }, '*');
+                            };
+                            if (playRequested) {
+                                audio.play().catch(e => {
+                                    console.log('Autoplay bloqueado. Esperando interacción...');
+                                    document.body.addEventListener('click', startAudio);
+                                    document.body.addEventListener('touchstart', startAudio);
+                                });
+                            }
+                        } else {
+                            window.parent.postMessage({ type: 'SET_SLIDE_DURATION', durationSeconds: ${duration} }, '*');
                         }
                     });
-                    setTimeout(() => window.parent.postMessage({type:'SLIDE_ENDED'}, '*'), ${duration * 1000});
                 </script>
             </body></html>`;
 

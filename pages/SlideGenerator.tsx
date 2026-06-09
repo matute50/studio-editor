@@ -326,22 +326,50 @@ export const SlideGenerator: React.FC = () => {
     </div>
     
     <script>
-        // Sincronización con la App Principal de Saladillo ViVo (Silent Visual Mode)
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // Reportar duración a la App inmediatamente para el control de la pauta sonora
-        window.addEventListener('load', () => { 
-            const duration = ${duration}; 
-            window.parent.postMessage({ type: 'SET_SLIDE_DURATION', durationSeconds: duration }, '*'); 
-
-            // Si el slide se abre directamente (no en iframe parent), intentamos reproducir el audio
-            if (window.self === window.top || urlParams.get('playAudio') === 'true') {
-                const audio = document.getElementById('slide_audio');
-                if (audio) {
-                    audio.play().catch(e => console.log('Autoplay bloqueado por el navegador:', e));
-                }
+        function startAudio() {
+            const audio = document.getElementById('slide_audio');
+            if (audio && audio.paused) {
+                audio.play().then(() => {
+                    console.log('Audio iniciado por interacción');
+                    document.body.removeEventListener('click', startAudio);
+                    document.body.removeEventListener('touchstart', startAudio);
+                }).catch(e => console.log('Error en interacción:', e));
             }
+        }
 
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const audio = document.getElementById('slide_audio');
+            const playRequested = window.self === window.top || urlParams.get('playAudio') === "true";
+            
+            if (audio) {
+                audio.onloadedmetadata = () => {
+                    const duration = audio.duration || ${duration};
+                    window.parent.postMessage({ type: 'SET_SLIDE_DURATION', durationSeconds: duration }, '*');
+                };
+                
+                // Fallback para navegadores lentos en cargar metadata
+                setTimeout(() => {
+                    const duration = audio.duration || ${duration};
+                    window.parent.postMessage({ type: 'SET_SLIDE_DURATION', durationSeconds: duration }, '*');
+                }, 2000);
+
+                if (playRequested) {
+                    audio.play().catch(e => {
+                        console.log('Autoplay bloqueado. Esperando interacción...');
+                        document.body.addEventListener('click', startAudio);
+                        document.body.addEventListener('touchstart', startAudio);
+                        // Intentar de nuevo cada segundo (a veces el permiso se propaga)
+                        let retry = setInterval(() => {
+                            if (!audio.paused) clearInterval(retry);
+                            else audio.play().then(() => clearInterval(retry)).catch(() => {});
+                        }, 1000);
+                    });
+                }
+            } else {
+                window.parent.postMessage({ type: 'SET_SLIDE_DURATION', durationSeconds: ${duration} }, '*');
+            }
+            
             startVisuals();
         });
 

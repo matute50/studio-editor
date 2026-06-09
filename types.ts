@@ -114,3 +114,13 @@ export interface FondoBiblioteca {
   created_at: string;
   activa: boolean;
 }
+
+export interface Banner {
+  id: string;
+  created_at: string;
+  title: string;
+  image_url: string;
+  link_url: string;
+  is_active: boolean;
+  position: number;
+}
