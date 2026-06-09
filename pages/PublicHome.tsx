@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Article } from '../types';
 import { newsService } from '../services/newsService';
+import { bannerService } from '../services/bannerService';
+import { Banner } from '../types';
 import { Clock, ChevronRight, Newspaper, Calendar, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -20,11 +22,22 @@ export const PublicHome: React.FC = () => {
     tertiary: [],
     standard: []
   });
+  const [activeBanners, setActiveBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchNews();
+    fetchBanners();
   }, []);
+
+  const fetchBanners = async () => {
+    try {
+      const data = await bannerService.getActiveBanners();
+      setActiveBanners(data);
+    } catch (err) {
+      console.error("Error fetching banners:", err);
+    }
+  };
 
   const fetchNews = async () => {
     setLoading(true);
@@ -108,6 +121,35 @@ export const PublicHome: React.FC = () => {
                 </div>
               </div>
             </LinkTyped>
+          </section>
+        )}
+
+        {/* ESPACIO PUBLICITARIO - TOP */}
+        {activeBanners.length > 0 && (
+          <section className="my-12 animate-fadeIn">
+            <div className="flex items-center gap-4 mb-6">
+              <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-300">Espacio Publicitario</h3>
+              <div className="h-px bg-slate-100 flex-1"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeBanners.map(banner => (
+                <a 
+                  key={banner.id} 
+                  href={banner.link_url || '#'} 
+                  target={banner.link_url ? "_blank" : "_self"} 
+                  rel="noopener noreferrer"
+                  className="block group overflow-hidden rounded-3xl shadow-lg border border-slate-100 bg-slate-50 aspect-[21/9] relative"
+                >
+                  <img 
+                    src={banner.image_url} 
+                    alt={banner.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
+                  <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-md px-2 py-1 rounded text-[8px] text-white/80 uppercase tracking-widest font-bold">Ad</div>
+                </a>
+              ))}
+            </div>
           </section>
         )}
 
