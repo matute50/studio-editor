@@ -237,13 +237,40 @@ export const newsService = {
      */
     async generateAllResumenes() {
         try {
-            const response = await fetch('/api/generate-resumen', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ secret: API_SECRET })
-            });
-            if (!response.ok) throw new Error('Falló la generación masiva de resúmenes');
-            return await response.json();
+            // 1. Obtener los artículos que necesitan resumen
+            const { data: pendingArticles, error } = await supabase
+                .from('articles')
+                .select('id')
+                .is('super_resumen', null)
+                .not('text', 'is', null);
+
+            if (error) throw error;
+            if (!pendingArticles || pendingArticles.length === 0) {
+                return { success: true, count: 0, message: "No hay resúmenes pendientes" };
+            }
+
+            let successCount = 0;
+            // 2. Procesarlos uno por uno enviando IDs individuales para no saturar Ollama/Timeout
+            for (const article of pendingArticles) {
+                try {
+                    console.log(`[NewsService] Solicitando resumen para ID: ${article.id}`);
+                    const response = await fetch('/api/generate-resumen', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: [article.id], secret: API_SECRET })
+                    });
+                    
+                    if (!response.ok) {
+                        console.error(`Error HTTP ${response.status} en artículo ${article.id}`);
+                        continue;
+                    }
+                    successCount++;
+                } catch (err) {
+                    console.error(`Error procesando resumen para artículo ${article.id}:`, err);
+                }
+            }
+
+            return { success: true, count: successCount, total: pendingArticles.length };
         } catch (err) {
             console.error("Error generando resúmenes masivos:", err);
             throw err;

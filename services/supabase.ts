@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Usamos las claves públicas proporcionadas. 
-// Nota: En un entorno de producción real, estas deberían cargarse desde process.env
-const SUPABASE_URL = 'https://otwvfihzaznyjvjtkvvd.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90d3ZmaWh6YXpueWp2anRrdnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUxMDQ3OTAsImV4cCI6MjA2MDY4MDc5MH0.YbKdivZM6gJCdXAf51Xctn8IpKhQCrMch89NoHwP0Z4';
+// Leemos las claves desde las variables de entorno de Vite
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+console.log("¿La URL de Supabase está cargada?:", !!SUPABASE_URL);
+console.log("¿La Anon Key de Supabase está cargada?:", !!SUPABASE_ANON_KEY);
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("Faltan configurar las variables de entorno VITE_SUPABASE_URL y/o VITE_SUPABASE_ANON_KEY");
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

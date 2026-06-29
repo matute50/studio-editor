@@ -8,6 +8,7 @@ import os from 'os';
 import fs from 'fs';
 import { pipeline } from 'stream/promises';
 import ffmpeg from 'fluent-ffmpeg';
+import { redactarConHermes } from '../services/hermesService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURACIÓN GLOBAL
@@ -297,14 +298,14 @@ async function runResumen(baseUrl: string, ids?: number[]) {
         try {
             console.log(`[F3] Procesando artículo ${art.id}...`);
 
-            // PRODUCTO 2: REDACCIÓN PROFESIONAL (Base para Slide y Audio)
-            const promptProf = `Reescribe de forma profesional esta noticia para ser leída por un locutor de TV. Mantén la formalidad periodística.\n\nNOTICIA:\n${art.title}\n${art.text.substring(0, 3000)}`;
-            const resProf = await fetch(`${baseUrl}/api/ai-proxy?provider=gemini`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: promptProf })
-            }).then(r => r.json());
-
-            let professionalBody = resProf?.text || art.text;
+            // PRODUCTO 2: REDACCIÓN PROFESIONAL (Base para Slide y Audio) usando Hermes local
+            let professionalBody = art.text;
+            try {
+                const rewritten = await redactarConHermes(`${art.title}\n\n${art.text.substring(0, 3000)}`);
+                if (rewritten) professionalBody = rewritten;
+            } catch (hermesErr) {
+                console.error(`[F3] Error en Hermes para art ${art.id}:`, hermesErr);
+            }
 
             // PRODUCTO 1: SÚPER RESUMEN ESTILO ARA (Basado en la redacción profesional)
             const REGLA_DE_ORO = `ROL: SENIOR NEWS EDITOR (ESTABILIDAD ANTIBALBUCEO). REGLAS: 1. SHEÍSMO (SSH): LL/Y -> SSH. 2. ORTOGRAFÍA LIMPIA: NO DOBLES LETRAS (VISITÁNOS), NO "H" PARA ASPIRAR (ESTAS), -CIÓN ESTÁNDAR. 3. VOSEO AGUDO: FORZAR TILDES. 4. MAYÚSCULAS: TODO EN MAYÚSCULAS. 5. CTA OBLIGATORIO: LA 4TA ORACIÓN TERMINA CON AUTORIDAD.`;
@@ -331,7 +332,8 @@ async function runResumen(baseUrl: string, ids?: number[]) {
             // ACTUALIZACIÓN EN DB: Ambos productos por separado
             await supabase.from('articles').update({
                 super_resumen: superResumenAra,
-                body_voice_tuning: slideVoiceText
+                body_voice_tuning: slideVoiceText,
+                status: 'pending'
             }).eq('id', art.id);
 
             processed++;

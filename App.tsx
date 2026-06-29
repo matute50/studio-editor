@@ -13,6 +13,7 @@ import { AvatarStudio } from './pages/AvatarStudio';
 import { StreamingControl } from './pages/StreamingControl';
 import { YouTubeStudio } from './pages/YouTubeStudio';
 import { BannerManager } from './pages/BannerManager';
+import { HermesControl } from './pages/HermesControl';
 // import { DailyShowDirector } from './pages/DailyShowDirector';
 import { PublicHome } from './pages/PublicHome';
 import { AIAssistant } from './components/AIAssistant';
@@ -126,6 +127,11 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout><DashboardHome /></Layout>} />
           <Route path="/admin" element={<Navigate to="/" replace />} />
+            <Route path="/responsable" element={<Layout><ResponsibleDashboard /></Layout>} />
+            <Route path="/voz-argentina-studio" element={<Layout><VozArgentinaStudio /></Layout>} />
+            <Route path="/noticias" element={<Layout><NewsEditor /></Layout>} />
+            <Route path="/audio-producer" element={<Layout><AudioProducer /></Layout>} />
+            <Route path="/slides" element={<Layout><SlideGenerator /></Layout>} />
           <Route path="/responsable" element={<Layout><ResponsibleDashboard /></Layout>} />
           <Route path="/voz-argentina-studio" element={<Layout><VozArgentinaStudio /></Layout>} />
           <Route path="/noticias" element={<Layout><NewsEditor /></Layout>} />
@@ -137,6 +143,8 @@ function App() {
           <Route path="/streaming" element={<Layout><StreamingControl /></Layout>} />
           <Route path="/youtube-manager" element={<Layout><YouTubeStudio /></Layout>} />
           <Route path="/banners" element={<Layout><BannerManager /></Layout>} />
+          <Route path="/revision" element={<HermesControl />} />
+          <Route path="/hermes" element={<Navigate to="/revision" replace />} />
           <Route path="/portal" element={<PublicHome />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
